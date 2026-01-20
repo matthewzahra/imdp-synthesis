@@ -41,6 +41,9 @@ def parse_arguments():
                         help="If True, plot titles in figures")
     parser.add_argument('--plot_ticks', action=argparse.BooleanOptionalAction, default=False,
                         help="If True, plot ticks in figures")
+    
+    parser.add_argument('--rl',action="store_true", default=False,
+                        help="Use Reinforcement Learning Agent")
 
     # Parse arguments
     args = parser.parse_args()

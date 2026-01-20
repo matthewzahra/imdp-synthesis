@@ -8,8 +8,8 @@ import numpy as np
 from tqdm import tqdm
 
 
-@partial(jax.jit, static_argnums=(0))
-def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_dim, cell_width, boundary_lb, boundary_ub):
+@partial(jax.jit, static_argnums=(0,9))
+def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_dim, cell_width, boundary_lb, boundary_ub, action_sets):
     """
     Computes the forward reachable set given a set of input parameters.
 
@@ -22,6 +22,7 @@ def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_di
     :param cell_width: The width of cells along each dimension.
     :param boundary_lb: The lower bound of the grid of the state space.
     :param boundary_ub: The upper bound of the grid of the state space.
+    :param action_sets: If True, we want each to consider sets of concrete actions for each abstract action.
     :return: A tuple containing:
         - frs_min: The minimum bound of the forward reachable set.
         - frs_max: The maximum bound of the forward reachable set.
@@ -30,7 +31,12 @@ def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_di
         - idx_upp: The upper index bounds in the grid corresponding to the forward reachable set.
     """
 
-    frs_min, frs_max = step_set(state_min, state_max, input, input)
+    if action_sets:
+        # TODO - do this more cleverly - currently we allow for 10% in each direction
+        # TODO - how do we manage varying set sizes
+        frs_min, frs_max = step_set(state_min, state_max, input*0.9, input*1.1)
+    else:
+        frs_min, frs_max = step_set(state_min, state_max, input, input)
 
     # If covariance is zero, then the span equals the number of cells the forward reachable set contains at most
     frs_span = jnp.astype(jnp.ceil((frs_max - frs_min) / cell_width), int)
@@ -46,12 +52,12 @@ def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_di
 
 class RectangularForward(object):
 
-    def __init__(self, partition, model):
+    def __init__(self, partition, model, action_sets = False):
         print('Define target points and forward reachable sets...')
         t_total = time.time()
 
         # Vectorized function over different sets of points
-        vmap_forward_reach = jax.vmap(forward_reach, in_axes=(None, None, None, 0, None, None, None, None, None), out_axes=(0, 0, 0, 0, 0,))
+        vmap_forward_reach = jax.vmap(forward_reach, in_axes=(None, None, None, 0, None, None, None, None, None, None), out_axes=(0, 0, 0, 0, 0,))
 
         discrete_per_dimension = [np.linspace(model.uMin[i], model.uMax[i], num=model.num_actions[i]) for i in range(len(model.num_actions))]
         discrete_inputs = np.array(list(itertools.product(*discrete_per_dimension)))
@@ -64,7 +70,7 @@ class RectangularForward(object):
         for i, (lb, ub) in pbar:
             # For every state, compute for every action the [lb,ub] forward reachable set
             flb, fub, fsp, fil, fiu = vmap_forward_reach(model.step_set, lb, ub, discrete_inputs, model.noise['cov_diag'], partition.number_per_dim, partition.cell_width,
-                                                         partition.boundary_lb, partition.boundary_ub)
+                                                         partition.boundary_lb, partition.boundary_ub, action_sets)
 
             frs[i] = {}
             frs[i]['lb'] = flb

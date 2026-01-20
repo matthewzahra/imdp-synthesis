@@ -21,6 +21,7 @@ from core.actions_forward import RectangularForward
 from core.model import parse_linear_model, parse_nonlinear_model
 from core.options import parse_arguments
 from core.partition import RectangularPartition
+from core.RL import RL_Agent
 
 # import sys
 # sys.argv = ['RunFile.py', '--model', 'Dubins_small', '--batch_size', '30000']
@@ -78,6 +79,12 @@ if __name__ == '__main__':
     else:
         assert False, f"The passed model '{args.model}' could not be found"
 
+    # decide if we are to use the RL setup, where we have a single abstract action map to a set of concrete actions 
+    if args.rl:
+        reinforcement_learning = True
+    else:
+        reinforcement_learning = False
+
     t = time.time()
 
     # Parse given model
@@ -91,7 +98,7 @@ if __name__ == '__main__':
     print(f"(Number of states: {len(partition.regions['idxs'])})\n")
 
     # Create actions based on forward reachable sets
-    actions = RectangularForward(partition=partition, model=model)
+    actions = RectangularForward(partition=partition, model=model, action_sets=reinforcement_learning)
 
     # With forward reachability, every action is enabled in every state
     enabled_actions = np.full((len(partition.regions['centers']), len(actions.idxs)), fill_value=True, dtype=np.bool)
@@ -127,6 +134,13 @@ if __name__ == '__main__':
     print(f'- Verify with storm took: {(time.time() - t):.3f} sec.')
     print('Total sum of reach probs:', np.sum(builderS.results))
     print('Value in state {}: {}'.format(model.x0, builderS.get_value_from_tuple(model.x0, partition)))
+
+    # %% Training of the Reinforcement Learning Agent
+    # TODO - define the secondary objective to optimise for
+    if reinforcement_learning:
+        agent = RL_Agent(model=model)
+
+        agent.train()
 
     # %% Simulations and plot
 
