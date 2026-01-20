@@ -32,9 +32,10 @@ def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_di
     """
 
     if action_sets:
-        # TODO - do this more cleverly - currently we allow for 10% in each direction
+        # TODO - do this more cleverly - currently we allow for +-1 in each direction
         # TODO - how do we manage varying set sizes
-        frs_min, frs_max = step_set(state_min, state_max, input*0.9, input*1.1)
+        delta=1 # NOTE - this is currently SUPER arbitrary - we should fix this to be a bit more clever 
+        frs_min, frs_max = step_set(state_min, state_max, input+delta, input+delta)
     else:
         frs_min, frs_max = step_set(state_min, state_max, input, input)
 
