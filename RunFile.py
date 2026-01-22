@@ -105,6 +105,7 @@ if __name__ == '__main__':
 
     print(f"(Number of actions in each state: {np.sum(np.any(enabled_actions, axis=0))})\n")
 
+    # TODO - edit this function to use the new probability intervals 
     P_full, P_id, P_absorbing = compute_probability_intervals(args, model, partition, actions.frs, actions.max_slice)
 
     # %% Model checking
