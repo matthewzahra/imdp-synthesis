@@ -17,7 +17,7 @@ class MinDistanceToGoal(RewardStructure):
 			self,
 			goal_box,		# assumed to be an axis-aligned hyperrectangle in teh form [min,max]
 			scaling = 1
-			):
+		):
 		super().__init__()
 		self.goal_box = goal_box
 		self.scaling = scaling
@@ -25,11 +25,35 @@ class MinDistanceToGoal(RewardStructure):
 	def getReward(self,state,action):
 		box_min, box_max = self.goal_box
 		delta = np.maximum(0, np.maximum(box_min - state, state - box_max))
-		return np.linalg.norm(delta) * self.scaling
+		return -1*(np.linalg.norm(delta) * self.scaling) # make negative since we are trying to maximise reward 
 	
 class ActionCost(RewardStructure):
 	def __init__(
 			self,
 			action_costs 	# a dictionary with a multiplier for ea
-			):
-		...
+		):
+		raise NotImplemented
+	
+	def getReward(self, state, action):
+		raise NotImplemented
+	
+class SmoothMovements(RewardStructure):
+	'''
+	Penalise Jerky movements of consecutive actions
+	'''
+	def __init__(
+		self,
+		action_element_scalings	# scalings for each dimension of the actions
+	):
+		self.action_element_scalings = action_element_scalings
+		self.prev_action = None
+
+	def getReward(self,state,action):
+		if not self.prev_action:
+			self.prev_action = action
+			return 0
+		
+		else:
+			reward = np.dot(self.action_element_scalings, np.abs(action - self.prev_action))
+			self.prev_action = action
+			return reward

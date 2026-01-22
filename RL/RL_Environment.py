@@ -9,6 +9,9 @@ NOTE: the RL agent will have access to all the actions possible, not just those 
 Therefore, we will project their output onto this set, and then apply the result to the system. 
 '''
 
+# TODO - needs to be able to handle finite and infinite horizons - currently we assume it is an INFINITE horizon
+# TODO - currently, if we hit a critical region we terminate and give a large negative reward. There are some thing we can do with wrappers to better enforce hard constraints if this doesn't work
+
 class Env(gym.Env):
 	def __init__(
 			self,
@@ -19,10 +22,12 @@ class Env(gym.Env):
 			action_lower,
 			action_upper,
 			initial_state,
-			max_steps,
 			model,
 			policy_inputs,
-			derive_set
+			derive_set,
+			reward_structure,
+			partition,
+			max_steps=1000
 			):
 		'''
 		:param state_dim: dimension of the state space
@@ -32,10 +37,12 @@ class Env(gym.Env):
 		:param action_lower: lower corner of the action space
 		:param action_upper: upper corner of the action space
 		:param initial_state: initial state for the agent
-		:param max_steps: max number of steps before we terminate the process
 		:param model: the system model that implements the dynamics - must implement "step"
 		:param policy_inputs: IMDP policy that maps states to a single concrete action
 		:param derive_set: take a concrete action and derive the set of actions that we will allow the RL agent to choose from
+		:param reward_structure: of type RL.Reward. Given the RL agent's suggested action and the resulting state it computes the reward
+		:param partition: partition the state space into the goal and critical states so that the agent knows when it must terminate
+		:param max_steps: max number of steps before we terminate the process
 		'''
 
 
@@ -68,11 +75,15 @@ class Env(gym.Env):
 
 		self.derive_set = derive_set
 		self.policy_inputs = policy_inputs
+		self.reward_structure = reward_structure
+		self.partition = partition
+
+		assert initial_state not in partition.critical['idxs']
 
 	# get a new episode
 	def reset(self, seed=None, options=None):
 		super().reset(seed=seed)
-		self.state = self.initial_state
+		self.state = self.initial_statex[k]
 		return self.state, {} # TODO - do we need to do self.state.copy()?
 	
 	# Generate a single noise sample from the model
@@ -93,6 +104,14 @@ class Env(gym.Env):
 
 	# advnace the enviornment by 1 time step
 	def step(self, proposed_action):
+
+		# check if we have run for too long
+		if self.t > self.max_steps:
+			terminated = True
+			reward = -100	# TODO - ADJUST  - minor penalty for not completing the task in time
+			info = {}
+			return self.state, reward, terminated, info
+
 		self.t += 1
 		noise = self._generate_noise()
 
@@ -105,9 +124,23 @@ class Env(gym.Env):
 		new_state = self.model.step(self.state,clipped_action,noise)
 		self.state = new_state
 
-		# TODO - work out reward
-		reward = ... # TODO - we need a MASSIVE punishment if we don't succeed at teh reach-avoid problem
-		terminated = ...
+		# find what abstract state we are in 
+		abstract_state = self.partition.x2state(new_state)
+
+		# check if we are in a critical region
+		if abstract_state in self.partition.critical['idxs']:
+			terminated = True
+			reward = -1000		# TODO - pick this value a bit better...{}
+
+		# check if we are in a goal state
+		else:
+			if abstract_state in self.partition.goal['idxs']:
+				terminated = True 
+			reward = self.reward_structure.getReward(state=new_state, action=clipped_action)
+
+
+
+		truncated = False	# use for ending a run earlier that could have in theory continue
 		info = {}
 
 		return new_state, reward, terminated, truncated, info
