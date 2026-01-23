@@ -7,9 +7,11 @@ import jax.numpy as jnp
 import numpy as np
 from tqdm import tqdm
 
+from RL.generate_action_sets import L_infinity
+
 
 @partial(jax.jit, static_argnums=(0,9))
-def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_dim, cell_width, boundary_lb, boundary_ub, action_sets):
+def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_dim, cell_width, boundary_lb, boundary_ub, action_sets, radii=None):
     """
     Computes the forward reachable set given a set of input parameters.
 
@@ -23,6 +25,7 @@ def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_di
     :param boundary_lb: The lower bound of the grid of the state space.
     :param boundary_ub: The upper bound of the grid of the state space.
     :param action_sets: If True, we want each to consider sets of concrete actions for each abstract action.
+    :param distances: List of radii values for each dimension of the action space - if we want to create the action spheres
     :return: A tuple containing:
         - frs_min: The minimum bound of the forward reachable set.
         - frs_max: The maximum bound of the forward reachable set.
@@ -32,10 +35,8 @@ def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_di
     """
 
     if action_sets:
-        # TODO - do this more cleverly - currently we allow for +-1 in each direction
-        # TODO - how do we manage varying set sizes
-        delta=1 # NOTE - this is currently SUPER arbitrary - we should fix this to be a bit more clever 
-        frs_min, frs_max = step_set(state_min, state_max, input+delta, input+delta)
+        lower, upper = L_infinity(centre=input, distances=radii)
+        frs_min, frs_max = step_set(state_min, state_max, lower, upper)
     else:
         frs_min, frs_max = step_set(state_min, state_max, input, input)
 
@@ -53,7 +54,7 @@ def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_di
 
 class RectangularForward(object):
 
-    def __init__(self, partition, model, action_sets = False):
+    def __init__(self, partition, model, action_sets = False, radii = None):
         print('Define target points and forward reachable sets...')
         t_total = time.time()
 
@@ -71,7 +72,7 @@ class RectangularForward(object):
         for i, (lb, ub) in pbar:
             # For every state, compute for every action the [lb,ub] forward reachable set
             flb, fub, fsp, fil, fiu = vmap_forward_reach(model.step_set, lb, ub, discrete_inputs, model.noise['cov_diag'], partition.number_per_dim, partition.cell_width,
-                                                         partition.boundary_lb, partition.boundary_ub, action_sets)
+                                                         partition.boundary_lb, partition.boundary_ub, action_sets, radii)
 
             frs[i] = {}
             frs[i]['lb'] = flb

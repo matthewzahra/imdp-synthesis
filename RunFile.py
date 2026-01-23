@@ -98,7 +98,13 @@ if __name__ == '__main__':
     print(f"(Number of states: {len(partition.regions['idxs'])})\n")
 
     # Create actions based on forward reachable sets
-    actions = RectangularForward(partition=partition, model=model, action_sets=reinforcement_learning)
+    if reinforcement_learning:
+        # TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
+        action_dim = model.p
+        radii = np.ones(action_dim)
+        actions = RectangularForward(partition=partition, model=model, action_sets=reinforcement_learning, radii=radii)        
+    else:
+        actions = RectangularForward(partition=partition, model=model)
 
     # With forward reachability, every action is enabled in every state
     enabled_actions = np.full((len(partition.regions['centers']), len(actions.idxs)), fill_value=True, dtype=np.bool)
