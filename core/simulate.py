@@ -1,5 +1,7 @@
 import numpy as np
 from tqdm import tqdm
+from typing import Optional
+from RL.Evaluate_Secondary import EvaluateSecondary
 
 
 class MonteCarloSim():
@@ -7,7 +9,7 @@ class MonteCarloSim():
     Class to run Monte Carlo simulations on the discrete-time stochastic system closed under a fixed Markov policy.
     '''
 
-    def __init__(self, model, partition, policy, policy_inputs, x0, iterations=100, sim_horizon=1000, random_initial_state=False, verbose=True, **kwargs):
+    def __init__(self, model, partition, policy, policy_inputs, x0, iterations=100, sim_horizon=1000, random_initial_state=False, verbose=True, evaluate_secondary: Optional[EvaluateSecondary] = None, **kwargs):
 
         print('Starting Monte Carlo simulations...')
 
@@ -22,20 +24,25 @@ class MonteCarloSim():
         self.iterations = iterations
         self.random_initial_state = random_initial_state
 
+        self.evaluate_secondary = evaluate_secondary
+
         # Predefine noise to speed up computations
         self.define_noise_values()
 
         self.results = {
             'satprob': -1,
             'goal_reached': np.full(self.iterations, False, dtype=bool),
-            'traces': {}
+            'traces': {}, 
+            'secondary_scores': np.zeros(self.iterations),
+            'secondary_score': 0    # secondary score (if we are using it)
         }
 
         # For each of the monte carlo iterations
         for m in tqdm(range(self.iterations)):
-            self.results['traces'][m], self.results['goal_reached'][m] = self._runIteration(x0, m)
+            self.results['traces'][m], self.results['goal_reached'][m], self.results['secondary_scores'][m] = self._runIteration(x0, m)
 
         self.results['satprob'] = np.mean(self.results['goal_reached'])
+        self.results['secondary_score'] = np.mean(self.results['secondary_scores'])
 
     def define_noise_values(self):
         '''
@@ -86,6 +93,9 @@ class MonteCarloSim():
 
         ######
 
+        # record the current secondary score - we will only use this if evaluate_secondary was set in the instantiation of this class
+        current_secondary_score = 0
+
         # For each time step in the finite time horizon
         while k <= self.horizon:
 
@@ -102,7 +112,7 @@ class MonteCarloSim():
 
                 if self.verbose or True:
                     print(f'- Absorbing state reached at k = {k} (x = {x[k]}), so abort')
-                return trace, success
+                return trace, success, current_secondary_score
 
             # If current region is the goal state ...
             if s[k] in self.partition.goal['idxs']:
@@ -110,18 +120,18 @@ class MonteCarloSim():
                 success = True
                 if self.verbose:
                     print(f'- Goal state reached (x = {x[k]})')
-                return trace, success
+                return trace, success, current_secondary_score
 
             # If current region is in critical states...
             elif s[k] in self.partition.critical['idxs']:
                 # Then abort current iteration
                 if self.verbose or True:
                     print('- Critical state reached, so abort')
-                return trace, success
+                return trace, success, current_secondary_score
 
             # Check if we can still perform another action within the horizon
             elif k >= self.horizon:
-                return trace, success
+                return trace, success, current_secondary_score
 
             # Retreive the action from the policy
             if len(self.policy.shape) == 1:
@@ -146,6 +156,10 @@ class MonteCarloSim():
 
             x[k + 1] = self.model.step(x[k], u[k], self.noise[m, k])
 
+            # if an evaluation was provided, make use of it
+            if self.evaluate_secondary:
+                current_secondary_score += self.evaluate_secondary.get_score(x[k],u[k])
+
             # Add current state, belief, etc. to trace
             trace['k'] += [k + 1]
             trace['u'] += [u[k]]
@@ -156,4 +170,4 @@ class MonteCarloSim():
 
         ######
 
-        return trace, success
+        return trace, success, current_secondary_score

@@ -28,6 +28,7 @@ from stable_baselines3 import SAC
 from RL.RL_Environment import Env
 from RL.generate_action_sets import L_infinity
 from RL.Reward import MinDistanceToGoal
+from RL.Evaluate_Secondary import EnergyEfficiency
 
 # import sys
 # sys.argv = ['RunFile.py', '--model', 'Dubins_small', '--batch_size', '30000']
@@ -106,8 +107,9 @@ if __name__ == '__main__':
     # Create actions based on forward reachable sets
     if reinforcement_learning:
         # TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
+        # NOTE - if the radii are too large then we get really poor satisfaction probability 
         action_dim = model.p
-        radii = np.ones(action_dim)
+        radii = np.full(action_dim, 0.1)
         actions = RectangularForward(partition=partition, model=model, action_sets=reinforcement_learning, radii=radii)        
     else:
         actions = RectangularForward(partition=partition, model=model)
@@ -192,11 +194,14 @@ if __name__ == '__main__':
 
         print("Training the Agent")
         # train the agent 
-        agent.learn(total_timesteps=1_000_000)
+        agent.learn(total_timesteps=1_000)
 
         print("Saving Agent")
         # save the trained agent
         agent.save('sac_agent')
+
+        print("Saving VecNormalize statistics")
+        env.save("vecnormalize.pkl")
 
 
     # %% Simulations and plot
@@ -205,7 +210,16 @@ if __name__ == '__main__':
     from plotting.traces import plot_traces
     from plotting.heatmap import heatmap
 
-    sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100)
+    if reinforcement_learning:
+        # NOTE: currently set up for the Mountain Car
+        scaling = np.array([10])
+        evaluation = EnergyEfficiency(action_scaling=scaling)
+        sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation)
+        print(f'Average Secondary Score: {sim.results["secondary_score"]}')
+    else:
+        sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100)
+
+
     print('Empirical satisfaction probability:', sim.results['satprob'])
 
     plot_traces(args, stamp, model.plot_dimensions, partition, model, sim.results['traces'], line=False, num_traces=10, add_unsafe_box=False,)
