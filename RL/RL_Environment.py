@@ -48,17 +48,17 @@ class Env(gym.Env):
 
 		# define the full action space
 		self.action_space = spaces.Box(
-			low=action_lower,
-			high=action_upper,
-			shape=action_dim,
+			low=np.asarray(action_lower, dtype=np.float32),
+			high=np.asarray(action_upper, dtype=np.float32),
+			shape=(action_dim,),
 			dtype=np.float32
 		)
 
 		# define the full state space
 		self.observation_space = spaces.Box(
-			low=space_lower,
-			high=space_upper,
-			shape=state_dim,
+			low=np.asarray(space_lower, dtype=np.float32),
+			high=np.asarray(space_upper, dtype=np.float32),
+			shape=(state_dim,),
 			dtype=np.float32
 		)
 
@@ -78,12 +78,12 @@ class Env(gym.Env):
 		self.reward_structure = reward_structure
 		self.partition = partition
 
-		assert initial_state not in partition.critical['idxs']
+		assert partition.x2state(initial_state) not in partition.critical['idxs']
 
 	# get a new episode
 	def reset(self, seed=None, options=None):
 		super().reset(seed=seed)
-		self.state = self.initial_statex[k]
+		self.state = self.initial_state
 		return self.state, {} # TODO - do we need to do self.state.copy()?
 	
 	# Generate a single noise sample from the model
@@ -95,30 +95,34 @@ class Env(gym.Env):
 		)
 	
 	# project an action outside of the allowed set back into it
-	def _clip_action(self,action,constraints):
+	def _clip_action(self,action,lower_constraints, upper_constraints):
 		return np.clip(
 			action,
-			constraints['lower'],
-			constraints['upper']
+			lower_constraints,
+			upper_constraints
 		)
 
 	# advnace the enviornment by 1 time step
 	def step(self, proposed_action):
+
+		terminated = False
+		truncated = False	# use for ending a run earlier that could have in theory continue
+		info = {}
 
 		# check if we have run for too long
 		if self.t > self.max_steps:
 			terminated = True
 			reward = -100	# TODO - ADJUST  - minor penalty for not completing the task in time
 			info = {}
-			return self.state, reward, terminated, info
+			return self.state, reward, np.array(terminated, dtype=bool), np.array(truncated, dtype=bool), info
 
 		self.t += 1
 		noise = self._generate_noise()
 
 		# clip action into the valid set
-		policy_action = self.policy_inputs[self.state]
-		action_set = self.derive_set(policy_action)
-		clipped_action = self._clip_action(proposed_action,action_set) # TODO - this will break at the moment until we decide how the derive_set is meant to work...
+		policy_action = self.policy_inputs[self.partition.x2state(self.state)[0]]
+		action_set_lower_bounds, action_set_upper_bounds = self.derive_set(policy_action)
+		clipped_action = self._clip_action(proposed_action,action_set_lower_bounds,action_set_upper_bounds) # TODO - this will break at the moment until we decide how the derive_set is meant to work...
 
 		# progress the state using the model's dynamics 
 		new_state = self.model.step(self.state,clipped_action,noise)
@@ -139,11 +143,7 @@ class Env(gym.Env):
 			reward = self.reward_structure.getReward(state=new_state, action=clipped_action)
 
 
-
-		truncated = False	# use for ending a run earlier that could have in theory continue
-		info = {}
-
-		return new_state, reward, terminated, truncated, info
+		return new_state, reward, np.array(terminated, dtype=bool), np.array(truncated, dtype=bool), info # TODO - first thing returned is "observation" - not sure if this should be the new state?
 	
 	# for visualization
 	def render(self):

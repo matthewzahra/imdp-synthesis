@@ -11,7 +11,9 @@ class RewardStructure:
 
 class MinDistanceToGoal(RewardStructure):
 	'''
-	Always look to minimise the distance to the goal
+	Always look to minimise the distance to the goal.
+
+	NOTE: assumes a single goal region!
 	'''
 	def __init__(
 			self,

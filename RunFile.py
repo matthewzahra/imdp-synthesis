@@ -6,7 +6,7 @@ The file can be run from the terminal as
 
 For all available arguments, please see the function :func:`core.options.parse_arguments`.
 '''
-
+# %%
 import datetime
 import os
 import time
@@ -21,7 +21,13 @@ from core.actions_forward import RectangularForward
 from core.model import parse_linear_model, parse_nonlinear_model
 from core.options import parse_arguments
 from core.partition import RectangularPartition
-from core.RL_Agent import RL_Agent
+from RL.RL_Agent import RL_Agent
+from stable_baselines3.common.vec_env import VecNormalize
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3 import SAC
+from RL.RL_Environment import Env
+from RL.generate_action_sets import L_infinity
+from RL.Reward import MinDistanceToGoal
 
 # import sys
 # sys.argv = ['RunFile.py', '--model', 'Dubins_small', '--batch_size', '30000']
@@ -143,11 +149,55 @@ if __name__ == '__main__':
     print('Value in state {}: {}'.format(model.x0, builderS.get_value_from_tuple(model.x0, partition)))
 
     # %% Training of the Reinforcement Learning Agent
-    # TODO - define the secondary objective to optimise for
     if reinforcement_learning:
-        agent = RL_Agent(model=model)
+        reward_structure = MinDistanceToGoal(goal_box=model.goal[0]) # TODO - adjust
 
-        agent.train()
+        print("Constructing RL Environment")
+        # vectorize the environment
+        env = make_vec_env(
+            lambda: Env(
+                state_dim=model.n,
+                space_lower=model.partition['boundary'][0],
+                space_upper=model.partition['boundary'][1],
+                action_dim=model.p,
+                action_lower=model.uMin,
+                action_upper=model.uMax,
+                initial_state=model.x0,
+                model=model,
+                policy_inputs=policy_inputs,
+                derive_set=lambda centre: L_infinity(centre,radii),
+                reward_structure=reward_structure,
+                partition=partition
+            ),
+            n_envs=1
+        )
+
+        print("Vectorizing Environment")
+        # normalize the observations
+        env = VecNormalize(
+            env,
+            norm_obs=True,
+            norm_reward=False,
+            clip_obs=10.0
+        )
+
+        print("Creating the RL Agent")
+        # instantiate the agent
+        # NOTE - plenty of hyper-parameters to play around with here
+        agent = SAC(
+            "MlpPolicy",
+            env,
+            verbose=1
+        )
+
+        print("Training the Agent")
+        # train the agent 
+        agent.learn(total_timesteps=1_000_000)
+
+        print("Saving Agent")
+        # save the trained agent
+        agent.save('sac_agent')
+
 
     # %% Simulations and plot
 

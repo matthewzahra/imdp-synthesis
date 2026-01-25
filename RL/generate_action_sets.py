@@ -9,7 +9,9 @@ def L_infinity(centre,distances):
 	'''
 	:param centre: centre coordinates of the ball
 	:param distance: radius for each dimension - it does not need to be the same everywhere. Assumes all values are non-negative!!!
+
+	return: lower bounds, upper bounds
 	'''
 
 	assert centre.size == distances.size
-	return centre-distances,centre+distances # TODO - check this return type - should it be in a list?
+	return centre-distances,centre+distances # TODO - check this return type - should it be in a list? 
