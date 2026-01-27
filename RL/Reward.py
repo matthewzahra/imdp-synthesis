@@ -29,15 +29,18 @@ class MinDistanceToGoal(RewardStructure):
 		delta = np.maximum(0, np.maximum(box_min - state, state - box_max))
 		return -1*(np.linalg.norm(delta) * self.scaling) # make negative since we are trying to maximise reward 
 	
-class ActionCost(RewardStructure):
+class AbsActionCost(RewardStructure):
 	def __init__(
 			self,
-			action_costs 	# a dictionary with a multiplier for ea
+			action_costs 	# a dictionary with a multiplier for each dimension in the action space
 		):
-		raise NotImplemented
+		self.action_costs = action_costs
 	
 	def getReward(self, state, action):
-		raise NotImplemented
+		'''
+		we will make all the values their absolute values in the action
+		'''
+		return np.dot(np.abs(action), self.action_costs)
 	
 class SmoothMovements(RewardStructure):
 	'''

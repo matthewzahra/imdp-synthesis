@@ -9,7 +9,7 @@ class MonteCarloSim():
     Class to run Monte Carlo simulations on the discrete-time stochastic system closed under a fixed Markov policy.
     '''
 
-    def __init__(self, model, partition, policy, policy_inputs, x0, iterations=100, sim_horizon=1000, random_initial_state=False, verbose=True, evaluate_secondary: Optional[EvaluateSecondary] = None, **kwargs):
+    def __init__(self, model, partition, policy, policy_inputs, x0, iterations=100, sim_horizon=1000, random_initial_state=False, verbose=True, evaluate_secondary: Optional[EvaluateSecondary] = None, agent = None, derive_set = None, vecnorm = None, **kwargs):
 
         print('Starting Monte Carlo simulations...')
 
@@ -36,6 +36,10 @@ class MonteCarloSim():
             'secondary_scores': np.zeros(self.iterations),
             'secondary_score': 0    # secondary score (if we are using it)
         }
+
+        self.derive_set = derive_set
+        self.agent = agent
+        self.vecnorm = vecnorm
 
         # For each of the monte carlo iterations
         for m in tqdm(range(self.iterations)):
@@ -137,7 +141,26 @@ class MonteCarloSim():
             if len(self.policy.shape) == 1:
                 # If infinite horizon, policy does not have a time index
                 a[k] = self.policy[s[k]]
-                u[k] = self.policy_inputs[s[k]]
+
+                # check if we should be using an RL agent to make the decision 
+                if self.agent:
+                    obs = x[k].astype(np.float32).reshape(1, -1) # ???
+                    if self.vecnorm:
+                        obs = self.vecnorm.normalize_obs(obs)
+                    
+                    # query the trained RL agent - the second item returned is hidden state - only needed for recurrent policies
+                    proposed_action,_ = self.agent.predict(observation=obs, deterministic=True) # TODO - do we want this to be deterministic
+
+                    # clip the action
+                    policy_action = self.policy_inputs[s[k]]
+                    action_set_lower_bounds, action_set_upper_bounds = self.derive_set(policy_action)
+                    clipped_action = np.clip(proposed_action, action_set_lower_bounds, action_set_upper_bounds)
+
+                    # save the action so that it can be executed later
+                    u[k] = clipped_action
+
+                else:
+                    u[k] = self.policy_inputs[s[k]]
             else:
                 # If finite horizon, use action for the current time step k
                 a[k] = self.policy[k, s[k]]
@@ -152,8 +175,7 @@ class MonteCarloSim():
 
             # If loop was not aborted, we have a valid action
             if self.verbose:
-                print(f'In state {s[k]} (x = {x[k]}), take action {a[k]} (u = {u[k]})')
-
+                print(f'In state {s[k]} (x = {x[k]}), take action {a[k]} (u = {u[k]})')            
             x[k + 1] = self.model.step(x[k], u[k], self.noise[m, k])
 
             # if an evaluation was provided, make use of it

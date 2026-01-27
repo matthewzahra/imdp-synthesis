@@ -23,4 +23,4 @@ class EnergyEfficiency(EvaluateSecondary):
 		self.action_scaling = action_scaling
 
 	def get_score(self,state,action):
-		return np.dot(np.abs(action),np.abs(self.action_scaling))
+		return np.dot(np.abs(action),self.action_scaling)

@@ -27,7 +27,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3 import SAC
 from RL.RL_Environment import Env
 from RL.generate_action_sets import L_infinity
-from RL.Reward import MinDistanceToGoal
+from RL.Reward import AbsActionCost
 from RL.Evaluate_Secondary import EnergyEfficiency
 
 # import sys
@@ -152,7 +152,10 @@ if __name__ == '__main__':
 
     # %% Training of the Reinforcement Learning Agent
     if reinforcement_learning:
-        reward_structure = MinDistanceToGoal(goal_box=model.goal[0]) # TODO - adjust
+        # reward_structure = MinDistanceToGoal(goal_box=model.goal[0]) # TODO - adjust
+        reward_structure = AbsActionCost(action_costs=np.array([2])) 
+
+        derive_set = lambda centre: L_infinity(centre,radii)
 
         print("Constructing RL Environment")
         # vectorize the environment
@@ -167,7 +170,7 @@ if __name__ == '__main__':
                 initial_state=model.x0,
                 model=model,
                 policy_inputs=policy_inputs,
-                derive_set=lambda centre: L_infinity(centre,radii),
+                derive_set=derive_set,
                 reward_structure=reward_structure,
                 partition=partition
             ),
@@ -175,6 +178,7 @@ if __name__ == '__main__':
         )
 
         print("Vectorizing Environment")
+        # NOTE - that since we normalize the observartions, we must do so again when we used the trained RL agent to predict
         # normalize the observations
         env = VecNormalize(
             env,
@@ -204,16 +208,18 @@ if __name__ == '__main__':
         env.save("vecnormalize.pkl")
 
 
-    # %% Simulations and plot
+    # %% Simulations
 
     from core.simulate import MonteCarloSim
     from plotting.traces import plot_traces
     from plotting.heatmap import heatmap
 
+    # NOTE: currently set up for the Mountain Car
+    scaling = np.array([10])
+    evaluation = EnergyEfficiency(action_scaling=scaling)
+
     if reinforcement_learning:
-        # NOTE: currently set up for the Mountain Car
-        scaling = np.array([10])
-        evaluation = EnergyEfficiency(action_scaling=scaling)
+        
         sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation)
         print(f'Average Secondary Score: {sim.results["secondary_score"]}')
     else:
@@ -222,15 +228,66 @@ if __name__ == '__main__':
 
     print('Empirical satisfaction probability:', sim.results['satprob'])
 
-    plot_traces(args, stamp, model.plot_dimensions, partition, model, sim.results['traces'], line=False, num_traces=10, add_unsafe_box=False,)
-    heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=builderS.results, filename="heatmap_satprob")
-    if model.p >  1:
-        heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=policy_inputs[:,0], filename="heatmap_inputs")
-    else:
-        heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=policy_inputs, filename="heatmap_inputs")
+    # %% Run simulations with the RL Agent
+    # TODO - currently we only support infinite horizons - we should extend this to finite horizons
+    if reinforcement_learning:
+        agent = SAC.load('sac_agent')
 
-    if args.model == 'Pendulum':
-        model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/pendulum_{stamp}.gif')
+        # dummy envfor vecnorm instantiation
+        dummy_env = make_vec_env(
+            lambda: Env(
+                state_dim=model.n,
+                space_lower=model.partition['boundary'][0],
+                space_upper=model.partition['boundary'][1],
+                action_dim=model.p,
+                action_lower=model.uMin,
+                action_upper=model.uMax,
+                initial_state=model.x0,
+                model=model,
+                policy_inputs=policy_inputs,
+                derive_set=derive_set,
+                reward_structure=reward_structure,
+                partition=partition
+            ),
+            n_envs=1
+        )
 
-    if args.model == 'MountainCar':
-        model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/mountaincar_{stamp}.gif')
+        vecnorm = VecNormalize.load("vecnormalize.pkl", dummy_env) # TODO - play with these parameters?
+        vecnorm.training = False # don't allow the saved statistics to update
+        vecnorm.norm_reward = False # don't normalise the rewards
+
+        sim_rl = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation, agent= agent, derive_set=derive_set, vecnorm=vecnorm)
+        print(f"Average Secondary Score with RL agent: {sim_rl.results['secondary_score']}")
+        print(f"Empirical satisfaciton probability with RL agent: {sim_rl.results['satprob']}")
+
+    # %% Plot
+    def plot(sim, rl=False):
+        plot_traces(args, stamp, model.plot_dimensions, partition, model, sim.results['traces'], line=False, num_traces=10, add_unsafe_box=False,)
+        if rl:
+            heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=builderS.results, filename="rl_heatmap_satprob")
+        else:
+            heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=builderS.results, filename="heatmap_satprob")
+        if model.p >  1:
+            if rl:
+                heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=policy_inputs[:,0], filename="rl_heatmap_inputs")
+            else:
+                heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=policy_inputs[:,0], filename="heatmap_inputs")
+        # TODO - uncomment this - seems broken for now for Mountain Car at least?
+        # else:
+        #     if rl:
+        #         heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=policy_inputs, filename="rl_heatmap_inputs")            
+        #     else:
+        #         heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=policy_inputs, filename="heatmap_inputs")
+
+        if args.model == 'Pendulum':
+            model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/pendulum_{stamp}.gif')
+
+        if args.model == 'MountainCar':
+            model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/mountaincar_{stamp}.gif')
+
+    plot(sim)
+    if reinforcement_learning:
+        print('PLOTTING RL')
+        # TODO - plotting for the RL trace doesn't work...
+        plot(sim_rl, rl=True)
+    print('DONE')
