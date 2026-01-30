@@ -7,6 +7,14 @@ The file can be run from the terminal as
 For all available arguments, please see the function :func:`core.options.parse_arguments`.
 '''
 # %%
+# import sys
+# sys.argv = [
+#     "RunFile.py",
+#     "--model", "MountainCar",
+#     "--rl"
+# ]
+
+# %%
 import datetime
 import os
 import time
@@ -109,7 +117,7 @@ if __name__ == '__main__':
         # TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
         # NOTE - if the radii are too large then we get really poor satisfaction probability 
         action_dim = model.p
-        radii = np.full(action_dim, 0.1)
+        radii = np.full(action_dim, 0.3) # if large can also make the process really slow 
         actions = RectangularForward(partition=partition, model=model, action_sets=reinforcement_learning, radii=radii)        
     else:
         actions = RectangularForward(partition=partition, model=model)
@@ -153,7 +161,7 @@ if __name__ == '__main__':
     # %% Training of the Reinforcement Learning Agent
     if reinforcement_learning:
         # reward_structure = MinDistanceToGoal(goal_box=model.goal[0]) # TODO - adjust
-        reward_structure = AbsActionCost(action_costs=np.array([2])) 
+        reward_structure = AbsActionCost(action_costs=np.array([100])) 
 
         derive_set = lambda centre: L_infinity(centre,radii)
 
@@ -193,12 +201,14 @@ if __name__ == '__main__':
         agent = SAC(
             "MlpPolicy",
             env,
-            verbose=1
+            verbose=1,
+            ent_coef="auto",           # TODO - should play with this: disable entropy otherwise the agent collapses on smaller actions where possible
+            target_entropy="auto",
         )
 
         print("Training the Agent")
         # train the agent 
-        agent.learn(total_timesteps=1_000)
+        agent.learn(total_timesteps=5_000, progress_bar=True)
 
         print("Saving Agent")
         # save the trained agent
@@ -215,7 +225,7 @@ if __name__ == '__main__':
     from plotting.heatmap import heatmap
 
     # NOTE: currently set up for the Mountain Car
-    scaling = np.array([10])
+    scaling = np.array([100])
     evaluation = EnergyEfficiency(action_scaling=scaling)
 
     if reinforcement_learning:

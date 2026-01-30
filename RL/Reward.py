@@ -40,7 +40,7 @@ class AbsActionCost(RewardStructure):
 		'''
 		we will make all the values their absolute values in the action
 		'''
-		return np.dot(np.abs(action), self.action_costs)
+		return np.dot(np.abs(action), self.action_costs) ** 3 # we cube it to avoid saturation at the boundaries - we either want to reward big actions or small ones
 	
 class SmoothMovements(RewardStructure):
 	'''
