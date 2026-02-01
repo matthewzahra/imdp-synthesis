@@ -117,7 +117,7 @@ if __name__ == '__main__':
         # TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
         # NOTE - if the radii are too large then we get really poor satisfaction probability 
         action_dim = model.p
-        radii = np.full(action_dim, 0.3) # if large can also make the process really slow 
+        radii = np.full(action_dim, 0.1) # if large can also make the process really slow 
         actions = RectangularForward(partition=partition, model=model, action_sets=reinforcement_learning, radii=radii)        
     else:
         actions = RectangularForward(partition=partition, model=model)
@@ -161,7 +161,7 @@ if __name__ == '__main__':
     # %% Training of the Reinforcement Learning Agent
     if reinforcement_learning:
         # reward_structure = MinDistanceToGoal(goal_box=model.goal[0]) # TODO - adjust
-        reward_structure = AbsActionCost(action_costs=np.array([100])) 
+        reward_structure = AbsActionCost(action_costs=np.array([-1])) 
 
         derive_set = lambda centre: L_infinity(centre,radii)
 
@@ -202,7 +202,7 @@ if __name__ == '__main__':
             "MlpPolicy",
             env,
             verbose=1,
-            ent_coef="auto",           # TODO - should play with this: disable entropy otherwise the agent collapses on smaller actions where possible
+            ent_coef="auto",           # TODO - should play with this: disable entropy otherwise the agent collapses on smaller actions where possible. Great if we want minimization, poor if we want maximisation
             target_entropy="auto",
         )
 

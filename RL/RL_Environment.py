@@ -84,6 +84,7 @@ class Env(gym.Env):
 	def reset(self, seed=None, options=None):
 		super().reset(seed=seed)
 		self.state = self.initial_state
+		self.t = 0
 		return self.state, {} # TODO - do we need to do self.state.copy()?
 	
 	# Generate a single noise sample from the model
