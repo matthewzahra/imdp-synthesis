@@ -62,3 +62,13 @@ class SmoothMovements(RewardStructure):
 			reward = np.dot(self.action_element_scalings, np.abs(action - self.prev_action))
 			self.prev_action = action
 			return reward
+		
+class OptimiseTimeSteps(RewardStructure):
+	'''
+	Look to reward taking a long or a shprot time to reach the goal state
+	'''
+	def __init__(self, time_step_reward=-1):
+		self.time_step_reward = time_step_reward
+
+	def getReward(self, state, action):
+		return self.time_step_reward

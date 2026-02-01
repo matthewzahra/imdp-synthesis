@@ -24,3 +24,14 @@ class EnergyEfficiency(EvaluateSecondary):
 
 	def get_score(self,state,action):
 		return np.dot(np.abs(action),self.action_scaling)
+	
+class TimeSteps(EvaluateSecondary):
+	'''
+	Count number of time steps before we reach the goal
+	'''
+
+	def __init__(self):
+		pass
+
+	def get_score(self,state,action):
+		return 1

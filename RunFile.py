@@ -35,8 +35,8 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3 import SAC
 from RL.RL_Environment import Env
 from RL.generate_action_sets import L_infinity
-from RL.Reward import AbsActionCost
-from RL.Evaluate_Secondary import EnergyEfficiency
+from RL.Reward import OptimiseTimeSteps
+from RL.Evaluate_Secondary import TimeSteps
 
 # import sys
 # sys.argv = ['RunFile.py', '--model', 'Dubins_small', '--batch_size', '30000']
@@ -161,7 +161,8 @@ if __name__ == '__main__':
     # %% Training of the Reinforcement Learning Agent
     if reinforcement_learning:
         # reward_structure = MinDistanceToGoal(goal_box=model.goal[0]) # TODO - adjust
-        reward_structure = AbsActionCost(action_costs=np.array([-1])) 
+        # reward_structure = AbsActionCost(action_costs=np.array([-1])) 
+        reward_structure = OptimiseTimeSteps(time_step_reward=-1)
 
         derive_set = lambda centre: L_infinity(centre,radii)
 
@@ -225,8 +226,9 @@ if __name__ == '__main__':
     from plotting.heatmap import heatmap
 
     # NOTE: currently set up for the Mountain Car
-    scaling = np.array([100])
-    evaluation = EnergyEfficiency(action_scaling=scaling)
+    # scaling = np.array([100])
+    # evaluation = EnergyEfficiency(action_scaling=scaling)
+    evaluation = TimeSteps()
 
     if reinforcement_learning:
         
