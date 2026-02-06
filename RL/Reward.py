@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Optional
 
 '''
 Define the different reward structures
@@ -65,10 +66,34 @@ class SmoothMovements(RewardStructure):
 		
 class OptimiseTimeSteps(RewardStructure):
 	'''
-	Look to reward taking a long or a shprot time to reach the goal state
+	Look to reward taking a long or a short time to reach the goal state
 	'''
 	def __init__(self, time_step_reward=-1):
 		self.time_step_reward = time_step_reward
 
 	def getReward(self, state, action):
 		return self.time_step_reward
+	
+class GetCloseToRegion(RewardStructure):
+	'''
+	Reward getting the state close to a given state.
+
+	Can specify what elements of the state vectors to consider
+	'''
+
+	def __init__(self, target_min, target_max, dims: Optional[list[int]] = None):
+		self.target_min = target_min
+		self.target_max = target_max
+		self.dims = dims
+
+	def getReward(self, state, action):
+		if self.dims: # only use selected dimenions of the state
+			state = state[self.dims]
+
+		closest_point = np.clip(state,self.target_min,self.target_max)
+
+		distance = np.linalg.norm(state - closest_point)
+
+		return -1 * distance
+
+		
