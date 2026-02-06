@@ -35,8 +35,8 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3 import SAC
 from RL.RL_Environment import Env
 from RL.generate_action_sets import L_infinity
-from RL.Reward import OptimiseTimeSteps
-from RL.Evaluate_Secondary import TimeSteps
+from RL.Reward import GetCloseToRegion, OptimiseTimeSteps
+from RL.Evaluate_Secondary import DistanceToRegion, TimeSteps
 
 # import sys
 # sys.argv = ['RunFile.py', '--model', 'Dubins_small', '--batch_size', '30000']
@@ -117,7 +117,7 @@ if __name__ == '__main__':
         # TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
         # NOTE - if the radii are too large then we get really poor satisfaction probability 
         action_dim = model.p
-        radii = np.full(action_dim, 0.1) # if large can also make the process really slow 
+        radii = np.full(action_dim, 0.2) # if large can also make the process really slow 
         actions = RectangularForward(partition=partition, model=model, action_sets=reinforcement_learning, radii=radii)        
     else:
         actions = RectangularForward(partition=partition, model=model)
@@ -163,8 +163,9 @@ if __name__ == '__main__':
         # reward_structure = MinDistanceToGoal(goal_box=model.goal[0]) # TODO - adjust
         # reward_structure = AbsActionCost(action_costs=np.array([-1])) 
         reward_structure = OptimiseTimeSteps(time_step_reward=-1)
+        # reward_structure = GetCloseToRegion(target_min=np.array([-7,1], dtype=float), target_max=np.array([-1,3], dtype=float), dims=[0,2]) # geared up for the 2D drone
 
-        derive_set = lambda centre: L_infinity(centre,radii)
+        derive_set = lambda centre: L_infinity(centre,radii,model.uMin,model.uMax)
 
         print("Constructing RL Environment")
         # vectorize the environment
@@ -174,8 +175,6 @@ if __name__ == '__main__':
                 space_lower=model.partition['boundary'][0],
                 space_upper=model.partition['boundary'][1],
                 action_dim=model.p,
-                action_lower=model.uMin,
-                action_upper=model.uMax,
                 initial_state=model.x0,
                 model=model,
                 policy_inputs=policy_inputs,
@@ -209,7 +208,11 @@ if __name__ == '__main__':
 
         print("Training the Agent")
         # train the agent 
-        agent.learn(total_timesteps=5_000, progress_bar=True)
+        agent.learn(total_timesteps=10_000, progress_bar=True)
+
+        print(f"Took too long: {env.envs[0].unwrapped.too_long}")
+        print(f"Got to Goal State: {env.envs[0].unwrapped.goal_count}")
+        print(f"Hit the critical state: {env.envs[0].unwrapped.critical_count}")
 
         print("Saving Agent")
         # save the trained agent
@@ -228,6 +231,7 @@ if __name__ == '__main__':
     # NOTE: currently set up for the Mountain Car
     # scaling = np.array([100])
     # evaluation = EnergyEfficiency(action_scaling=scaling)
+    # evaluation = DistanceToRegion(region_lower=np.array([-7,1], dtype=float), region_upper=np.array([-1,3], dtype=float), dims=[0,2])
     evaluation = TimeSteps()
 
     if reinforcement_learning:
@@ -252,8 +256,6 @@ if __name__ == '__main__':
                 space_lower=model.partition['boundary'][0],
                 space_upper=model.partition['boundary'][1],
                 action_dim=model.p,
-                action_lower=model.uMin,
-                action_upper=model.uMax,
                 initial_state=model.x0,
                 model=model,
                 policy_inputs=policy_inputs,
