@@ -5,8 +5,10 @@ import numpy as np
 '''
 Wrap the environment inside the gymnasium API so that SB3 plugs in easily.
 
-NOTE: the RL agent will have access to all the actions possible, not just those in our derived set.
-Therefore, we will project their output onto this set, and then apply the result to the system. 
+NOTE: RL agent will only be allowed ot suggest actions in the hyperrectangle [(-1,...,-1), (1,...,1)] - we will then produce a concrete action that is scaled appropriately. 
+The origin is the same as taking the centre of the allowed sphere.
+
+TODO - do we want to give the agent the centre of the sphere as part of the state that it sees???
 '''
 
 # TODO - needs to be able to handle finite and infinite horizons - currently we assume it is an INFINITE horizon
@@ -19,23 +21,19 @@ class Env(gym.Env):
 			space_lower,
 			space_upper,
 			action_dim,
-			action_lower,
-			action_upper,
 			initial_state,
 			model,
 			policy_inputs,
 			derive_set,
 			reward_structure,
 			partition,
-			max_steps=1000
+			max_steps=100
 			):
 		'''
 		:param state_dim: dimension of the state space
 		:param space_lower: lower corner of state space
 		:param space_upper: upper corner of state space
 		:param action_dim: dimension of the concrete action space
-		:param action_lower: lower corner of the action space
-		:param action_upper: upper corner of the action space
 		:param initial_state: initial state for the agent
 		:param model: the system model that implements the dynamics - must implement "step"
 		:param policy_inputs: IMDP policy that maps states to a single concrete action
@@ -46,10 +44,10 @@ class Env(gym.Env):
 		'''
 
 
-		# define the full action space
+		# define the full action space as the hyperrectangle [(-1,...,-1), (1,...,1)]
 		self.action_space = spaces.Box(
-			low=np.asarray(action_lower, dtype=np.float32),
-			high=np.asarray(action_upper, dtype=np.float32),
+			low=np.asarray([-1 for _ in range(action_dim)], dtype=np.float32),
+			high=np.asarray([1 for _ in range(action_dim)], dtype=np.float32),
 			shape=(action_dim,),
 			dtype=np.float32
 		)
@@ -78,7 +76,11 @@ class Env(gym.Env):
 		self.reward_structure = reward_structure
 		self.partition = partition
 
-		assert partition.x2state(initial_state) not in partition.critical['idxs']
+		assert partition.x2state(initial_state)[0] not in partition.critical['idxs']
+
+		self.too_long = 0
+		self.goal_count = 0
+		self.critical_count = 0
 
 	# get a new episode
 	def reset(self, seed=None, options=None):
@@ -102,8 +104,13 @@ class Env(gym.Env):
 			lower_constraints,
 			upper_constraints
 		)
+	
+	# TODO - check that this is correct ...
+	# given an action proposed in the hyperrectangle [(-1,...,-1), (1,...,1)], find the corresponding real concrete action by scaling appropriately
+	def _project_action(self, action, action_lower, action_upper):
+		return action_lower + (action + 1) * (action_upper - action_lower) / 2
 
-	# advnace the enviornment by 1 time step
+	# advance the enviornment by 1 time step
 	def step(self, proposed_action):
 
 		terminated = False
@@ -112,6 +119,7 @@ class Env(gym.Env):
 
 		# check if we have run for too long
 		if self.t > self.max_steps:
+			self.too_long += 1
 			terminated = True
 			reward = -100	# TODO - ADJUST  - minor penalty for not completing the task in time
 			info = {}
@@ -120,28 +128,34 @@ class Env(gym.Env):
 		self.t += 1
 		noise = self._generate_noise()
 
-		# clip action into the valid set
+		# project action into the current action sphere
 		policy_action = self.policy_inputs[self.partition.x2state(self.state)[0]]
+		# with open('policy_actions', 'a') as f:
+		# 	f.write(f"{policy_action}\n")
+
 		action_set_lower_bounds, action_set_upper_bounds = self.derive_set(policy_action)
-		clipped_action = self._clip_action(proposed_action,action_set_lower_bounds,action_set_upper_bounds) # TODO - this will break at the moment until we decide how the derive_set is meant to work...
+		# clipped_action = self._clip_action(proposed_action,action_set_lower_bounds,action_set_upper_bounds) # TODO - this will break at the moment until we decide how the derive_set is meant to work...
+		projected_action = self._project_action(proposed_action,action_set_lower_bounds,action_set_upper_bounds)
 
 		# progress the state using the model's dynamics 
-		new_state = self.model.step(self.state,clipped_action,noise)
+		new_state = self.model.step(self.state,projected_action,noise)
 		self.state = new_state
 
 		# find what abstract state we are in 
-		abstract_state = self.partition.x2state(new_state)
+		abstract_state = self.partition.x2state(new_state)[0]
 
 		# check if we are in a critical region
 		if abstract_state in self.partition.critical['idxs']:
+			self.critical_count += 1
 			terminated = True
 			reward = -1000		# TODO - pick this value a bit better...{}
 
 		# check if we are in a goal state
 		else:
 			if abstract_state in self.partition.goal['idxs']:
+				self.goal_count += 1
 				terminated = True 
-			reward = self.reward_structure.getReward(state=new_state, action=clipped_action)
+			reward = self.reward_structure.getReward(state=new_state, action=projected_action)
 
 
 		return new_state, reward, np.array(terminated, dtype=bool), np.array(truncated, dtype=bool), info # TODO - first thing returned is "observation" - not sure if this should be the new state?
