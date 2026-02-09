@@ -10,7 +10,7 @@ For all available arguments, please see the function :func:`core.options.parse_a
 # import sys
 # sys.argv = [
 #     "RunFile.py",
-#     "--model", "MountainCar",
+#     "--model", "Drone2D",
 #     "--rl"
 # ]
 
@@ -117,7 +117,7 @@ if __name__ == '__main__':
         # TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
         # NOTE - if the radii are too large then we get really poor satisfaction probability 
         action_dim = model.p
-        radii = np.full(action_dim, 0.2) # if large can also make the process really slow 
+        radii = np.full(action_dim, 0.25) # if large can also make the process really slow 
         actions = RectangularForward(partition=partition, model=model, action_sets=reinforcement_learning, radii=radii)        
     else:
         actions = RectangularForward(partition=partition, model=model)
@@ -162,8 +162,8 @@ if __name__ == '__main__':
     if reinforcement_learning:
         # reward_structure = MinDistanceToGoal(goal_box=model.goal[0]) # TODO - adjust
         # reward_structure = AbsActionCost(action_costs=np.array([-1])) 
-        reward_structure = OptimiseTimeSteps(time_step_reward=-1)
-        # reward_structure = GetCloseToRegion(target_min=np.array([-7,1], dtype=float), target_max=np.array([-1,3], dtype=float), dims=[0,2]) # geared up for the 2D drone
+        # reward_structure = OptimiseTimeSteps(time_step_reward=-1)
+        reward_structure = GetCloseToRegion(target_min=np.array([-7,1], dtype=float), target_max=np.array([-1,3], dtype=float), dims=[0,2]) # geared up for the 2D drone
 
         derive_set = lambda centre: L_infinity(centre,radii,model.uMin,model.uMax)
 
@@ -202,13 +202,13 @@ if __name__ == '__main__':
             "MlpPolicy",
             env,
             verbose=1,
-            ent_coef="auto",           # TODO - should play with this: disable entropy otherwise the agent collapses on smaller actions where possible. Great if we want minimization, poor if we want maximisation
+            ent_coef="auto_0.5",           # TODO - should play with this: disable entropy otherwise the agent collapses on smaller actions where possible. Great if we want minimization, poor if we want maximisation
             target_entropy="auto",
         )
 
         print("Training the Agent")
         # train the agent 
-        agent.learn(total_timesteps=10_000, progress_bar=True)
+        agent.learn(total_timesteps=25_000, progress_bar=True)
 
         print(f"Took too long: {env.envs[0].unwrapped.too_long}")
         print(f"Got to Goal State: {env.envs[0].unwrapped.goal_count}")
@@ -231,20 +231,22 @@ if __name__ == '__main__':
     # NOTE: currently set up for the Mountain Car
     # scaling = np.array([100])
     # evaluation = EnergyEfficiency(action_scaling=scaling)
-    # evaluation = DistanceToRegion(region_lower=np.array([-7,1], dtype=float), region_upper=np.array([-1,3], dtype=float), dims=[0,2])
-    evaluation = TimeSteps()
+    evaluation = DistanceToRegion(region_lower=np.array([-7,1], dtype=float), region_upper=np.array([-1,3], dtype=float), dims=[0,2])
+    # evaluation = TimeSteps()
 
     if reinforcement_learning:
         
         sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation)
         print(f'Average Secondary Score: {sim.results["secondary_score"]}')
+        print(f"Closest we got: {evaluation.closest}")
     else:
-        sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100)
+        sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation)
+        print(f'Average Secondary Score: {sim.results["secondary_score"]}')
+        # sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100)
 
 
     print('Empirical satisfaction probability:', sim.results['satprob'])
 
-    # %% Run simulations with the RL Agent
     # TODO - currently we only support infinite horizons - we should extend this to finite horizons
     if reinforcement_learning:
         agent = SAC.load('sac_agent')
@@ -269,9 +271,11 @@ if __name__ == '__main__':
         vecnorm = VecNormalize.load("vecnormalize.pkl", dummy_env) # TODO - play with these parameters?
         vecnorm.training = False # don't allow the saved statistics to update
         vecnorm.norm_reward = False # don't normalise the rewards
+        evaluation = DistanceToRegion(region_lower=np.array([-7,1], dtype=float), region_upper=np.array([-1,3], dtype=float), dims=[0,2])
 
         sim_rl = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation, agent= agent, derive_set=derive_set, vecnorm=vecnorm)
         print(f"Average Secondary Score with RL agent: {sim_rl.results['secondary_score']}")
+        print(f"Closest we got: {evaluation.closest}")
         print(f"Empirical satisfaciton probability with RL agent: {sim_rl.results['satprob']}")
 
     # %% Plot

@@ -2,6 +2,7 @@ import numpy as np
 from tqdm import tqdm
 from typing import Optional
 from RL.Evaluate_Secondary import EvaluateSecondary
+from RL.helper_functions import project_action
 
 
 class MonteCarloSim():
@@ -154,10 +155,11 @@ class MonteCarloSim():
                     # clip the action
                     policy_action = self.policy_inputs[s[k]]
                     action_set_lower_bounds, action_set_upper_bounds = self.derive_set(policy_action)
-                    clipped_action = np.clip(proposed_action, action_set_lower_bounds, action_set_upper_bounds)
+                    # clipped_action = np.clip(proposed_action, action_set_lower_bounds, action_set_upper_bounds)
+                    projected_action = project_action(proposed_action,action_set_lower_bounds,action_set_upper_bounds)
 
                     # save the action so that it can be executed later
-                    u[k] = clipped_action
+                    u[k] = projected_action
 
                 else:
                     u[k] = self.policy_inputs[s[k]]

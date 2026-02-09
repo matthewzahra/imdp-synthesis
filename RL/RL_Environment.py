@@ -1,6 +1,7 @@
 import gymnasium as gym 
 from gymnasium import spaces
 import numpy as np
+from RL.helper_functions import project_action
 
 '''
 Wrap the environment inside the gymnasium API so that SB3 plugs in easily.
@@ -91,6 +92,7 @@ class Env(gym.Env):
 	
 	# Generate a single noise sample from the model
 	# TODO - can we pre-compute these to speed this up?
+	# TODO - this currently ONLY GENERATES 0 NOISE!!!
 	def _generate_noise(self):
 		return np.random.multivariate_normal(
 			mean=np.zeros(self.model.n),
@@ -108,7 +110,7 @@ class Env(gym.Env):
 	# TODO - check that this is correct ...
 	# given an action proposed in the hyperrectangle [(-1,...,-1), (1,...,1)], find the corresponding real concrete action by scaling appropriately
 	def _project_action(self, action, action_lower, action_upper):
-		return action_lower + (action + 1) * (action_upper - action_lower) / 2
+		return project_action(action, action_lower, action_upper)
 
 	# advance the enviornment by 1 time step
 	def step(self, proposed_action):

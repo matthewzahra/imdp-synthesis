@@ -94,6 +94,6 @@ class GetCloseToRegion(RewardStructure):
 
 		distance = np.linalg.norm(state - closest_point)
 
-		return -1 * distance
+		return -1 * (distance ** 3)
 
 		

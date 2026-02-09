@@ -38,12 +38,14 @@ class TimeSteps(EvaluateSecondary):
 	
 class DistanceToRegion(EvaluateSecondary):
 	'''
-	Evaluate how close we get to a given region
+	Evaluate how close we are to a given region at each time step. 
+	Also track the closest we got to it.
 	'''
 	def __init__(self, region_lower, region_upper, dims = None):
 		self.region_lower = region_lower
 		self.region_upper = region_upper
 		self.dims = dims
+		self.closest = float('inf')
 
 	def get_score(self,state,action):
 		if self.dims: # only use selected dimenions of the state
@@ -52,5 +54,7 @@ class DistanceToRegion(EvaluateSecondary):
 		closest_point = np.clip(state,self.region_lower,self.region_upper)
 
 		distance = np.linalg.norm(state - closest_point)
+
+		self.closest = min(self.closest,distance)
 
 		return distance
