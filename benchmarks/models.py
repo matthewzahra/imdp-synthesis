@@ -203,7 +203,8 @@ class DroneDynamics:
             self.Q  = np.array([[0],[0],[0],[0]])
 
             # Covariance of the process noise
-            cov = [0,0,0,0] #[0.15, 0.15, 0.15, 0.15]
+            # cov = [0,0,0,0] #[0.15, 0.15, 0.15, 0.15]
+            cov = [0.15, 0, 0.15, 0]
 
         else:
             self.A  = scipy.linalg.block_diag(Ablock, Ablock, Ablock)
