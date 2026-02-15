@@ -35,8 +35,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3 import SAC
 from RL.RL_Environment import Env
 from RL.generate_action_sets import L_infinity
-from RL.Reward import GetCloseToRegion, OptimiseTimeSteps
-from RL.Evaluate_Secondary import DistanceToRegion, TimeSteps
+import RL.Reward_Evaluate
 
 # import sys
 # sys.argv = ['RunFile.py', '--model', 'Dubins_small', '--batch_size', '30000']
@@ -117,7 +116,7 @@ if __name__ == '__main__':
         # TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
         # NOTE - if the radii are too large then we get really poor satisfaction probability 
         action_dim = model.p
-        radii = np.full(action_dim, 0.25) # if large can also make the process really slow 
+        radii = np.full(action_dim, 0.1) # if large can also make the process really slow 
         actions = RectangularForward(partition=partition, model=model, action_sets=reinforcement_learning, radii=radii)        
     else:
         actions = RectangularForward(partition=partition, model=model)
@@ -160,10 +159,13 @@ if __name__ == '__main__':
 
     # %% Training of the Reinforcement Learning Agent
     if reinforcement_learning:
+        reward_eval = RL.Reward_Evaluate.ActionCosts(np.array([-1]))
+        reward_structure,evaluation = reward_eval.get_pair()
+
         # reward_structure = MinDistanceToGoal(goal_box=model.goal[0]) # TODO - adjust
-        # reward_structure = AbsActionCost(action_costs=np.array([-1])) 
+        # reward_structure = AbsActionCost(action_costs=np.array([1])) 
         # reward_structure = OptimiseTimeSteps(time_step_reward=-1)
-        reward_structure = GetCloseToRegion(target_min=np.array([-7,1], dtype=float), target_max=np.array([-1,3], dtype=float), dims=[0,2]) # geared up for the 2D drone
+        # reward_structure = GetCloseToRegion(target_min=np.array([-7,1], dtype=float), target_max=np.array([-1,3], dtype=float), dims=[0,2]) # geared up for the 2D drone
 
         derive_set = lambda centre: L_infinity(centre,radii,model.uMin,model.uMax)
 
@@ -231,18 +233,15 @@ if __name__ == '__main__':
     # NOTE: currently set up for the Mountain Car
     # scaling = np.array([100])
     # evaluation = EnergyEfficiency(action_scaling=scaling)
-    evaluation = DistanceToRegion(region_lower=np.array([-7,1], dtype=float), region_upper=np.array([-1,3], dtype=float), dims=[0,2])
+    # evaluation = DistanceToRegion(region_lower=np.array([-7,1], dtype=float), region_upper=np.array([-1,3], dtype=float), dims=[0,2])
     # evaluation = TimeSteps()
 
     if reinforcement_learning:
         
         sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation)
         print(f'Average Secondary Score: {sim.results["secondary_score"]}')
-        print(f"Closest we got: {evaluation.closest}")
     else:
-        sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation)
-        print(f'Average Secondary Score: {sim.results["secondary_score"]}')
-        # sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100)
+        sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100)
 
 
     print('Empirical satisfaction probability:', sim.results['satprob'])
@@ -271,11 +270,11 @@ if __name__ == '__main__':
         vecnorm = VecNormalize.load("vecnormalize.pkl", dummy_env) # TODO - play with these parameters?
         vecnorm.training = False # don't allow the saved statistics to update
         vecnorm.norm_reward = False # don't normalise the rewards
-        evaluation = DistanceToRegion(region_lower=np.array([-7,1], dtype=float), region_upper=np.array([-1,3], dtype=float), dims=[0,2])
+        # evaluation = DistanceToRegion(region_lower=np.array([-7,1], dtype=float), region_upper=np.array([-1,3], dtype=float), dims=[0,2])
 
         sim_rl = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation, agent= agent, derive_set=derive_set, vecnorm=vecnorm)
         print(f"Average Secondary Score with RL agent: {sim_rl.results['secondary_score']}")
-        print(f"Closest we got: {evaluation.closest}")
+        # print(f"Closest we got: {evaluation.closest}")
         print(f"Empirical satisfaciton probability with RL agent: {sim_rl.results['satprob']}")
 
     # %% Plot
