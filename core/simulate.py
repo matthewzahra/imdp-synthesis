@@ -115,7 +115,7 @@ class MonteCarloSim():
                 # Absorbing region reached
                 x_tuple[k] = -1
 
-                if self.verbose or True:
+                if self.verbose:
                     print(f'- Absorbing state reached at k = {k} (x = {x[k]}), so abort')
                 return trace, success, current_secondary_score
 
@@ -130,7 +130,7 @@ class MonteCarloSim():
             # If current region is in critical states...
             elif s[k] in self.partition.critical['idxs']:
                 # Then abort current iteration
-                if self.verbose or True:
+                if self.verbose:
                     print('- Critical state reached, so abort')
                 return trace, success, current_secondary_score
 

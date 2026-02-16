@@ -7,12 +7,12 @@ The file can be run from the terminal as
 For all available arguments, please see the function :func:`core.options.parse_arguments`.
 '''
 # %%
-# import sys
-# sys.argv = [
-#     "RunFile.py",
-#     "--model", "Drone2D",
-#     "--rl"
-# ]
+import sys
+sys.argv = [
+    "RunFile.py",
+    "--model", "Dubins_small",
+    "--rl"
+]
 
 # %%
 import datetime
@@ -29,7 +29,6 @@ from core.actions_forward import RectangularForward
 from core.model import parse_linear_model, parse_nonlinear_model
 from core.options import parse_arguments
 from core.partition import RectangularPartition
-from RL.RL_Agent import RL_Agent
 from stable_baselines3.common.vec_env import VecNormalize
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3 import SAC
@@ -159,7 +158,12 @@ if __name__ == '__main__':
 
     # %% Training of the Reinforcement Learning Agent
     if reinforcement_learning:
-        reward_eval = RL.Reward_Evaluate.ActionCosts(np.array([-1]))
+        # add an extra critical region that the formal verification is unaware of
+        # if args.model == 'Dubins_small':
+        #     model.critical = np.append(model.critical, [[[5,0.5,-np.pi],[8,1,np.pi]]], axis=0)
+        #     partition = RectangularPartition(model=model)
+
+        reward_eval = RL.Reward_Evaluate.ActionCosts(np.array([0,1])) # use 0 to not tax the angle in the input 
         reward_structure,evaluation = reward_eval.get_pair()
 
         # reward_structure = MinDistanceToGoal(goal_box=model.goal[0]) # TODO - adjust
@@ -203,7 +207,7 @@ if __name__ == '__main__':
         agent = SAC(
             "MlpPolicy",
             env,
-            verbose=1,
+            verbose=0,
             ent_coef="auto_0.5",           # TODO - should play with this: disable entropy otherwise the agent collapses on smaller actions where possible. Great if we want minimization, poor if we want maximisation
             target_entropy="auto",
         )
@@ -237,7 +241,6 @@ if __name__ == '__main__':
     # evaluation = TimeSteps()
 
     if reinforcement_learning:
-        
         sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation)
         print(f'Average Secondary Score: {sim.results["secondary_score"]}')
     else:

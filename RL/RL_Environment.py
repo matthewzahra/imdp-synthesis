@@ -28,7 +28,7 @@ class Env(gym.Env):
 			derive_set,
 			reward_structure,
 			partition,
-			max_steps=100
+			max_steps=200
 			):
 		'''
 		:param state_dim: dimension of the state space
@@ -88,23 +88,13 @@ class Env(gym.Env):
 		super().reset(seed=seed)
 		self.state = self.initial_state
 		self.t = 0
-		return self.state, {} # TODO - do we need to do self.state.copy()?
+		return self.state, {} 
 	
 	# Generate a single noise sample from the model
-	# TODO - can we pre-compute these to speed this up?
-	# TODO - this currently ONLY GENERATES 0 NOISE!!!
 	def _generate_noise(self):
 		return np.random.multivariate_normal(
 			mean=np.zeros(self.model.n),
 			cov=self.model.noise['cov']**2 # TODO check this - we square it here as this is what we do in the MonteCarloSum class
-		)
-	
-	# project an action outside of the allowed set back into it
-	def _clip_action(self,action,lower_constraints, upper_constraints):
-		return np.clip(
-			action,
-			lower_constraints,
-			upper_constraints
 		)
 	
 	# TODO - check that this is correct ...
@@ -123,7 +113,7 @@ class Env(gym.Env):
 		if self.t > self.max_steps:
 			self.too_long += 1
 			terminated = True
-			reward = -100	# TODO - ADJUST  - minor penalty for not completing the task in time
+			reward = -100	# minor penalty for not completing the task in time
 			info = {}
 			return self.state, reward, np.array(terminated, dtype=bool), np.array(truncated, dtype=bool), info
 
@@ -150,7 +140,7 @@ class Env(gym.Env):
 		if abstract_state in self.partition.critical['idxs']:
 			self.critical_count += 1
 			terminated = True
-			reward = -1000		# TODO - pick this value a bit better...{}
+			reward = -1000 # large penalty for entering a critical region
 
 		# check if we are in a goal state
 		else:
@@ -160,7 +150,7 @@ class Env(gym.Env):
 			reward = self.reward_structure.getReward(state=new_state, action=projected_action)
 
 
-		return new_state, reward, np.array(terminated, dtype=bool), np.array(truncated, dtype=bool), info # TODO - first thing returned is "observation" - not sure if this should be the new state?
+		return new_state, reward, np.array(terminated, dtype=bool), np.array(truncated, dtype=bool), info
 	
 	# for visualization
 	def render(self):
