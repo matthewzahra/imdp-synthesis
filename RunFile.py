@@ -35,6 +35,7 @@ from stable_baselines3 import SAC
 from RL.RL_Environment import Env
 from RL.generate_action_sets import L_infinity
 import RL.Reward_Evaluate
+from RL.run_agents import Agents
 
 # import sys
 # sys.argv = ['RunFile.py', '--model', 'Dubins_small', '--batch_size', '30000']
@@ -158,77 +159,44 @@ if __name__ == '__main__':
 
     # %% Training of the Reinforcement Learning Agent
     if reinforcement_learning:
+        '''
+        define the reward/evaluation pairs we want to use
+        '''
+
+        reward_evals = dict()
+        reward_evals['action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,-1])) # use 0 to not tax the angle in the input
+
         # add an extra critical region that the formal verification is unaware of
         # if args.model == 'Dubins_small':
         #     model.critical = np.append(model.critical, [[[5,0.5,-np.pi],[8,1,np.pi]]], axis=0)
         #     partition = RectangularPartition(model=model)
 
-        reward_eval = RL.Reward_Evaluate.ActionCosts(np.array([0,-1])) # use 0 to not tax the angle in the input 
-        # reward_eval = RL.Reward_Evaluate.GetCloseToArea(np.array([10,-10]), np.array([10,-10]), dims=[0,1])
-        reward_structure,evaluation = reward_eval.get_pair()
-
-        # reward_structure = MinDistanceToGoal(goal_box=model.goal[0]) # TODO - adjust
-        # reward_structure = AbsActionCost(action_costs=np.array([1])) 
-        # reward_structure = OptimiseTimeSteps(time_step_reward=-1)
-        # reward_structure = GetCloseToRegion(target_min=np.array([-7,1], dtype=float), target_max=np.array([-1,3], dtype=float), dims=[0,2]) # geared up for the 2D drone
-
         derive_set = lambda centre: L_infinity(centre,radii,model.uMin,model.uMax)
 
         print("Constructing RL Environment")
         # vectorize the environment
-        env = make_vec_env(
-            lambda: Env(
-                state_dim=model.n,
-                space_lower=model.partition['boundary'][0],
-                space_upper=model.partition['boundary'][1],
-                action_dim=model.p,
-                action_lower=model.uMin,
-                action_upper=model.uMax,
-                initial_state=model.x0,
-                model=model,
-                policy_inputs=policy_inputs,
-                derive_set=derive_set,
-                reward_structure=reward_structure,
-                partition=partition
-            ),
-            n_envs=1
-        )
+        init_env = lambda reward_structure: make_vec_env(
+                lambda: Env(
+                    state_dim=model.n,
+                    space_lower=model.partition['boundary'][0],
+                    space_upper=model.partition['boundary'][1],
+                    action_dim=model.p,
+                    action_lower=model.uMin,
+                    action_upper=model.uMax,
+                    initial_state=model.x0,
+                    model=model,
+                    policy_inputs=policy_inputs,
+                    derive_set=derive_set,
+                    reward_structure=reward_structure,
+                    partition=partition
+                ),
+                n_envs=1
+            )
+        
+        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 10_000)
 
-        print("Vectorizing Environment")
-        # NOTE - that since we normalize the observartions, we must do so again when we used the trained RL agent to predict
-        # normalize the observations
-        env = VecNormalize(
-            env,
-            norm_obs=True,
-            norm_reward=False,
-            clip_obs=10.0
-        )
-
-        print("Creating the RL Agent")
-        # instantiate the agent
-        # NOTE - plenty of hyper-parameters to play around with here
-        agent = SAC(
-            "MlpPolicy",
-            env,
-            verbose=0,
-            ent_coef="auto_0.5",           # TODO - should play with this: disable entropy otherwise the agent collapses on smaller actions where possible. Great if we want minimization, poor if we want maximisation
-            target_entropy="auto",
-        )
-
-        print("Training the Agent")
-        # train the agent 
-        agent.learn(total_timesteps=25_000, progress_bar=True)
-
-        print(f"Took too long: {env.envs[0].unwrapped.too_long}")
-        print(f"Got to Goal State: {env.envs[0].unwrapped.goal_count}")
-        print(f"Hit the critical state: {env.envs[0].unwrapped.critical_count}")
-
-        print("Saving Agent")
-        # save the trained agent
-        agent.save('sac_agent')
-
-        print("Saving VecNormalize statistics")
-        env.save("vecnormalize.pkl")
+        # train all the agents
+        agents.train_agents()
 
 
     # %% Simulations
@@ -243,51 +211,25 @@ if __name__ == '__main__':
     # evaluation = DistanceToRegion(region_lower=np.array([-7,1], dtype=float), region_upper=np.array([-1,3], dtype=float), dims=[0,2])
     # evaluation = TimeSteps()
 
-    if reinforcement_learning:
-        sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation)
-        print(f'Average Secondary Score: {sim.results["secondary_score"]}')
-    else:
-        sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100)
-
-
-    print('Empirical satisfaction probability:', sim.results['satprob'])
-
     # TODO - currently we only support infinite horizons - we should extend this to finite horizons
     if reinforcement_learning:
-        agent = SAC.load('sac_agent')
+        agent_envs = agents.get_agents_envs_evals()
 
-        # dummy env for vecnorm instantiation
-        dummy_env = make_vec_env(
-            lambda: Env(
-                state_dim=model.n,
-                space_lower=model.partition['boundary'][0],
-                space_upper=model.partition['boundary'][1],
-                action_dim=model.p,
-                action_lower=model.uMin,
-                action_upper=model.uMax,
-                initial_state=model.x0,
-                model=model,
-                policy_inputs=policy_inputs,
-                derive_set=derive_set,
-                reward_structure=reward_structure,
-                partition=partition
-            ),
-            n_envs=1
-        )
+        # TODO - maybe we want to run the sims without the RL agent on the policy that was synthesised without spheres as this is the status quo? 
+        for (agent,vecnorm,evaluation) in agent_envs:
+            # run sims without RL agent
+            sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation)
+            print(f'Average Secondary Score: {sim.results["secondary_score"]}')
+            print('Empirical satisfaction probability:', sim.results['satprob'])
 
-        vecnorm = VecNormalize.load("vecnormalize.pkl", dummy_env) # TODO - play with these parameters?
-        vecnorm.training = False # don't allow the saved statistics to update
-        vecnorm.norm_reward = False # don't normalise the rewards
-        # evaluation = DistanceToRegion(region_lower=np.array([-7,1], dtype=float), region_upper=np.array([-1,3], dtype=float), dims=[0,2])
+            # run sims with RL agent
+            sim_rl = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation, agent=agent, derive_set=derive_set, vecnorm=vecnorm)
+            print(f"Average Secondary Score with RL agent: {sim_rl.results['secondary_score']}")
+            print(f"Empirical satisfaciton probability with RL agent: {sim_rl.results['satprob']}")
 
-        # don't need this so long as we normalise inside MonteCarloSim
-        # agent = SAC.load('sac_agent', env=vecnorm)
-
-
-        sim_rl = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation, agent= agent, derive_set=derive_set, vecnorm=vecnorm)
-        print(f"Average Secondary Score with RL agent: {sim_rl.results['secondary_score']}")
-        # print(f"Closest we got: {evaluation.closest}")
-        print(f"Empirical satisfaciton probability with RL agent: {sim_rl.results['satprob']}")
+    else:
+        sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100)
+        print('Empirical satisfaction probability:', sim.results['satprob'])
 
     # %% Plot
     def plot(sim, rl=False):
@@ -314,9 +256,9 @@ if __name__ == '__main__':
         if args.model == 'MountainCar':
             model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/mountaincar_{stamp}.gif')
 
-    plot(sim)
-    if reinforcement_learning:
-        print('PLOTTING RL')
-        # TODO - plotting for the RL trace doesn't work...
-        plot(sim_rl, rl=True)
-    print('DONE')
+    # plot(sim)
+    # if reinforcement_learning:
+    #     print('PLOTTING RL')
+    #     # TODO - plotting for the RL trace doesn't work...
+    #     plot(sim_rl, rl=True)
+    # print('DONE')

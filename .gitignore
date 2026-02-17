@@ -160,7 +160,7 @@ cython_debug/
 .vscode/
 
 # RL agent weights
-*agent.zip
+*.zip
 
 *.pkl
 
