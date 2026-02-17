@@ -22,6 +22,8 @@ class Env(gym.Env):
 			space_lower,
 			space_upper,
 			action_dim,
+			action_lower,
+			action_upper,
 			initial_state,
 			model,
 			policy_inputs,
@@ -35,6 +37,8 @@ class Env(gym.Env):
 		:param space_lower: lower corner of state space
 		:param space_upper: upper corner of state space
 		:param action_dim: dimension of the concrete action space
+		:param action_lower: lower corner of the abstract/concrete action space
+		:param action_upper: upper corner of the abstract/concrete action space
 		:param initial_state: initial state for the agent
 		:param model: the system model that implements the dynamics - must implement "step"
 		:param policy_inputs: IMDP policy that maps states to a single concrete action
@@ -54,20 +58,15 @@ class Env(gym.Env):
 		)
 
 		# define the full state space
+		# state is not just the concrete state that we are in, but also includes the concrete actions proposed by the policy to give the agent the full picture
 		self.observation_space = spaces.Box(
-			low=np.asarray(space_lower, dtype=np.float32),
-			high=np.asarray(space_upper, dtype=np.float32),
-			shape=(state_dim,),
+			low=np.asarray(np.concatenate([space_lower,action_lower]), dtype=np.float32),
+			high=np.asarray(np.concatenate([space_upper,action_upper]), dtype=np.float32),
+			shape=(state_dim+action_dim,),
 			dtype=np.float32
 		)
 
-		# the current state
-		self.initial_state = initial_state
-		self.state = initial_state
-
-		# the current time step
-		self.t = 0
-		self.max_steps = max_steps 
+		assert partition.x2state(initial_state)[0] not in partition.critical['idxs']
 
 		# the model that implements the dynamics
 		self.model = model
@@ -76,8 +75,15 @@ class Env(gym.Env):
 		self.policy_inputs = policy_inputs
 		self.reward_structure = reward_structure
 		self.partition = partition
+		self.action_dim = action_dim
 
-		assert partition.x2state(initial_state)[0] not in partition.critical['idxs']
+		# the current state
+		self.initial_state = np.append(initial_state, self.policy_inputs[partition.x2state(initial_state)[0]])
+		self.state = self.initial_state
+
+		# the current time step
+		self.t = 0
+		self.max_steps = max_steps 
 
 		self.too_long = 0
 		self.goal_count = 0
@@ -121,20 +127,19 @@ class Env(gym.Env):
 		noise = self._generate_noise()
 
 		# project action into the current action sphere
-		policy_action = self.policy_inputs[self.partition.x2state(self.state)[0]]
-		# with open('policy_actions', 'a') as f:
-		# 	f.write(f"{policy_action}\n")
+		# NOTE: since our RL state includes the action space, we need to trim it 
+		policy_action = self.policy_inputs[self.partition.x2state(self.state[:-self.action_dim])[0]]
 
 		action_set_lower_bounds, action_set_upper_bounds = self.derive_set(policy_action)
-		# clipped_action = self._clip_action(proposed_action,action_set_lower_bounds,action_set_upper_bounds) # TODO - this will break at the moment until we decide how the derive_set is meant to work...
 		projected_action = self._project_action(proposed_action,action_set_lower_bounds,action_set_upper_bounds)
 
 		# progress the state using the model's dynamics 
-		new_state = self.model.step(self.state,projected_action,noise)
-		self.state = new_state
+		# NOTE: need to remove the action space from the RL state in order to get the concrete state
+		new_concrete_state = self.model.step(self.state[:-self.action_dim],projected_action,noise)
+		self.state = np.concatenate([new_concrete_state,self.policy_inputs[self.partition.x2state(new_concrete_state)[0]]])
 
 		# find what abstract state we are in 
-		abstract_state = self.partition.x2state(new_state)[0]
+		abstract_state = self.partition.x2state(new_concrete_state)[0]
 
 		# check if we are in a critical region
 		if abstract_state in self.partition.critical['idxs']:
@@ -147,10 +152,10 @@ class Env(gym.Env):
 			if abstract_state in self.partition.goal['idxs']:
 				self.goal_count += 1
 				terminated = True 
-			reward = self.reward_structure.getReward(state=new_state, action=projected_action)
+			reward = self.reward_structure.getReward(state=new_concrete_state, action=projected_action)
 
 
-		return new_state, reward, np.array(terminated, dtype=bool), np.array(truncated, dtype=bool), info
+		return self.state, reward, np.array(terminated, dtype=bool), np.array(truncated, dtype=bool), info
 	
 	# for visualization
 	def render(self):

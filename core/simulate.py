@@ -144,18 +144,20 @@ class MonteCarloSim():
                 a[k] = self.policy[s[k]]
 
                 # check if we should be using an RL agent to make the decision 
-                if self.agent:
-                    obs = x[k].astype(np.float32).reshape(1, -1) # ???
+                if self.agent is not None:
+                    concrete_state = x[k] # ???
+
+                    # need to add the policy action to the cocnrete state to get the observation
+                    policy_action = self.policy_inputs[s[k]]
+                    obs = np.concatenate([concrete_state,policy_action])
                     if self.vecnorm:
                         obs = self.vecnorm.normalize_obs(obs)
                     
                     # query the trained RL agent - the second item returned is hidden state - only needed for recurrent policies
                     proposed_action,_ = self.agent.predict(observation=obs, deterministic=True) # TODO - do we want this to be deterministic
 
-                    # clip the action
-                    policy_action = self.policy_inputs[s[k]]
+                    # project the action
                     action_set_lower_bounds, action_set_upper_bounds = self.derive_set(policy_action)
-                    # clipped_action = np.clip(proposed_action, action_set_lower_bounds, action_set_upper_bounds)
                     projected_action = project_action(proposed_action,action_set_lower_bounds,action_set_upper_bounds)
 
                     # save the action so that it can be executed later

@@ -163,7 +163,8 @@ if __name__ == '__main__':
         #     model.critical = np.append(model.critical, [[[5,0.5,-np.pi],[8,1,np.pi]]], axis=0)
         #     partition = RectangularPartition(model=model)
 
-        reward_eval = RL.Reward_Evaluate.ActionCosts(np.array([0,1])) # use 0 to not tax the angle in the input 
+        reward_eval = RL.Reward_Evaluate.ActionCosts(np.array([0,-1])) # use 0 to not tax the angle in the input 
+        # reward_eval = RL.Reward_Evaluate.GetCloseToArea(np.array([10,-10]), np.array([10,-10]), dims=[0,1])
         reward_structure,evaluation = reward_eval.get_pair()
 
         # reward_structure = MinDistanceToGoal(goal_box=model.goal[0]) # TODO - adjust
@@ -181,6 +182,8 @@ if __name__ == '__main__':
                 space_lower=model.partition['boundary'][0],
                 space_upper=model.partition['boundary'][1],
                 action_dim=model.p,
+                action_lower=model.uMin,
+                action_upper=model.uMax,
                 initial_state=model.x0,
                 model=model,
                 policy_inputs=policy_inputs,
@@ -253,13 +256,15 @@ if __name__ == '__main__':
     if reinforcement_learning:
         agent = SAC.load('sac_agent')
 
-        # dummy envfor vecnorm instantiation
+        # dummy env for vecnorm instantiation
         dummy_env = make_vec_env(
             lambda: Env(
                 state_dim=model.n,
                 space_lower=model.partition['boundary'][0],
                 space_upper=model.partition['boundary'][1],
                 action_dim=model.p,
+                action_lower=model.uMin,
+                action_upper=model.uMax,
                 initial_state=model.x0,
                 model=model,
                 policy_inputs=policy_inputs,
@@ -274,6 +279,10 @@ if __name__ == '__main__':
         vecnorm.training = False # don't allow the saved statistics to update
         vecnorm.norm_reward = False # don't normalise the rewards
         # evaluation = DistanceToRegion(region_lower=np.array([-7,1], dtype=float), region_upper=np.array([-1,3], dtype=float), dims=[0,2])
+
+        # don't need this so long as we normalise inside MonteCarloSim
+        # agent = SAC.load('sac_agent', env=vecnorm)
+
 
         sim_rl = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation, agent= agent, derive_set=derive_set, vecnorm=vecnorm)
         print(f"Average Secondary Score with RL agent: {sim_rl.results['secondary_score']}")
