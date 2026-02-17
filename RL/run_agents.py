@@ -74,6 +74,6 @@ class Agents():
 			vecnorm.training = False # don't allow the saved statistics to update
 			vecnorm.norm_reward = False # don't normalise the rewards
 		
-			agent_envs.append((agent,vecnorm,evaluation))
+			agent_envs.append((s,agent,vecnorm,evaluation))
 
 		return agent_envs

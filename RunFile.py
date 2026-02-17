@@ -165,7 +165,7 @@ if __name__ == '__main__':
 
         reward_evals = dict()
         reward_evals['minimise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,-1])) # use 0 to not tax the angle in the input
-        reward_evals['maximise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,-1])) # use 0 to not tax the angle in the input
+        reward_evals['maximise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,1])) # use 0 to not tax the angle in the input
         reward_evals['get_close_bottom_right'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([-10,-10]), region_upper=np.array([-10,-10]), dims=[0,1])
 
         # add an extra critical region that the formal verification is unaware of
@@ -195,7 +195,7 @@ if __name__ == '__main__':
                 n_envs=1
             )
         
-        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 10_000)
+        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 100)
 
         # train all the agents
         agents.train_agents()
@@ -218,7 +218,8 @@ if __name__ == '__main__':
         agent_envs = agents.get_agents_envs_evals()
 
         # TODO - maybe we want to run the sims without the RL agent on the policy that was synthesised without spheres as this is the status quo? 
-        for (agent,vecnorm,evaluation) in agent_envs:
+        for (s,agent,vecnorm,evaluation) in agent_envs:
+            print(f'Doing simulation for {s}')
             # run sims without RL agent
             sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation)
             print(f'Average Secondary Score: {sim.results["secondary_score"]}')
