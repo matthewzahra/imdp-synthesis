@@ -1,5 +1,6 @@
 import numpy as np
 from typing import Optional
+import jax.numpy as jnp
 
 '''
 Define the different reward structures
@@ -88,7 +89,7 @@ class GetCloseToRegion(RewardStructure):
 
 	def getReward(self, state, action):
 		if self.dims: # only use selected dimenions of the state
-			state = state[self.dims]
+			state = state[jnp.array(self.dims)]
 
 		closest_point = np.clip(state,self.target_min,self.target_max)
 
