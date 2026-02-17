@@ -46,7 +46,7 @@ from core.imdp import IMDP
 # sys.argv = ['RunFile.py', '--model', 'DoubleIntegrator', '--batch_size', '30000', '--plot_title']
 # sys.argv = ['RunFile.py', '--model', 'Drone3D_small', '--batch_size', '100', '--plot_title']
 # sys.argv = ['RunFile.py', '--model', 'Drone3D', '--batch_size', '10000', '--plot_title']
-sys.argv = ['RunFile.py', '--model', 'Drone2D', '--batch_size', '1000', '--plot_title']
+# sys.argv = ['RunFile.py', '--model', 'Drone2D', '--batch_size', '1000', '--plot_title']
 
 if __name__ == '__main__':
     jax.config.update("jax_default_matmul_precision", "high")
@@ -134,17 +134,13 @@ if __name__ == '__main__':
         # TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
         # NOTE - if the radii are too large then we get really poor satisfaction probability 
         action_dim = model.p
-        radii = np.full(action_dim, 0) # if large can also make the process really slow 
-        actions = RectangularForward(partition=partition, model=model, action_sets=reinforcement_learning, radii=radii)     
+        radii = np.full(action_dim, 0.1) # if large can also make the process really slow 
+        actions = RectangularForward(args=args, partition=partition, model=model, action_sets=reinforcement_learning, radii=radii)     
         actions_inputs = actions.id_to_input   
     else:
-        actions = RectangularForward(partition=partition, model=model)
+        actions = RectangularForward(args=args, partition=partition, model=model)
         actions_inputs = actions.id_to_input
 
-    # With forward reachability, every action is enabled in every state
-    enabled_actions = np.full((len(partition.regions['centers']), len(actions.idxs)), fill_value=True, dtype=np.bool)
-
-    print(f"(Number of actions in each state: {np.sum(np.any(enabled_actions, axis=0))})\n")
 
     # TODO - edit this function to use the new probability intervals 
 

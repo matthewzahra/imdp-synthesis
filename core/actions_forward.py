@@ -116,7 +116,7 @@ class RectangularForward(object):
                 in_axes=(None, None, None, 0, None, None, None, None, None, None, None),
                 out_axes=(0, 0, 0, 0, 0)
             ),
-            static_argnums=(0)
+            static_argnums=(0,9)
         )
 
         # Generate discrete action grid by taking Cartesian product of actions per dimension
