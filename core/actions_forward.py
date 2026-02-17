@@ -9,85 +9,185 @@ from tqdm import tqdm
 
 from RL.generate_action_sets import L_infinity
 
+from RL.generate_action_sets import L_infinity
+
 
 @partial(jax.jit, static_argnums=(0,9))
 def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_dim, cell_width, boundary_lb, boundary_ub, action_sets, radii=None):
     """
-    Computes the forward reachable set given a set of input parameters.
+    Computes the forward reachable set for a given state region and control input.
 
-    :param step_set: Function that computes the minimum and maximum reachable states given the state bounds and input.
-    :param state_min: Lower bound of the box (of states ) to propagate.
-    :param state_max: Upper bound of the box (of states ) to propagate.
-    :param input: Control input for the dynamical system.
-    :param cov_diag: Diagonal entries of the covariance matrix
-    :param number_per_dim: The number of cells per dimension in the state space grid.
-    :param cell_width: The width of cells along each dimension.
-    :param boundary_lb: The lower bound of the grid of the state space.
-    :param boundary_ub: The upper bound of the grid of the state space.
+    This function propagates a box-shaped state region forward in time using the dynamical system's
+    step function. It computes both the continuous bounds and the discrete grid indices of the
+    resulting forward reachable set.
+
+    :param step_set: Function that computes the minimum and maximum reachable states given the 
+                     state bounds and input. Signature: (state_min, state_max, input_min, input_max) -> (next_min, next_max)
+    :param state_min: Lower bound of the state box to propagate (shape: [state_dim])
+    :param state_max: Upper bound of the state box to propagate (shape: [state_dim])
+    :param input: Control input for the dynamical system (shape: [input_dim])
+    :param cov_diag: Diagonal entries of the noise covariance matrix (shape: [state_dim])
+    :param number_per_dim: Number of grid cells per dimension in the state space discretization (shape: [state_dim])
+    :param cell_width: Width of grid cells along each dimension (shape: [state_dim])
+    :param boundary_lb: Lower bound of the state space grid (shape: [state_dim])
+    :param boundary_ub: Upper bound of the state space grid (shape: [state_dim])
     :param action_sets: If True, we want each to consider sets of concrete actions for each abstract action.
     :param distances: List of radii values for each dimension of the action space - if we want to create the action spheres
-    :return: A tuple containing:
-        - frs_min: The minimum bound of the forward reachable set.
-        - frs_max: The maximum bound of the forward reachable set.
-        - frs_span: The number of grid cells encompassed by the forward reachable set.
-        - idx_low: The lower index bounds in the grid corresponding to the forward reachable set.
-        - idx_upp: The upper index bounds in the grid corresponding to the forward reachable set.
+    :return: Tuple containing:
+        - frs_min: Continuous lower bound of the forward reachable set (shape: [state_dim])
+        - frs_max: Continuous upper bound of the forward reachable set (shape: [state_dim])
+        - frs_span: Number of grid cells spanned by the forward reachable set per dimension (shape: [state_dim])
+        - idx_low: Lower grid index bounds of the forward reachable set (shape: [state_dim])
+        - idx_upp: Upper grid index bounds of the forward reachable set (shape: [state_dim])
     """
 
+    # Compute the continuous bounds of the forward reachable set
     if action_sets:
         lower, upper = L_infinity(centre=input, distances=radii)
         frs_min, frs_max = step_set(state_min, state_max, lower, upper)
     else:
         frs_min, frs_max = step_set(state_min, state_max, input, input)
 
-    # If covariance is zero, then the span equals the number of cells the forward reachable set contains at most
+    # Calculate how many grid cells the forward reachable set spans in each dimension
+    # Note: When covariance is zero, this gives the exact discrete span
     frs_span = jnp.astype(jnp.ceil((frs_max - frs_min) / cell_width), int)
 
+    # Normalize the minimum bound to grid coordinates
     state_min_norm = (frs_min - boundary_lb) / (boundary_ub - boundary_lb) * number_per_dim
     lb_contained_in = state_min_norm // 1
 
+    # TODO: Make a rigorous implementation of how to handle noise here. The current implementation is a heuristic that expands the reachable set by a fixed number of cells in dimensions with noise. A more principled approach would consider the actual distribution of the noise and how it affects the reachable set.
+
+    # Compute lower grid indices (clipped to valid range)
+    # For dimensions with noise (cov_diag != 0), the index is set to 0
     idx_low = (jnp.clip(lb_contained_in, 0, (number_per_dim - 1)) * (cov_diag == 0)).astype(int)
+    
+    # Compute upper grid indices (clipped to valid range)
+    # For dimensions with noise (cov_diag != 0), the index spans the entire dimension
     idx_upp = (jnp.clip(lb_contained_in + frs_span - 1, 0, number_per_dim - 1) * (cov_diag == 0) + (number_per_dim - 1) * (cov_diag != 0)).astype(int)
+
+    '''
+    # Compute lower grid indices (clipped to valid range)
+    # For dimensions with noise (cov_diag != 0), the index is set to 0
+    q = 5 # Maximum number of cells the noise can "add" to the span of the reachable set
+    idx_low = (jnp.clip(lb_contained_in, 0, (number_per_dim - 1)) - q * (cov_diag != 0)).astype(int)
+    
+    # Compute upper grid indices (clipped to valid range)
+    # For dimensions with noise (cov_diag != 0), the index spans the entire dimension
+    idx_upp = (jnp.clip(lb_contained_in + frs_span - 1, 0, number_per_dim - 1) + (2*q) * (cov_diag != 0)).astype(int)
+    '''
 
     return frs_min, frs_max, frs_span, idx_low, idx_upp
 
 
 class RectangularForward(object):
+    """
+    Computes and stores forward reachable sets for a rectangular partition of the state space.
 
-    def __init__(self, partition, model, action_sets = False, radii = None):
+    This class pre-computes the forward reachable sets for all state regions in a partition
+    and all discrete control actions. The results are stored for efficient lookup during
+    dynamic programming or reachability analysis.
+
+    Attributes:
+        inputs (jnp.ndarray): Discrete control actions, shape [num_actions, input_dim]
+        frs_lb (np.ndarray): Lower bounds of forward reachable sets, shape [num_regions, num_actions, state_dim]
+        frs_ub (np.ndarray): Upper bounds of forward reachable sets, shape [num_regions, num_actions, state_dim]
+        frs_idx_lb (np.ndarray): Lower grid indices of forward reachable sets, shape [num_regions, num_actions, state_dim]
+        frs_idx_ub (np.ndarray): Upper grid indices of forward reachable sets, shape [num_regions, num_actions, state_dim]
+        max_slice (tuple): Maximum span of forward reachable sets across all regions and actions per dimension
+        idxs (np.ndarray): Indices of all actions, shape [num_actions]
+    """
+
+    def __init__(self, args, partition, model, action_sets = False, radii = None):
+        """
+        Initialize and compute forward reachable sets for all regions and actions.
+
+        :param partition: Partition object containing the discretized state space
+        :param model: Model object containing the dynamics and control action specifications
+        """
         print('Define target points and forward reachable sets...')
         t_total = time.time()
 
-        # Vectorized function over different sets of points
-        vmap_forward_reach = jax.vmap(forward_reach, in_axes=(None, None, None, 0, None, None, None, None, None, None, None), out_axes=(0, 0, 0, 0, 0,))
+        # Create vectorized function to compute forward reach for multiple actions in parallel
+        # vmap over axis 0 (different actions), keeping other parameters fixed
+        vmap_forward_reach = jax.jit(
+            jax.vmap(
+                forward_reach,
+                in_axes=(None, None, None, 0, None, None, None, None, None, None, None),
+                out_axes=(0, 0, 0, 0, 0)
+            ),
+            static_argnums=(0)
+        )
 
-        discrete_per_dimension = [np.linspace(model.uMin[i], model.uMax[i], num=model.num_actions[i]) for i in range(len(model.num_actions))]
-        discrete_inputs = np.array(list(itertools.product(*discrete_per_dimension)))
+        # Generate discrete action grid by taking Cartesian product of actions per dimension
+        discrete_actions_per_dimension = [
+            np.linspace(model.uMin[i], model.uMax[i], num=model.num_actions[i])
+            for i in range(len(model.num_actions))
+        ]
+        self.id_to_input = jnp.array(list(itertools.product(*discrete_actions_per_dimension)))
 
         t = time.time()
 
-        frs = {}
-        pbar = tqdm(enumerate(zip(partition.regions['lower_bounds'], partition.regions['upper_bounds'])), total=len(partition.regions['lower_bounds']))
-        self.max_slice = np.zeros(model.n)
+        # Initialize progress bar for iterating through all state regions
+        pbar = tqdm(
+            enumerate(zip(partition.regions['lower_bounds'], partition.regions['upper_bounds'])),
+            total=len(partition.regions['lower_bounds'])
+        )
+        self.max_slice = jnp.zeros(partition.dimension)
+        
+        # Note: Pre-loading all inputs on device is possible but commented out
+        # This could improve performance for very large action spaces
+        # discrete_inputs_jax = jax.device_put(self.inputs)
+        # noise_cov = jax.device_put(model.noise['cov_diag'])
+        # number_per_dim = jax.device_put(partition.number_per_dim)
+        # cell_width = jax.device_put(partition.cell_width)
+        # boundary_lb = jax.device_put(partition.boundary_lb)
+        # boundary_ub = jax.device_put(partition.boundary_ub)
+        
+        # Allocate storage for forward reachable set information
+        num_regions = len(partition.regions['lower_bounds'])
+        num_actions = len(self.id_to_input)
+        self.frs_lb = np.zeros((num_regions, num_actions, partition.dimension), dtype=args.floatprecision)
+        self.frs_ub = np.zeros_like(self.frs_lb, dtype=args.floatprecision)
+        self.frs_idx_lb = np.zeros_like(self.frs_lb, dtype=args.floatprecision)
+        self.frs_idx_ub = np.zeros_like(self.frs_lb, dtype=args.floatprecision)
+
+        # Iterate through all state regions and compute forward reachable sets
+        max_span = np.zeros(partition.dimension)
         for i, (lb, ub) in pbar:
-            # For every state, compute for every action the [lb,ub] forward reachable set
-            flb, fub, fsp, fil, fiu = vmap_forward_reach(model.step_set, lb, ub, discrete_inputs, model.noise['cov_diag'], partition.number_per_dim, partition.cell_width,
-                                                         partition.boundary_lb, partition.boundary_ub, action_sets, radii)
+            # Batch compute forward reachable sets for all actions using vectorized function
+            flb, fub, _, fil, fiu = vmap_forward_reach(
+                model.step_set,
+                lb,
+                ub,
+                self.id_to_input,
+                model.noise['cov_diag'],
+                partition.number_per_dim,
+                partition.cell_width,
+                partition.boundary_lb,
+                partition.boundary_ub,
+                action_sets,
+                radii
+            )
 
-            frs[i] = {}
-            frs[i]['lb'] = flb
-            frs[i]['ub'] = fub
-            frs[i]['idx_lb'] = fil
-            frs[i]['idx_ub'] = fiu
+            # Store the computed forward reachable set bounds and indices
+            self.frs_lb[i] = np.array(flb)
+            self.frs_ub[i] = np.array(fub)
+            self.frs_idx_lb[i] = np.array(fil)
+            self.frs_idx_ub[i] = np.array(fiu)
+            
+            # Incrementally update max span
+            span = np.array(fiu) - np.array(fil) + 1
+            max_span = np.maximum(max_span, np.max(span, axis=0))
 
-            self.max_slice = np.maximum(self.max_slice, jnp.max(fiu + 1 - fil, axis=0))
-        self.max_slice = tuple(np.astype(self.max_slice, int).tolist())
+        # Store the maximum span of forward reachable sets
+        # This is used to allocate sufficient memory for transition probability computations
+        self.max_slice = tuple(max_span.astype(int).tolist())
 
         print(f'- Forward reachable sets computed (took {(time.time() - t):.3f} sec.)')
-
-        self.inputs = discrete_inputs
-        self.idxs = np.arange(len(discrete_inputs))
-        self.frs = frs
+        # Create array of action indices for efficient indexing        
+        
+        self.id = np.arange(len(self.id_to_input))
 
         print(f'Defining actions took {(time.time() - t_total):.3f} sec.')
         print('')

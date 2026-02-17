@@ -19,9 +19,9 @@ import datetime
 import os
 import time
 from pathlib import Path
-
 import jax
 import numpy as np
+import sys
 
 import benchmarks
 from core.Gaussian_probabilities import compute_probability_intervals
@@ -36,23 +36,38 @@ from RL.RL_Environment import Env
 from RL.generate_action_sets import L_infinity
 import RL.Reward_Evaluate
 from RL.run_agents import Agents
+from core.imdp import IMDP
 
-# import sys
+# Uncomment one of the following lines to run an example benchmark.
+# If it seems to be 'stuck' when computing the transition probabilities, consider decreasing the batch size (e.g., to 1000).
 # sys.argv = ['RunFile.py', '--model', 'Dubins_small', '--batch_size', '30000']
 # sys.argv = ['RunFile.py', '--model', 'Pendulum', '--batch_size', '30000']
-# sys.argv = ['RunFile.py', '--model', 'MountainCar', '--batch_size', '30000']
+# sys.argv = ['RunFile.py', '--model', 'MountainCar', '--batch_size', '1000', '--plot_title']
+# sys.argv = ['RunFile.py', '--model', 'DoubleIntegrator', '--batch_size', '30000', '--plot_title']
+# sys.argv = ['RunFile.py', '--model', 'Drone3D_small', '--batch_size', '100', '--plot_title']
+# sys.argv = ['RunFile.py', '--model', 'Drone3D', '--batch_size', '10000', '--plot_title']
+sys.argv = ['RunFile.py', '--model', 'Drone2D', '--batch_size', '1000', '--plot_title']
 
 if __name__ == '__main__':
     jax.config.update("jax_default_matmul_precision", "high")
 
     args = parse_arguments()
+    args.floatprecision = np.float32
     if args.gpu:
         jax.config.update('jax_platform_name', 'gpu')
+        print('- Requested to run on GPU')
     else:
         jax.config.update('jax_platform_name', 'cpu')
+        print('- Requested to run on CPU')
+    if args.gpu_rvi:
+        args.rvi_device = jax.devices('gpu')[0]
+        print('- Requested to run RVI on GPU')
+    else:
+        args.rvi_device = jax.devices('cpu')[0]
+        print('- Requested to run RVI on CPU')
 
     print('=== JAX STATUS ===')
-    # print(f'Devices available: {jax.devices()}')
+    print(f'Devices available: {jax.devices()}')
     from jax.extend.backend import get_backend
 
     print(f'Jax runs on: {get_backend().platform}')
@@ -86,10 +101,14 @@ if __name__ == '__main__':
         base_model = benchmarks.Drone2D(args)
     elif args.model == 'Drone3D':
         base_model = benchmarks.Drone3D(args)
+    elif args.model == 'Drone3D_small':
+        base_model = benchmarks.Drone3D_small(args)
     elif args.model == 'Pendulum':
         base_model = benchmarks.Pendulum(args)
     elif args.model == 'MountainCar':
         base_model = benchmarks.MountainCar(args)
+    elif args.model == 'DoubleIntegrator':
+        base_model = benchmarks.DoubleIntegrator(args)
     else:
         assert False, f"The passed model '{args.model}' could not be found"
 
@@ -109,17 +128,18 @@ if __name__ == '__main__':
 
     # Create partition of the continuous state space into convex polytope
     partition = RectangularPartition(model=model)
-    print(f"(Number of states: {len(partition.regions['idxs'])})\n")
-
+    
     # Create actions based on forward reachable sets
     if reinforcement_learning:
         # TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
         # NOTE - if the radii are too large then we get really poor satisfaction probability 
         action_dim = model.p
         radii = np.full(action_dim, 0) # if large can also make the process really slow 
-        actions = RectangularForward(partition=partition, model=model, action_sets=reinforcement_learning, radii=radii)        
+        actions = RectangularForward(partition=partition, model=model, action_sets=reinforcement_learning, radii=radii)     
+        actions_inputs = actions.id_to_input   
     else:
         actions = RectangularForward(partition=partition, model=model)
+        actions_inputs = actions.id_to_input
 
     # With forward reachability, every action is enabled in every state
     enabled_actions = np.full((len(partition.regions['centers']), len(actions.idxs)), fill_value=True, dtype=np.bool)
@@ -127,35 +147,68 @@ if __name__ == '__main__':
     print(f"(Number of actions in each state: {np.sum(np.any(enabled_actions, axis=0))})\n")
 
     # TODO - edit this function to use the new probability intervals 
-    P_full, P_id, P_absorbing = compute_probability_intervals(args, model, partition, actions.frs, actions.max_slice)
 
-    # %% Model checking
+    P_full, S_id, A_id, P_absorbing = compute_probability_intervals(args=args, 
+                                                                    model=model, 
+                                                                    partition=partition, 
+                                                                    actions=actions,
+                                                                    vectorized=True)
+    
+    del actions
 
-    from core.imdp import BuilderStorm
-
-    # Compute optimal policy on the iMDP abstraction
-    print('\nCreate iMDP using storm...')
-
-    # Build interval MDP via StormPy
-    builderS = BuilderStorm(partition=partition,
-                            actions=actions,
-                            states=np.array(partition.regions['idxs']),
-                            x0=model.x0,
-                            goal_regions=np.array(partition.goal['idxs']),
-                            critical_regions=np.array(partition.critical['idxs']),
-                            P_full=P_full,
-                            P_id=P_id,
-                            P_absorbing=P_absorbing)
+    imdp = IMDP(partition=partition,
+                states=np.array(partition.regions['idxs']),
+                actions_inputs=actions_inputs,
+                x0=model.x0,
+                goal_regions=np.array(partition.goal['bools']),
+                critical_regions=np.array(partition.critical['bools']),
+                P_full=P_full,
+                S_id=S_id,
+                A_id=A_id,
+                P_absorbing=P_absorbing)
 
     print(f'- Generating abstraction took: {(time.time() - t):.3f} sec.')
-    print(builderS.imdp)
 
-    t = time.time()
-    result = builderS.compute_reach_avoid()
-    policy, policy_inputs = builderS.get_policy(actions)
-    print(f'- Verify with storm took: {(time.time() - t):.3f} sec.')
-    print('Total sum of reach probs:', np.sum(builderS.results))
-    print('Value in state {}: {}'.format(model.x0, builderS.get_value_from_tuple(model.x0, partition)))
+    # %% Build and verify with JAX-based RVI
+
+    from core.imdp import RVI_JAX, RVI
+
+    print('Compute optimal policy via robust value iteration with JAX...')
+
+    with jax.default_device(args.rvi_device):
+
+        t = time.time()
+        V, _, policy, policy_inputs = RVI_JAX(
+            args=args, 
+            imdp=imdp, 
+            s0=partition.x2state(model.x0)[0], 
+            max_iterations=10000, 
+            epsilon=1e-6, 
+            RND_SWEEPS=True, 
+            BATCH_SIZE=1000, 
+            policy_iteration=True)
+        print (f'- RVI with JAX (random-batched asynchronous) took: {(time.time() - t):.3f} sec.')
+
+    # %% Build interval MDP via Storm
+
+    # TODO: Make the new data structures again compatible with Storm.
+
+    # from core.storm import BuilderStorm
+
+    # print('Compute optimal policy via robust value iteration with Storm')
+
+    # print('\n- Create iMDP using storm...')
+    # t = time.time()
+    # builderS = BuilderStorm(imdp)
+
+    # print(builderS.imdp)
+
+    # result = builderS.compute_reach_avoid()
+    # V_storm = builderS.results
+    # policy_storm, policy_inputs_storm = builderS.get_policy(actions_inputs)
+    # print(f'- Build and verify with storm took: {(time.time() - t):.3f} sec.')
+    # print('Total sum of reach probs:', np.sum(builderS.results))
+    # print('Value in state {}: {}'.format(model.x0, builderS.get_value_from_tuple(model.x0, partition)))
 
     # %% Training of the Reinforcement Learning Agent
     if reinforcement_learning:
@@ -203,6 +256,10 @@ if __name__ == '__main__':
 
     # %% Simulations
 
+    sim_policy = policy
+    sim_policy_inputs = policy_inputs
+    sim_values = V
+
     from core.simulate import MonteCarloSim
     from plotting.traces import plot_traces
     from plotting.heatmap import heatmap
@@ -231,7 +288,7 @@ if __name__ == '__main__':
             print(f"Empirical satisfaciton probability with RL agent: {sim_rl.results['satprob']}")
 
     else:
-        sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100)
+        sim = MonteCarloSim(model, partition, sim_policy, sim_policy_inputs, model.x0, verbose=False, iterations=1000)
         print('Empirical satisfaction probability:', sim.results['satprob'])
 
     # %% Plot
@@ -265,3 +322,5 @@ if __name__ == '__main__':
     #     # TODO - plotting for the RL trace doesn't work...
     #     plot(sim_rl, rl=True)
     # print('DONE')
+        
+# %%

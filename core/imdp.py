@@ -1,285 +1,404 @@
 import logging
 
 import numpy as np
-import stormpy
 from tqdm import tqdm
+from copy import copy, deepcopy
+import jax
+import jax.numpy as jnp
+import time
+import argparse
+from typing import Optional, Tuple
+from jaxtyping import Array, UInt8, Bool, Float32, PyTree
 
-
-class BuilderStorm:
+class IMDP:
     """
-    Class to construct the IMDP abstraction and compute an optimal Markov policy using Storm.
+    Class to construct the IMDP abstraction.
     """
 
-    def __init__(self, partition, actions, states, x0, goal_regions, critical_regions, P_full, P_id, P_absorbing):
+    def __init__(self, partition, states, actions_inputs, x0, goal_regions, critical_regions, P_full, S_id, A_id, P_absorbing):
         '''
         Generate the IMDP abstraction
 
         :param partition:
-        :param actions:
+        :param actions_inputs:
         :param states:
         :param x0:
         :param goal_regions:
         :param critical_regions:
         :param P_full:
-        :param P_id:
+        :param S_id:
+        :param A_id:
         :param P_absorbing:
         '''
+        self.actions_inputs = actions_inputs
+        self.states = states
 
-        self.builder = stormpy.IntervalSparseMatrixBuilder(rows=0, columns=0, entries=0, force_dimensions=False,
-                                                           has_custom_row_grouping=True, row_groups=0)
+        self.goal_regions = goal_regions
+        self.critical_regions = critical_regions
+        self.P_full = P_full
+        self.S_id = S_id
+        self.A_id = A_id
+        self.P_absorbing = P_absorbing
 
-        # Set some constants
-        self.absorbing_state = np.max(states) + 1
+        # Define initial state
+        self.s_init = partition.x2state(x0)[0]
 
-        # Predefine the pycarl intervals
-        self.intervals_raw = {}
-        self.intervals_raw[(1, 1)] = stormpy.pycarl.Interval(1, 1)
+        # Define absorbing state
+        self.absorbing_state = np.max(self.states) + 1
 
-        # Reshape all probability intervals
-        print('- Generate pycarl intervals...')
-        P_full_flat = np.concatenate([np.concatenate(Ps) for Ps in P_full if len(Ps) > 0])
-        P_absorbing_flat = np.concatenate([Ps for Ps in P_absorbing if len(Ps) > 0])
+        # Number of states
+        self.nr_states = len(self.states) + 1
 
-        print('-- Probability intervals reshaped')
-
-        P_stacked = np.vstack((P_full_flat, P_absorbing_flat))
-
-        P_unique = np.unique(P_stacked, axis=0)
-
-        # Experimental: Determining the unique elements is much faster with Pandas, but sometimes leads to rounding errors.
-        # P_unique = np.round(np.sort(pd.DataFrame(P_stacked).drop_duplicates(), axis=0), args.decimals)
-        # assert np.all(P_unique2 == P_unique)
-
-        print('-- Unique probability intervals determined')
-
-        # Enumerate only over unique probability intervals
-        for P in tqdm(P_unique):
-            self.intervals_raw[tuple(P)] = stormpy.pycarl.Interval(P[0], P[1])
-
-        self.intervals_state = {}
-        self.intervals_absorbing = {}
-
-        print('-- Pycarl intervals created')
-
-        print('\n- Store intervals for individual transitions...')
-        for s in tqdm(states):
-            self.intervals_state[s] = {}
-            self.intervals_absorbing[s] = {}
-            for i, a in enumerate(P_id[s].keys()):
-                self.intervals_state[s][a] = {}
-
-                # Add intervals for each successor state
-                for s_next, prob in zip(P_id[s][a], P_full[s][i]):
-                    self.intervals_state[s][a][s_next] = self.intervals_raw[tuple(prob)]
-
-                # Add intervals for other states
-                if P_absorbing[s][i][1] > 0:
-                    self.intervals_absorbing[s][a] = self.intervals_raw[tuple(P_absorbing[s][i])]
-
-        row = 0
-        states_created = 0
-
-        # Total number of choices = sum of choices in all states (always >=1), and always a single choice in a goal/critical state.
-        # Add one for the absorbing state.
-        total_choices = np.sum([max(1, len(p.keys())) if s not in goal_regions and s not in critical_regions else 1 for s, p in P_id.items()]) + 1
-        choice_labeling = stormpy.storage.ChoiceLabeling(total_choices)
-        choice_labels = {str(i) for i in range(-1, len(actions.inputs))}
-        for label in choice_labels:
-            choice_labeling.add_label(label)
-
-        s0 = partition.x2state(x0)[0]
+def RVI(imdp, s0=None, max_iterations=1000, epsilon=1e-6):
+    """
+    Robust value iteration for interval MDPs.
+    
+    :param imdp: Instance of IMDP class
+    :param max_iterations: Maximum number of iterations
+    :param epsilon: Convergence threshold
+    :return: Tuple of (lower_bounds, upper_bounds) for all states
+    """
+    n_states = imdp.nr_states
+    V = np.zeros(n_states)
+    
+    # Mark goal and absorbing states
+    for s in imdp.goal_regions:
+        V[s] = 1
+    
+    pbar = tqdm(range(max_iterations), desc='Iteration')
+    for iteration in pbar:
+        postfix_dict = {}
+        if s0 is not None:
+            postfix_dict[f'v[{s0}]'] = f'{V[s0]:.6f}'
+        pbar.set_postfix(postfix_dict)
         
-        # For all states
-        print('\n- Build iMDP...')
-        for s in tqdm(states):
+        V_old = V.copy()
+        for s in imdp.states:
+            if s in imdp.goal_regions or s in imdp.critical_regions or s == imdp.absorbing_state:
+                continue
+            
+            if len(imdp.A_id[s]) == 0:
+                V[s] = 0
+                continue
+            
+            lower_vals = []
 
-            # if s == s0:
-                # print(f'- Current state is initial state (s={s})')
+            for a_idx, (_, successors) in enumerate(imdp.A_id[s].items()):
+                # Add absorbing state as successor
+                successors_plus_abs = np.append(successors, imdp.absorbing_state)
+                probabilities_plus_abs = np.vstack((imdp.P_full[s][a_idx], imdp.P_absorbing[s][a_idx]))
+                prob_lb = probabilities_plus_abs[:, 0]
+                prob_ub = probabilities_plus_abs[:, 1]
 
-            # For each state, create a new row group
-            self.builder.new_row_group(row)
-            states_created += 1
-            enabled_in_s = P_id[s].keys()
+                # Retrieve the values for the successor states, including absorbing state
+                successor_values = V[successors_plus_abs]
 
-            # if s == s0:
-            #     print(f'- Number of actions enabled: {len(enabled_in_s)}')
+                # Budget is the total probability mass we can assign to the successors, which is 1 minus the sum 
+                # of the lower bounds of the probability intervals for all successors (including absorbing state).
+                budget = 1 - np.sum(prob_lb)
 
-            # If no actions are enabled at all, add a deterministic transition to the absorbing state
-            if len(enabled_in_s) == 0 or s in critical_regions:
-                choice_labeling.add_label_to_choice(str(-1), row)
-                self.builder.add_next_value(row, self.absorbing_state, self.intervals_raw[(1, 1)])
-                row += 1
+                # Sort the values for these successor states
+                sort = np.argsort(successor_values)
 
-            elif s in goal_regions:
-                choice_labeling.add_label_to_choice(str(-1), row)
-                self.builder.add_next_value(row, s, self.intervals_raw[(1, 1)])
-                row += 1
+                lower_val = 0
 
-            else:
-                # For every enabled action
-                for a in enabled_in_s:
-                    choice_labeling.add_label_to_choice(str(a), row)
+                for pos in sort:
+                    # The extra probability mass we can assign to this successor is the difference between the 
+                    # upper and lower bound of the probability interval, but we cannot exceed the remaining budget.
+                    extra_prob = min(prob_ub[pos] - prob_lb[pos], budget)
+                    prob = prob_lb[pos] + extra_prob
+                    lower_val += prob * successor_values[pos]
 
-                    # if s == s0:
-                    #     print(f'-- Actions {a}: ',self.intervals_state[s][a])
+                    # Decrease budget
+                    budget -= extra_prob
 
-                    for s_next, intv in self.intervals_state[s][a].items():
-                        self.builder.add_next_value(row, s_next, intv)
+                lower_vals.append(lower_val)
+                
+            
+            V[s] = max(lower_vals) if lower_vals else 0
+        
+        # Check convergence
+        if np.max(np.abs(V - V_old)) < epsilon:
+            print(f'Converged after {iteration + 1} iterations')
+            break
+    
+    return V
 
-                    # Add transitions to absorbing state
-                    if a in self.intervals_absorbing[s]:
-                        self.builder.add_next_value(row, self.absorbing_state, self.intervals_absorbing[s][a])
+def RVI_JAX(
+    args: argparse.Namespace, 
+    imdp: IMDP, 
+    s0: Optional[int] = None, 
+    max_iterations: int = 1000, 
+    epsilon: float = 1e-6, 
+    RND_SWEEPS: bool = False, 
+    BATCH_SIZE: int = 2000, 
+    policy_iteration: bool = False,
+    return_Q_values: bool = False
+) -> Tuple[Float32[Array, "nr_states"], Bool, UInt8[Array, "nr_states"], Float32[Array, "nr_states p"]]:
 
-                    row += 1
+    """
+    Robust value iteration for interval MDPs.
+    
+    :param args: Argument namespace
+    :param imdp: Instance of IMDP class
+    :param s0: Initial state for tracking
+    :param max_iterations: Maximum number of iterations
+    :param epsilon: Convergence threshold
+    :param RND_SWEEPS: Whether to use random state sweeps
+    :param BATCH_SIZE: Batch size for state updates
+    :param policy_iteration: Whether to use policy iteration instead of value iteration
+    :param return_Q_values: Whether to return Q-values for all state-action pairs
+    :return: Tuple of (values, Q-values, policy_labels, policy_inputs)
+    """
 
-        for s in [self.absorbing_state]:
-            self.builder.new_row_group(row)
-            self.builder.add_next_value(row, s, self.intervals_raw[(1, 1)])
-            choice_labeling.add_label_to_choice(str(-1), row)
-            row += 1
-            states_created += 1
+    iterations_phase1 = 100
 
-        self.nr_states = states_created
+    #####
 
-        matrix = self.builder.build()
-        logging.debug(matrix)
+    def compute_lower_val(
+        prob_lb: Float32[Array, "nr_successors"], 
+        prob_ub: Float32[Array, "nr_successors"], 
+        successor_values: Float32[Array, "nr_successors"]
+    ) -> Float32:
 
-        # Create state labeling
-        state_labeling = stormpy.storage.StateLabeling(self.nr_states)
+        """
+        Compute the robust value for a given action based on the probability intervals and successor values.
 
-        # Define initial states
-        state_labeling.add_label('init')
-        s_init, _ = partition.x2state(x0)
-        state_labeling.add_label_to_state('init', s_init)
+        :param prob_lb: Lower bounds of transition probabilities for the successor states
+        :param prob_ub: Upper bounds of transition probabilities for the successor states
+        :param successor_values: Values of the successor states
+        :return: The robust value for the action
+        """
+        
+        # Budget is the total probability mass we can assign to the successors
+        budget = 1.0 - jnp.sum(prob_lb)
+        
+        # Sort the values for these successor states
+        sort = jnp.argsort(successor_values)
+        sorted_lb = prob_lb[sort]
+        sorted_ub = prob_ub[sort]
+        
+        # Vectorized computation of extra probabilities
+        extra_probs = jnp.minimum(sorted_ub - sorted_lb, budget)
+        cumsum = jnp.cumsum(extra_probs)
+        extra_probs = jnp.minimum(extra_probs, jnp.maximum(0.0, budget - cumsum + extra_probs))
+        
+        probs = sorted_lb + extra_probs
+        lower_val = probs @ successor_values[sort]
+        
+        return lower_val
 
-        # Add absorbing (unsafe) states
-        state_labeling.add_label('absorbing')
-        state_labeling.add_label_to_state('absorbing', self.absorbing_state)
+    vmap_compute_lower_val = jax.jit(jax.vmap(compute_lower_val, in_axes=(0, 0, 0), out_axes=0))
 
-        # Add critical (unsafe) states
-        state_labeling.add_label('critical')
-        for s in critical_regions:
-            state_labeling.add_label_to_state('critical', s)
+    def state_policy_improvement(
+        successors_slice: UInt8[Array, "nr_actions nr_successors"],
+        prob_lb_slice: Float32[Array, "nr_actions nr_successors"],
+        prob_ub_slice: Float32[Array, "nr_actions nr_successors"],
+        V: Float32[Array, "nr_states"]
+    ) -> Tuple[Float32, UInt8]:
 
-        # Add goal states
-        state_labeling.add_label('goal')
-        for s in goal_regions:
-            state_labeling.add_label_to_state('goal', s)
+        """
+        Perform policy improvement for a given state by computing the robust values for all actions.
 
-        components = stormpy.SparseIntervalModelComponents(transition_matrix=matrix, state_labeling=state_labeling)
-        components.choice_labeling = choice_labeling
-        self.imdp = stormpy.storage.SparseIntervalMdp(components)
+        :param successors_slice: Slice of successor states for all actions
+        :param prob_lb_slice: Slice of lower bounds of transition probabilities for all actions
+        :param prob_ub_slice: Slice of upper bounds of transition probabilities for all actions
+        :param V: Current value function
+        :return: Tuple of (maximum robust value, index of the action with maximum robust value)
+        """
 
-    def compute_reach_avoid(self, maximizing=True):
-        '''
-        Compute a Markov policy that maximizes the probability of satisfying the reach-avoid property
+        # Retrieve the values for the successor states, including absorbing state
+        successor_values = V[successors_slice]
 
-        :param maximizing: If True, maximise the reachability; Otherwise, minimise.
-        '''
+        # Compute lower value for all actions in parallel using JAX vectorization
+        lower_vals = vmap_compute_lower_val(prob_lb_slice, prob_ub_slice, successor_values)
 
-        prop = stormpy.parse_properties('P{}=? [F "goal"]'.format('max' if maximizing else 'min'))[0]
-        env = stormpy.Environment()
-        env.solver_environment.minmax_solver_environment.method = stormpy.MinMaxMethod.value_iteration
+        return jnp.max(lower_vals), jnp.argmax(lower_vals)
 
-        # Compute reach-avoid probability
-        task = stormpy.CheckTask(prop.raw_formula, only_initial_states=False)
-        task.set_produce_schedulers()
-        task.set_robust_uncertainty(True)
-        self.result_generator = stormpy.check_interval_mdp(self.imdp, task, env)
-        self.results = np.array(self.result_generator.get_values())[:self.nr_states]
+    vmap_state_policy_improvement = jax.jit(jax.vmap(state_policy_improvement, in_axes=(0, 0, 0, None), out_axes=(0, 0)))
 
-        return
+    def state_policy_evaluation(
+        successors_slice: UInt8[Array, "nr_actions nr_successors"],
+        prob_lb_slice: Float32[Array, "nr_actions nr_successors"],
+        prob_ub_slice: Float32[Array, "nr_actions nr_successors"],
+        V: Float32[Array, "nr_states"]
+    ) -> Float32:
 
-    def get_policy(self, actions):
-        '''
-        Extract optimal policy from the IMDP object
+        """
+        Perform policy evaluation for a given state by computing the robust value for the action specified by the current policy.
 
-        :param actions: Object with Action info.
-        '''
+        :param successors_slice: Slice of successor states for the action specified by the current policy
+        :param prob_lb_slice: Slice of lower bounds of transition probabilities for the action specified by the current policy
+        :param prob_ub_slice: Slice of upper bounds of transition probabilities for the action specified by the current policy
+        :param V: Current value function
+        :return: The robust value for the action specified by the current policy
+        """
 
-        assert self.result_generator.has_scheduler
-        scheduler = self.result_generator.scheduler
-        policy = np.zeros(self.nr_states, dtype=int)
-        policy_inputs = np.zeros((self.nr_states, actions.inputs.shape[1]), dtype=float)
-        for state in self.imdp.states:
-            choice = scheduler.get_choice(state)
-            action_index = choice.get_deterministic_choice()
-            action = state.actions[action_index]
+        # Retrieve the values for the successor states, including absorbing state
+        successor_values = V[successors_slice]
 
-            action_label = int(list(action.labels)[0])
-            policy[int(state)] = action_label
-            policy_inputs[int(state)] = actions.inputs[action_label]
+        # Compute lower value for the action specified by the current policy
+        lower_val = compute_lower_val(prob_lb_slice, prob_ub_slice, successor_values)
 
-        return policy, policy_inputs
+        return lower_val
 
-    def get_label(self, s):
-        '''
-        Get label for given state.
+    vmap_state_policy_evaluation = jax.jit(jax.vmap(state_policy_evaluation, in_axes=(0, 0, 0, None), out_axes=(0)))
 
-        :param s: State to get label for.
-        :return: Label.
-        '''
+    #####
+    # Padding the probability intervals and successor values for JAX vectorization
+    total_actions = np.array([len(imdp.A_id[s]) for s in imdp.states if s in imdp.A_id])
+    max_actions = np.max(total_actions) if len(total_actions) > 0 else 0
+    max_successors = max([imdp.S_id[s].shape[1] + 1 for s in imdp.states if s in imdp.S_id]) # +1 for absorbing state
 
-        label = ''
-        if 'goal' in self.imdp.states[s].labels:
-            label += 'goal,'
-        elif 'absorbing' in self.imdp.states[s].labels:
-            label += 'absorbing,'
-        elif 'critical' in self.imdp.states[s].labels:
-            label += 'critical,'
+    print(f'- Number of states: {len(imdp.states)}')
+    print(f'- Total number of choices: {np.sum(total_actions)} (total number of state-action pairs)')
+    print(f'- Max number of actions per state: {max_actions}')
+    print(f'- Max number of successor states per action: {max_successors}')
 
-        return label
+    # Filling the following arrays is faster with NumPy
+    JAX_successors_array = np.full((len(imdp.states), max_actions, max_successors), -1, dtype=np.int32)
+    JAX_prob_lb_array = np.zeros((len(imdp.states), max_actions, max_successors), dtype=args.floatprecision)
+    JAX_prob_ub_array = np.zeros((len(imdp.states), max_actions, max_successors), dtype=args.floatprecision)
 
-    def print_transitions(self, state, action, actions, partition):
-        '''
-        Print the transitions for the given state.
+    for s in imdp.states:
+        if s not in imdp.A_id:
+            continue
+        # Fill in the dense array
+        successors = imdp.S_id[s]
+        num_actions, num_successors = successors.shape
+        JAX_successors_array[s, :num_actions, :num_successors] = successors
+        JAX_prob_lb_array[s, :num_actions, :num_successors] = imdp.P_full[s][:, :, 0]
+        JAX_prob_ub_array[s, :num_actions, :num_successors] = imdp.P_full[s][:, :, 1]
+        # Add the absorbing state as a successor in the final column (max_successors-1) for all actions
+        JAX_successors_array[s, :num_actions, max_successors-1] = imdp.absorbing_state
+        JAX_prob_lb_array[s, :num_actions, max_successors-1] = imdp.P_absorbing[s][:, 0]
+        JAX_prob_ub_array[s, :num_actions, max_successors-1] = imdp.P_absorbing[s][:, 1]
 
-        :param state: State to print transitions for.
-        :param action: Action to print transitions for.
-        :param actions: Object with action info.
-        :param partition: Object with partition info.
-        '''
+    print(f'- Padding and array construction done')
 
-        if type(state) in [list, tuple]:
-            state = int(partition.region_idx_array[tuple(state)])
+    #####
 
-        print('\n----------')
+    print('- Set states to update...')
+    states_with_enabled_actions = np.array([True if s in imdp.A_id and len(imdp.A_id[s]) > 0 else False for s in imdp.states])
+    update_mask = ~imdp.goal_regions & ~imdp.critical_regions & (imdp.states != imdp.absorbing_state) & states_with_enabled_actions
+    states_to_update = imdp.states[update_mask]
+    states_not_to_update = imdp.states[~update_mask]
+    
+    # Initialize value function and policy
+    V = np.zeros(imdp.nr_states, dtype=args.floatprecision)
+    if len(imdp.goal_regions) > 0:
+        V[:-1][imdp.goal_regions] = 1.0 # [:-1] to exclude the absorbing state
 
-        print('From state {} at position {} (label: {}), with action {} with inputs {}:'.format(state, partition.region_idx_inv[state], self.get_label(state), action,
-                                                                                                actions.inputs[action]))
-        print(' - Optimal value: {}'.format(self.results[state]))
-        print(' ---')
-        print(' - State lower bound: {}'.format(partition.regions['lower_bounds'][state]))
-        print(' - State upper bound: {}'.format(partition.regions['upper_bounds'][state]))
-        print(' ---')
-        print(' - Action FRS lower bound: {}'.format(actions.frs[state]['lb'][action]))
-        print(' - Action FRS upper bound: {}'.format(actions.frs[state]['ub'][action]))
-        print(' ---')
+    policy = np.zeros(imdp.nr_states, dtype=np.int32)
+    policy[states_not_to_update] = -1  # Mark states that we do not update with a special action index (e.g., -1)
+    
+    pbar = tqdm(range(max_iterations), desc='Iteration')
 
-        try:
-            SA = self.imdp.states[state].actions[action]
+    if RND_SWEEPS:
+        # Shuffle and batch states_to_update
+        states_to_update = np.random.permutation(states_to_update)
+        state_batches = [states_to_update[i:i + BATCH_SIZE] for i in range(0, len(states_to_update), BATCH_SIZE)]
+    else:
+        state_batches = [states_to_update]
 
-            for transition in SA.transitions:
-                s_prime = transition.column
-                if s_prime < len(partition.region_idx_inv):
-                    idx = partition.region_idx_inv[s_prime]
+    JAX_successors_array = jax.device_put(JAX_successors_array, args.rvi_device)
+    JAX_prob_lb_array = jax.device_put(JAX_prob_lb_array, args.rvi_device)
+    JAX_prob_ub_array = jax.device_put(JAX_prob_ub_array, args.rvi_device)
+
+    if not policy_iteration:
+        # Value iteration
+        for iteration in pbar:
+            postfix_dict = {}
+            if s0 is not None:
+                postfix_dict[f'v[{s0}]'] = f'{V[s0]:.6f}'
+            pbar.set_postfix(postfix_dict)
+            
+            V_old = V.copy()
+                
+            # Policy evaluation + improvement
+            for state_batch in state_batches:
+                V_batch, policy_batch = vmap_state_policy_improvement(
+                                            JAX_successors_array[state_batch], 
+                                            JAX_prob_lb_array[state_batch], 
+                                            JAX_prob_ub_array[state_batch], 
+                                            V)
+                V[state_batch] = np.array(V_batch, dtype=args.floatprecision)
+                policy[state_batch] = np.array(policy_batch, dtype=np.int32)
+            
+            # Check convergence
+            if np.max(np.abs(V - V_old)) < epsilon:
+                print(f'Converged after {iteration + 1} iterations')
+                break
+
+    else:
+        bool = False
+
+        # Policy iteration
+        for iteration in pbar:
+            postfix_dict = {}
+            if s0 is not None:
+                postfix_dict[f'v[{s0}]'] = f'{V[s0]:.6f}'
+            pbar.set_postfix(postfix_dict)
+
+            # Policy evaluation
+            i = 0
+            t = time.time()
+            while True: # TODO: Remove this hardcoding
+                # print(f'- Policy evaluation iteration {i + 1}...')
+                V_old = V.copy()
+                
+                # Policy evaluation only
+                for state_batch in state_batches:
+                    V[state_batch] = vmap_state_policy_evaluation(
+                                                JAX_successors_array[state_batch, policy[state_batch]], 
+                                                JAX_prob_lb_array[state_batch, policy[state_batch]], 
+                                                JAX_prob_ub_array[state_batch, policy[state_batch]], 
+                                                V)
+                
+                if np.max(np.abs(V - V_old)) < epsilon or (bool is False and i > iterations_phase1):
+                    break
+
+                i += 1
+            # print(f'- Policy evaluation took: {time.time() - t:.3f} sec')
+
+            # Policy evaluation + improvement
+            t = time.time()
+            policy_old = policy.copy()
+
+            for state_batch in state_batches:
+                V[state_batch], policy[state_batch] = vmap_state_policy_improvement(
+                                            JAX_successors_array[state_batch], 
+                                            JAX_prob_lb_array[state_batch], 
+                                            JAX_prob_ub_array[state_batch], 
+                                            V)
+                
+            # print(f'- Policy improvement took: {time.time() - t:.3f} sec')
+            
+            # Check convergence
+            if np.all(policy == policy_old):
+                if bool:
+                    print(f'Converged after {iteration + 1} iterations')
+                    break
                 else:
-                    idx = '<out-partition>'
-                print(" --- With probability {}, go to state {} at position {} (label: {})".format(transition.value(), s_prime, idx, self.get_label(s_prime)))
+                    print(f'Partial convergence after {iteration + 1} iterations. Decrease epsilon to refine values...')
+                    bool = True
 
-        except:
-            print(' - Error: This action does not exist in this state')
+    # Extract policy inputs from policy
+    policy_labels = np.full_like(policy, fill_value=-1)
+    for s in imdp.states:
+        policy_labels[s] = imdp.A_id[s][int(policy[s])] if policy[s] != -1 and s in imdp.A_id else -1
 
-        print('----------')
+    policy_inputs = imdp.actions_inputs[policy_labels]
 
-    def get_value_from_tuple(self, x, partition):
-        '''
-        Get the reach-avoid probability for a given state
+    # Extract Q-values
+    Q = {}
+    # if return_Q_values:
+    #     for s in states_to_update:
+    #         Q[s] = {}
+    #         for a_idx, (a_label, successors) in enumerate(P_id_plusAbs[s].items()):
+    #             prob_lb = P_full_plusAbs[s][a_idx][:, 0]
+    #             prob_ub = P_full_plusAbs[s][a_idx][:, 1]
+    #             successor_values = V[successors]
+    #             Q[s][a_label] = compute_lower_val(prob_lb, prob_ub, successor_values)
 
-        :param x: State to return reach-avoid probability for.
-        :param partition: Object with partition info.
-        :return: Value in the given state.
-        '''
-
-        s = partition.x2state(x)
-        return self.results[s]
+    return V, Q, policy_labels, policy_inputs
