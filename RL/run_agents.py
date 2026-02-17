@@ -42,9 +42,10 @@ class Agents():
 			agent = SAC(
 				"MlpPolicy",
 				env,
-				verbose=0,
+				verbose=1,
 				ent_coef="auto_0.5",           # TODO - should play with this: disable entropy otherwise the agent collapses on smaller actions where possible. Great if we want minimization, poor if we want maximisation
 				target_entropy="auto",
+				tensorboard_log="./sac_logs/",
 			)
 
 			# train the agent 

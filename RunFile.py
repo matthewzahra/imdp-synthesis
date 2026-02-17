@@ -213,9 +213,9 @@ if __name__ == '__main__':
         '''
 
         reward_evals = dict()
-        reward_evals['minimise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,-1])) # use 0 to not tax the angle in the input
-        reward_evals['maximise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,1])) # use 0 to not tax the angle in the input
-        reward_evals['get_close_bottom_right'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([-10,-10]), region_upper=np.array([-10,-10]), dims=[0,1])
+        # reward_evals['minimise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,-1])) # use 0 to not tax the angle in the input
+        # reward_evals['maximise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,1])) # use 0 to not tax the angle in the input
+        reward_evals['get_close_bottom_right'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([10,-10]), region_upper=np.array([-10,-10]), dims=[0,1])
 
         # add an extra critical region that the formal verification is unaware of
         # if args.model == 'Dubins_small':
@@ -244,7 +244,7 @@ if __name__ == '__main__':
                 n_envs=1
             )
         
-        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 100)
+        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 25_000)
 
         # train all the agents
         agents.train_agents()
