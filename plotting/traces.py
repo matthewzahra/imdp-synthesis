@@ -14,7 +14,7 @@ mpl.rcParams['pdf.fonttype'] = 42
 mpl.rcParams['ps.fonttype'] = 42
 
 
-def plot_traces(args, stamp, idx_show, partition, model, traces, line=True, num_traces=10, add_unsafe_box=True, filename="traces"):
+def plot_traces(args, stamp, idx_show, partition, model, traces, line=True, num_traces=10, add_unsafe_box=True, filename="traces", show_plot=True):
     fig, ax = plt.subplots(figsize=cm2inch(6.1, 5), dpi=300)
 
     font = {'size': 10}
@@ -125,4 +125,5 @@ def plot_traces(args, stamp, idx_show, partition, model, traces, line=True, num_
     plt.savefig(f'output/{filename}_{stamp}.pdf', format='pdf', bbox_inches='tight')
     plt.savefig(f'output/{filename}_{stamp}.png', format='png', bbox_inches='tight')
 
-    plt.show()
+    if show_plot:
+        plt.show()

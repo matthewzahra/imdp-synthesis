@@ -2,7 +2,6 @@ import numpy as np
 from tqdm import tqdm
 from typing import Optional
 from RL.Evaluate_Secondary import EvaluateSecondary
-from RL.helper_functions import project_action
 
 
 class MonteCarloSim():
@@ -10,7 +9,7 @@ class MonteCarloSim():
     Class to run Monte Carlo simulations on the discrete-time stochastic system closed under a fixed Markov policy.
     '''
 
-    def __init__(self, model, partition, policy, policy_inputs, x0, iterations=100, sim_horizon=1000, random_initial_state=False, verbose=True, evaluate_secondary: Optional[EvaluateSecondary] = None, agent = None, derive_set = None, vecnorm = None, **kwargs):
+    def __init__(self, model, partition, policy, policy_inputs, x0, project_action, iterations=100, sim_horizon=1000, random_initial_state=False, verbose=True, evaluate_secondary: Optional[EvaluateSecondary] = None, agent = None, derive_set = None, vecnorm = None, **kwargs):
 
         print('\nStarting Monte Carlo simulations...')
 
@@ -24,6 +23,7 @@ class MonteCarloSim():
         self.horizon = sim_horizon
         self.iterations = iterations
         self.random_initial_state = random_initial_state
+        self.project_action = project_action
 
         self.evaluate_secondary = evaluate_secondary
 
@@ -117,7 +117,7 @@ class MonteCarloSim():
 
                 if self.verbose:
                     print(f'- Absorbing state reached at k = {k} (x = {x[k]}), so abort')
-                return trace, success, current_secondary_score
+                return trace, success, current_secondary_score / k+1
 
             # If current region is the goal state ...
             if s[k] in self.partition.goal['idxs']:
@@ -125,18 +125,18 @@ class MonteCarloSim():
                 success = True
                 if self.verbose:
                     print(f'- Goal state reached (x = {x[k]})')
-                return trace, success, current_secondary_score
+                return trace, success, current_secondary_score / k+1
 
             # If current region is in critical states...
             elif s[k] in self.partition.critical['idxs']:
                 # Then abort current iteration
                 if self.verbose:
                     print('- Critical state reached, so abort')
-                return trace, success, current_secondary_score
+                return trace, success, current_secondary_score / k+1
 
             # Check if we can still perform another action within the horizon
             elif k >= self.horizon:
-                return trace, success, current_secondary_score
+                return trace, success, current_secondary_score / k+1
 
             # Retreive the action from the policy
             if len(self.policy.shape) == 1:
@@ -158,7 +158,7 @@ class MonteCarloSim():
 
                     # project the action
                     action_set_lower_bounds, action_set_upper_bounds = self.derive_set(policy_action)
-                    projected_action = project_action(proposed_action,action_set_lower_bounds,action_set_upper_bounds)
+                    projected_action = self.project_action(proposed_action,action_set_lower_bounds,action_set_upper_bounds)
 
                     # save the action so that it can be executed later
                     u[k] = projected_action
@@ -196,4 +196,4 @@ class MonteCarloSim():
 
         ######
 
-        return trace, success, current_secondary_score
+        return trace, success, current_secondary_score / k

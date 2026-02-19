@@ -136,6 +136,9 @@ class Env(gym.Env):
 		# progress the state using the model's dynamics 
 		# NOTE: need to remove the action space from the RL state in order to get the concrete state
 		new_concrete_state = self.model.step(self.state[:-self.action_dim],projected_action,noise)
+		new_base_state = self.model.step(self.state[:-self.action_dim],policy_action,noise)
+
+		old_state = self.state[:-self.action_dim]
 		self.state = np.concatenate([new_concrete_state,self.policy_inputs[self.partition.x2state(new_concrete_state)[0]]])
 
 		# find what abstract state we are in 
@@ -152,7 +155,7 @@ class Env(gym.Env):
 			if abstract_state in self.partition.goal['idxs']:
 				self.goal_count += 1
 				terminated = True 
-			reward = self.reward_structure.getReward(state=new_concrete_state, action=projected_action)
+			reward = self.reward_structure.getReward(old_state=old_state, new_base_state=new_base_state, new_rl_state=new_concrete_state, policy_action=policy_action, rl_action=projected_action)
 
 
 		return self.state, reward, np.array(terminated, dtype=bool), np.array(truncated, dtype=bool), info

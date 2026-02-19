@@ -37,6 +37,7 @@ from RL.generate_action_sets import L_infinity
 import RL.Reward_Evaluate
 from RL.run_agents import Agents
 from core.imdp import IMDP
+import RL.Evaluate_Secondary
 
 # Uncomment one of the following lines to run an example benchmark.
 # If it seems to be 'stuck' when computing the transition probabilities, consider decreasing the batch size (e.g., to 1000).
@@ -134,7 +135,7 @@ if __name__ == '__main__':
         # TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
         # NOTE - if the radii are too large then we get really poor satisfaction probability 
         action_dim = model.p
-        radii = np.full(action_dim, 0.1) # if large can also make the process really slow 
+        radii = np.full(action_dim, 0) # if large can also make the process really slow 
         actions = RectangularForward(args=args, partition=partition, model=model, action_sets=reinforcement_learning, radii=radii)     
         actions_inputs = actions.id_to_input   
     else:
@@ -185,27 +186,6 @@ if __name__ == '__main__':
             policy_iteration=True)
         print (f'- RVI with JAX (random-batched asynchronous) took: {(time.time() - t):.3f} sec.')
 
-    # %% Build interval MDP via Storm
-
-    # TODO: Make the new data structures again compatible with Storm.
-
-    # from core.storm import BuilderStorm
-
-    # print('Compute optimal policy via robust value iteration with Storm')
-
-    # print('\n- Create iMDP using storm...')
-    # t = time.time()
-    # builderS = BuilderStorm(imdp)
-
-    # print(builderS.imdp)
-
-    # result = builderS.compute_reach_avoid()
-    # V_storm = builderS.results
-    # policy_storm, policy_inputs_storm = builderS.get_policy(actions_inputs)
-    # print(f'- Build and verify with storm took: {(time.time() - t):.3f} sec.')
-    # print('Total sum of reach probs:', np.sum(builderS.results))
-    # print('Value in state {}: {}'.format(model.x0, builderS.get_value_from_tuple(model.x0, partition)))
-
     # %% Training of the Reinforcement Learning Agent
     if reinforcement_learning:
         '''
@@ -215,12 +195,12 @@ if __name__ == '__main__':
         reward_evals = dict()
         # reward_evals['minimise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,-1])) # use 0 to not tax the angle in the input
         # reward_evals['maximise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,1])) # use 0 to not tax the angle in the input
-        reward_evals['get_close_bottom_right'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([10,-10]), region_upper=np.array([-10,-10]), dims=[0,1])
-
-        # add an extra critical region that the formal verification is unaware of
-        # if args.model == 'Dubins_small':
-        #     model.critical = np.append(model.critical, [[[5,0.5,-np.pi],[8,1,np.pi]]], axis=0)
-        #     partition = RectangularPartition(model=model)
+        # reward_evals['get_close_bottom_right'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([10,-10]), region_upper=np.array([10,-10]), dims=[0,1])
+        # reward_evals['get_close_vertical_critical'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
+        reward_evals['get_closer_than_base_to_bottom_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,-10]), region_upper=np.array([10,-10]), dims=[0,1])
+        # reward_evals['get_closer_than_base_to_top_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
+        # reward_evals['get_closer_than_base_to_bottom_left'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-10,-10]), region_upper=np.array([-10,-10]), dims=[0,1])
+        # reward_evals['get_closer_than_base_to_vertical_critical'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
 
         derive_set = lambda centre: L_infinity(centre,radii,model.uMin,model.uMax)
 
@@ -244,7 +224,7 @@ if __name__ == '__main__':
                 n_envs=1
             )
         
-        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 25_000)
+        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 1_000)
 
         # train all the agents
         agents.train_agents()
@@ -257,8 +237,8 @@ if __name__ == '__main__':
     sim_values = V
 
     from core.simulate import MonteCarloSim
-    from plotting.traces import plot_traces
-    from plotting.heatmap import heatmap
+    from RL.helper_functions import run_simulations, plot
+
 
     # NOTE: currently set up for the Mountain Car
     # scaling = np.array([100])
@@ -270,47 +250,24 @@ if __name__ == '__main__':
     if reinforcement_learning:
         agent_envs = agents.get_agents_envs_evals()
 
-        # TODO - maybe we want to run the sims without the RL agent on the policy that was synthesised without spheres as this is the status quo? 
-        for (s,agent,vecnorm,evaluation) in agent_envs:
-            print(f'Doing simulation for {s}')
-            # run sims without RL agent
-            sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation)
-            print(f'Average Secondary Score: {sim.results["secondary_score"]}')
-            print('Empirical satisfaction probability:', sim.results['satprob'])
-
-            # run sims with RL agent
-            sim_rl = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=100, evaluate_secondary=evaluation, agent=agent, derive_set=derive_set, vecnorm=vecnorm)
-            print(f"Average Secondary Score with RL agent: {sim_rl.results['secondary_score']}")
-            print(f"Empirical satisfaciton probability with RL agent: {sim_rl.results['satprob']}")
+        run_simulations(
+            agent_envs=agent_envs,
+            model=model,
+            args=args,
+            stamp=stamp,
+            partition=partition,
+            policy=policy,
+            policy_inputs=policy_inputs,
+            sim_values=sim_values,
+            derive_set=derive_set
+        )
 
     else:
         sim = MonteCarloSim(model, partition, sim_policy, sim_policy_inputs, model.x0, verbose=False, iterations=1000)
         print('Empirical satisfaction probability:', sim.results['satprob'])
+        plot(sim,model,args,stamp,partition,sim_values,sim_policy_inputs)
 
     # %% Plot
-    def plot(sim, rl=False):
-        plot_traces(args, stamp, model.plot_dimensions, partition, model, sim.results['traces'], line=False, num_traces=10, add_unsafe_box=False,)
-        if rl:
-            heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=builderS.results, filename="rl_heatmap_satprob")
-        else:
-            heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=builderS.results, filename="heatmap_satprob")
-        if model.p >  1:
-            if rl:
-                heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=policy_inputs[:,0], filename="rl_heatmap_inputs")
-            else:
-                heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=policy_inputs[:,0], filename="heatmap_inputs")
-        # TODO - uncomment this - seems broken for now for Mountain Car at least?
-        # else:
-        #     if rl:
-        #         heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=policy_inputs, filename="rl_heatmap_inputs")            
-        #     else:
-        #         heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=policy_inputs, filename="heatmap_inputs")
-
-        if args.model == 'Pendulum':
-            model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/pendulum_{stamp}.gif')
-
-        if args.model == 'MountainCar':
-            model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/mountaincar_{stamp}.gif')
 
     # plot(sim)
     # if reinforcement_learning:

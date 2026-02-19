@@ -19,6 +19,11 @@ class GetCloseToArea(RewardEval):
 		self.reward = RL.Reward.GetCloseToRegion(region_lower,region_upper,dims)
 		self.evaluation = RL.Evaluate_Secondary.DistanceToRegion(region_lower,region_upper,dims)
 
+class GetCloserThanBaseToArea(RewardEval):
+	def __init__(self, region_lower, region_upper, dims = None):
+		self.reward = RL.Reward.GetCloserToRegionThanPolicy(region_lower,region_upper,dims)
+		self.evaluation = RL.Evaluate_Secondary.DistanceToRegion(region_lower,region_upper,dims)
+
 
 class TimeTaken(RewardEval):
 	'''

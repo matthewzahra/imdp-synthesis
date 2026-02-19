@@ -1,6 +1,6 @@
 from RL.Reward_Evaluate import RewardEval
 from stable_baselines3.common.vec_env import VecNormalize
-from stable_baselines3 import SAC
+from stable_baselines3 import SAC, TD3
 
 '''
 frame work to train several agents and then simulate them all
@@ -43,10 +43,24 @@ class Agents():
 				"MlpPolicy",
 				env,
 				verbose=1,
-				ent_coef="auto_0.5",           # TODO - should play with this: disable entropy otherwise the agent collapses on smaller actions where possible. Great if we want minimization, poor if we want maximisation
-				target_entropy="auto",
+				ent_coef="auto",           # TODO - should play with this: disable entropy otherwise the agent collapses on smaller actions where possible. Great if we want minimization, poor if we want maximisation
+				target_entropy="-2",
 				tensorboard_log="./sac_logs/",
 			)
+
+			# agent = TD3(
+			# 	"MlpPolicy",
+			# 	env,
+			# 	learning_rate=1e-3,      # TD3 often uses slightly higher LR
+			# 	buffer_size=1_000_000,
+			# 	batch_size=256,
+			# 	tau=0.005,
+			# 	gamma=0.99,
+			# 	train_freq=1,
+			# 	gradient_steps=1,
+			# 	tensorboard_log="./td3_logs/",
+			# 	verbose=1,
+			# )
 
 			# train the agent 
 			print(f"Training agent for {s}")
@@ -58,7 +72,7 @@ class Agents():
 
 			print("Saving Agent")
 			# save the trained agent
-			agent.save(f'sac_agent_{s}')
+			agent.save(f'sac_agent_{s}_{self.timesteps}')
 
 			print("Saving VecNormalize statistics")
 			env.save(f"vecnormalize_{s}.pkl")
@@ -69,7 +83,7 @@ class Agents():
 		agent_envs = []
 
 		for s,(reward_structure,evaluation) in self.reward_evals.items():
-			agent = SAC.load(f"sac_agent_{s}")
+			agent = SAC.load(f"sac_agent_{s}_{self.timesteps}")
 			dummy_env = self.init_env(reward_structure)
 			vecnorm = VecNormalize.load(f"vecnormalize_{s}.pkl", dummy_env)
 			vecnorm.training = False # don't allow the saved statistics to update

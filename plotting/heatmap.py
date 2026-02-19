@@ -6,7 +6,7 @@ import matplotlib as mpl
 
 from plotting.utils import set_plot_ticks
 
-def heatmap(args, stamp, idx_show, slice_values, partition, results, filename="heatmap"):
+def heatmap(args, stamp, idx_show, slice_values, partition, results, filename="heatmap", show_plot=True):
     '''
     Create heat map for the satisfaction probability from any initial state.
 
@@ -74,4 +74,5 @@ def heatmap(args, stamp, idx_show, slice_values, partition, results, filename="h
     plt.savefig(f'output/{filename}_{stamp}.pdf', format='pdf', bbox_inches='tight')
     plt.savefig(f'output/{filename}_{stamp}.png', format='png', bbox_inches='tight')
 
-    plt.show()
+    if show_plot:
+        plt.show()

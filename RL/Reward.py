@@ -26,9 +26,9 @@ class MinDistanceToGoal(RewardStructure):
 		self.goal_box = goal_box
 		self.scaling = scaling
 
-	def getReward(self,state,action):
+	def getReward(self,old_state, new_base_state, new_rl_state, policy_action, rl_action):
 		box_min, box_max = self.goal_box
-		delta = np.maximum(0, np.maximum(box_min - state, state - box_max))
+		delta = np.maximum(0, np.maximum(box_min - new_rl_state, new_rl_state - box_max))
 		return -1*(np.linalg.norm(delta) * self.scaling) # make negative since we are trying to maximise reward 
 	
 class AbsActionCost(RewardStructure):
@@ -38,11 +38,11 @@ class AbsActionCost(RewardStructure):
 		):
 		self.action_costs = action_costs
 	
-	def getReward(self, state, action):
+	def getReward(self, old_state, new_base_state, new_rl_state, policy_action, rl_action):
 		'''
 		we will make all the values their absolute values in the action
 		'''
-		return np.dot(np.abs(action), self.action_costs) ** 3 # we cube it to avoid saturation at the boundaries - we either want to reward big actions or small ones
+		return np.dot(np.abs(rl_action), self.action_costs) ** 3 # we cube it to avoid saturation at the boundaries - we either want to reward big actions or small ones
 	
 class SmoothMovements(RewardStructure):
 	'''
@@ -55,14 +55,14 @@ class SmoothMovements(RewardStructure):
 		self.action_element_scalings = action_element_scalings
 		self.prev_action = None
 
-	def getReward(self,state,action):
+	def getReward(self,old_state, new_base_state, new_rl_state, policy_action, rl_action):
 		if not self.prev_action:
-			self.prev_action = action
+			self.prev_action = rl_action
 			return 0
 		
 		else:
-			reward = np.dot(self.action_element_scalings, np.abs(action - self.prev_action))
-			self.prev_action = action
+			reward = np.dot(self.action_element_scalings, np.abs(rl_action - self.prev_action))
+			self.prev_action = rl_action
 			return reward
 		
 class OptimiseTimeSteps(RewardStructure):
@@ -72,7 +72,7 @@ class OptimiseTimeSteps(RewardStructure):
 	def __init__(self, time_step_reward=-1):
 		self.time_step_reward = time_step_reward
 
-	def getReward(self, state, action):
+	def getReward(self, old_state, new_base_state, new_rl_state, policy_action, rl_action):
 		return self.time_step_reward
 	
 class GetCloseToRegion(RewardStructure):
@@ -87,14 +87,31 @@ class GetCloseToRegion(RewardStructure):
 		self.target_max = target_max
 		self.dims = dims
 
-	def getReward(self, state, action):
+	def getReward(self, old_state, new_base_state, new_rl_state, policy_action, rl_action):
 		if self.dims: # only use selected dimenions of the state
-			state = state[jnp.array(self.dims)]
+			new_rl_state = new_rl_state[jnp.array(self.dims)]
 
-		closest_point = np.clip(state,self.target_min,self.target_max)
+		closest_point = np.clip(new_rl_state,self.target_min,self.target_max)
 
-		distance = np.linalg.norm(state - closest_point)
+		distance = np.linalg.norm(new_rl_state - closest_point)
 
-		return -1 * (distance ** 3)
+		return -1 * (distance ** 2) / 25
 
-		
+class GetCloserToRegionThanPolicy(RewardStructure):
+	def __init__(self, target_min, target_max, dims: Optional[list[int]] = None):
+		self.target_min = target_min
+		self.target_max = target_max
+		self.dims = dims
+
+	def getReward(self, old_state, new_base_state, new_rl_state, policy_action, rl_action):
+		if self.dims: # only use selected dimenions of the state
+			new_base_state = new_base_state[jnp.array(self.dims)]
+			new_rl_state = new_rl_state[jnp.array(self.dims)]
+
+		closest_point_base = np.clip(new_base_state,self.target_min,self.target_max)
+		closest_point_rl = np.clip(new_rl_state,self.target_min,self.target_max)
+
+		rl_distance = np.linalg.norm(new_rl_state - closest_point_rl)
+		base_distance = np.linalg.norm(new_base_state - closest_point_base)
+
+		return base_distance**2 - rl_distance**2

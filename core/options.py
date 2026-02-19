@@ -48,6 +48,8 @@ def parse_arguments():
     
     parser.add_argument('--rl',action="store_true", default=False,
                         help="Use Reinforcement Learning Agent")
+    
+    # parser.add_argument('--alg', type=str, default='SAC')
 
     # Parse arguments
     args = parser.parse_args()
