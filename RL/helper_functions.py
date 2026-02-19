@@ -22,7 +22,7 @@ def plot(sim, model, args, stamp, partition, sim_values, sim_policy_inputs, file
 		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/mountaincar_{stamp}.gif')
 
 
-def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_inputs, sim_values, derive_set, iterations=100, verbose=False, show_plot=True):
+def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_inputs, sim_values, derive_set, iterations=1000, verbose=False, show_plot=True):
 	'''
 	Docstring for run_simulations
 	

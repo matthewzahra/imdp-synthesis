@@ -138,7 +138,7 @@ if __name__ == '__main__':
         sphere_radius = 0.1
         radii = np.full(action_dim, sphere_radius) # if large can also make the process really slow 
         with open("results.txt", "a") as f:
-            f.write(f"Sphere Radius: {sphere_radius}")
+            f.write(f"Sphere Radius: {sphere_radius}\n")
         actions = RectangularForward(args=args, partition=partition, model=model, action_sets=reinforcement_learning, radii=radii)     
         actions_inputs = actions.id_to_input   
     else:
@@ -227,7 +227,7 @@ if __name__ == '__main__':
                 n_envs=1
             )
         
-        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 1_000)
+        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 200_000)
 
         # train all the agents
         agents.train_agents()
