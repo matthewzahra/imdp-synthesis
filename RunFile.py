@@ -135,7 +135,10 @@ if __name__ == '__main__':
         # TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
         # NOTE - if the radii are too large then we get really poor satisfaction probability 
         action_dim = model.p
-        radii = np.full(action_dim, 0) # if large can also make the process really slow 
+        sphere_radius = 0.1
+        radii = np.full(action_dim, sphere_radius) # if large can also make the process really slow 
+        with open("results.txt", "a") as f:
+            f.write(f"Sphere Radius: {sphere_radius}")
         actions = RectangularForward(args=args, partition=partition, model=model, action_sets=reinforcement_learning, radii=radii)     
         actions_inputs = actions.id_to_input   
     else:
@@ -179,7 +182,7 @@ if __name__ == '__main__':
             args=args, 
             imdp=imdp, 
             s0=partition.x2state(model.x0)[0], 
-            max_iterations=10000, 
+            max_iterations=100, 
             epsilon=1e-6, 
             RND_SWEEPS=True, 
             BATCH_SIZE=1000, 
@@ -195,12 +198,12 @@ if __name__ == '__main__':
         reward_evals = dict()
         # reward_evals['minimise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,-1])) # use 0 to not tax the angle in the input
         # reward_evals['maximise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,1])) # use 0 to not tax the angle in the input
-        # reward_evals['get_close_bottom_right'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([10,-10]), region_upper=np.array([10,-10]), dims=[0,1])
-        # reward_evals['get_close_vertical_critical'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
+        reward_evals['get_close_bottom_right'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([10,-10]), region_upper=np.array([10,-10]), dims=[0,1])
+        reward_evals['get_close_vertical_critical'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
         reward_evals['get_closer_than_base_to_bottom_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,-10]), region_upper=np.array([10,-10]), dims=[0,1])
-        # reward_evals['get_closer_than_base_to_top_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
-        # reward_evals['get_closer_than_base_to_bottom_left'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-10,-10]), region_upper=np.array([-10,-10]), dims=[0,1])
-        # reward_evals['get_closer_than_base_to_vertical_critical'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
+        reward_evals['get_closer_than_base_to_top_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
+        reward_evals['get_closer_than_base_to_bottom_left'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-10,-10]), region_upper=np.array([-10,-10]), dims=[0,1])
+        reward_evals['get_closer_than_base_to_vertical_critical'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
 
         derive_set = lambda centre: L_infinity(centre,radii,model.uMin,model.uMax)
 
@@ -259,7 +262,8 @@ if __name__ == '__main__':
             policy=policy,
             policy_inputs=policy_inputs,
             sim_values=sim_values,
-            derive_set=derive_set
+            derive_set=derive_set,
+            show_plot=False
         )
 
     else:
