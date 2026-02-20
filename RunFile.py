@@ -11,7 +11,7 @@ import sys
 sys.argv = [
     "RunFile.py",
     "--model", "Dubins_small",
-    "--rl"
+    "--rl", "--no_train"
 ]
 
 # %%
@@ -29,7 +29,6 @@ from core.actions_forward import RectangularForward
 from core.model import parse_linear_model, parse_nonlinear_model
 from core.options import parse_arguments
 from core.partition import RectangularPartition
-from stable_baselines3.common.vec_env import VecNormalize
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3 import SAC
 from RL.RL_Environment import Env
@@ -199,11 +198,11 @@ if __name__ == '__main__':
         # reward_evals['minimise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,-1])) # use 0 to not tax the angle in the input
         # reward_evals['maximise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,1])) # use 0 to not tax the angle in the input
         reward_evals['get_close_bottom_right'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([10,-10]), region_upper=np.array([10,-10]), dims=[0,1])
-        reward_evals['get_close_vertical_critical'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
+        # reward_evals['get_close_vertical_critical'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
         reward_evals['get_closer_than_base_to_bottom_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,-10]), region_upper=np.array([10,-10]), dims=[0,1])
-        reward_evals['get_closer_than_base_to_top_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
-        reward_evals['get_closer_than_base_to_bottom_left'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-10,-10]), region_upper=np.array([-10,-10]), dims=[0,1])
-        reward_evals['get_closer_than_base_to_vertical_critical'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
+        # reward_evals['get_closer_than_base_to_top_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
+        # reward_evals['get_closer_than_base_to_bottom_left'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-10,-10]), region_upper=np.array([-10,-10]), dims=[0,1])
+        # reward_evals['get_closer_than_base_to_vertical_critical'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
 
         derive_set = lambda centre: L_infinity(centre,radii,model.uMin,model.uMax)
 
@@ -230,7 +229,7 @@ if __name__ == '__main__':
         agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 200_000)
 
         # train all the agents
-        agents.train_agents()
+        agents.train_agents(dont_train=args.no_train)
 
 
     # %% Simulations

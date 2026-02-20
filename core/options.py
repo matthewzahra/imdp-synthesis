@@ -51,6 +51,9 @@ def parse_arguments():
     
     # parser.add_argument('--alg', type=str, default='SAC')
 
+    parser.add_argument('--no_train', action='store_true', default=False,
+                        help="don't train new RL agents, just use existing ones")
+
     # Parse arguments
     args = parser.parse_args()
 

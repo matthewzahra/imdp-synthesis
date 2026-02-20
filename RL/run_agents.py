@@ -1,5 +1,5 @@
 from RL.Reward_Evaluate import RewardEval
-from stable_baselines3.common.vec_env import VecNormalize
+from stable_baselines3.common.vec_env import VecNormalize, VecMonitor
 from stable_baselines3 import SAC, TD3
 
 '''
@@ -26,9 +26,9 @@ class Agents():
 			self.reward_evals[k] = v.get_pair()
 
 
-	def train_agents(self):
+	def train_agents(self, dont_train=False):
 		for s,(reward_structure,evaluation) in self.reward_evals.items():
-			env = self.init_env(reward_structure)
+			env = VecMonitor(self.init_env(reward_structure))
 
 			# NOTE - that since we normalize the observartions, we must do so again when we used the trained RL agent to predict
 			# normalize the observations
@@ -39,40 +39,42 @@ class Agents():
 				clip_obs=10.0
 			)
 
-			agent = SAC(
-				"MlpPolicy",
-				env,
-				verbose=1,
-				ent_coef="auto",           # TODO - should play with this: disable entropy otherwise the agent collapses on smaller actions where possible. Great if we want minimization, poor if we want maximisation
-				target_entropy="-2",
-				tensorboard_log="./sac_logs/",
-			)
+			if not dont_train:
+				agent = SAC(
+					"MlpPolicy",
+					env,
+					verbose=1,
+					ent_coef="auto_0.1",           # TODO - should play with this: disable entropy otherwise the agent collapses on smaller actions where possible. Great if we want minimization, poor if we want maximisation
+					target_entropy="auto",
+					tensorboard_log="./sac_logs/",
+					policy_kwargs=dict(net_arch=[512, 512]),
+				)
 
-			# agent = TD3(
-			# 	"MlpPolicy",
-			# 	env,
-			# 	learning_rate=1e-3,      # TD3 often uses slightly higher LR
-			# 	buffer_size=1_000_000,
-			# 	batch_size=256,
-			# 	tau=0.005,
-			# 	gamma=0.99,
-			# 	train_freq=1,
-			# 	gradient_steps=1,
-			# 	tensorboard_log="./td3_logs/",
-			# 	verbose=1,
-			# )
+				# agent = TD3(
+				# 	"MlpPolicy",
+				# 	env,
+				# 	learning_rate=1e-3,      # TD3 often uses slightly higher LR
+				# 	buffer_size=1_000_000,
+				# 	batch_size=256,
+				# 	tau=0.005,
+				# 	gamma=0.99,
+				# 	train_freq=1,
+				# 	gradient_steps=1,
+				# 	tensorboard_log="./td3_logs/",
+				# 	verbose=1,
+				# )
 
-			# train the agent 
-			print(f"Training agent for {s}")
-			agent.learn(total_timesteps=self.timesteps, progress_bar=True)
+				# train the agent 
+				print(f"Training agent for {s}")
+				agent.learn(total_timesteps=self.timesteps, progress_bar=True)
 
-			print(f"Took too long: {env.envs[0].unwrapped.too_long}")
-			print(f"Got to Goal State: {env.envs[0].unwrapped.goal_count}")
-			print(f"Hit the critical state: {env.envs[0].unwrapped.critical_count}")
+				print(f"Took too long: {env.envs[0].unwrapped.too_long}")
+				print(f"Got to Goal State: {env.envs[0].unwrapped.goal_count}")
+				print(f"Hit the critical state: {env.envs[0].unwrapped.critical_count}")
 
-			print("Saving Agent")
-			# save the trained agent
-			agent.save(f'sac_agent_{s}_{self.timesteps}')
+				print("Saving Agent")
+				# save the trained agent
+				agent.save(f'sac_agent_{s}_{self.timesteps}')
 
 			print("Saving VecNormalize statistics")
 			env.save(f"vecnormalize_{s}.pkl")
