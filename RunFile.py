@@ -11,7 +11,7 @@ import sys
 sys.argv = [
     "RunFile.py",
     "--model", "Dubins_small",
-    "--rl", "--no_train"
+    "--rl"
 ]
 
 # %%
