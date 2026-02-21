@@ -46,15 +46,27 @@ class Dubins_small(DubinsSmallDynamics):
         self.partition['boundary_jnp'] = jnp.array(self.partition['boundary'])
         self.partition['number_per_dim'] = np.array([20, 20, 11])
 
+        # self.goal = np.array([
+        #     [[-10, 5, -np.pi], [-5, 10, np.pi]]
+        # ], dtype=float)
+
         self.goal = np.array([
-            [[-10, 5, -np.pi], [-5, 10, np.pi]]
+            [[8, -10, -np.pi], [10, 10, np.pi]]
         ], dtype=float)
+
+        # self.critical = np.array([
+        #     [[-10, -1, -np.pi], [-1, 1, np.pi]],
+        #     [[-1, -5, -np.pi], [1, 4, np.pi]]
+        # ], dtype=float)
 
         self.critical = np.array([
-            [[-10, -1, -np.pi], [-1, 1, np.pi]],
-            [[-1, -5, -np.pi], [1, 4, np.pi]]
+            [[-1, 8, -np.pi], [1, 10, np.pi]],
+            [[-1, -4, -np.pi], [1, 5, np.pi]],
+            [[-1, -10, -np.pi], [1, -8, np.pi]]
         ], dtype=float)
 
-        self.x0 = np.array([-7.5, -7.5, 0])
+        # self.x0 = np.array([-7.5, -7.5, 0])
+
+        self.x0 = np.array([-10, 0, 0])
 
         return

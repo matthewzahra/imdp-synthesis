@@ -7,12 +7,12 @@ The file can be run from the terminal as
 For all available arguments, please see the function :func:`core.options.parse_arguments`.
 '''
 # %%
-import sys
-sys.argv = [
-    "RunFile.py",
-    "--model", "Dubins_small",
-    "--rl"
-]
+# import sys
+# sys.argv = [
+#     "RunFile.py",
+#     "--model", "Dubins_small",
+#     "--rl"
+# ]
 
 # %%
 import datetime
