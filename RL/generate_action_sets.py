@@ -1,4 +1,5 @@
 import numpy as np
+import jax.numpy as jnp
 
 '''
 Here we write functions ot help us compute F(x,a), where x is a concrete state and a an abstract action (or similar?)
@@ -21,3 +22,11 @@ def L_infinity(centre, distances, lower_bounds=None, upper_bounds=None):
 		return np.maximum(centre-distances,lower_bounds),np.minimum(centre+distances, upper_bounds) # TODO - check this return type - should it be in a list? 
 	else:
 		return centre-distances, centre+distances
+	
+def wrap_theta(theta):
+    return (theta + jnp.pi) % (2 * jnp.pi) - jnp.pi
+
+
+# DEFINE A FUNCTION THAT DERIVES THESE IRREGULAR SPHERES
+# WE NEED TO BE ABLE TO CLIP AND WE NEED TO BE ABLE TO WRAP SOME DIMENSIONS
+# def generate_sphere()

@@ -3,6 +3,7 @@ from core.simulate import MonteCarloSim
 from plotting.traces import plot_traces
 from plotting.heatmap import heatmap
 import RL.Evaluate_Secondary
+import jax.numpy as jnp
 
 # given an action proposed in the hyperrectangle [(-1,...,-1), (1,...,1)], find the corresponding real concrete action by scaling appropriately
 def project_action(action, action_lower, action_upper):
@@ -22,7 +23,7 @@ def plot(sim, model, args, stamp, partition, sim_values, sim_policy_inputs, file
 		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/mountaincar_{stamp}.gif')
 
 
-def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_inputs, sim_values, derive_set, iterations=10000, verbose=False, show_plot=True):
+def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_inputs, sim_values, derive_set, iterations=1000, verbose=False, show_plot=True):
 	'''
 	Docstring for run_simulations
 	
@@ -81,3 +82,14 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 				filename=s+'_RL',
 				show_plot=show_plot
 			)
+
+# TODO - double check this is right...
+# find the shortest distance from a point to a box
+# works in n dimensions
+def distance_from_box_to_box(box1_lower, box1_upper, box2_lower, box2_upper):
+	sep = jnp.maximum(
+        jnp.maximum(box1_lower - box2_upper, box2_lower - box1_upper),
+        0.0
+    )
+	distance = jnp.linalg.norm(sep)
+	return distance

@@ -47,7 +47,8 @@ class Agents():
 					ent_coef="auto_0.1",           # TODO - should play with this: disable entropy otherwise the agent collapses on smaller actions where possible. Great if we want minimization, poor if we want maximisation
 					target_entropy="auto",
 					tensorboard_log="./sac_logs/",
-					policy_kwargs=dict(net_arch=[512, 512]),
+					policy_kwargs=dict(net_arch=[256, 256]),
+					learning_starts=20_000
 				)
 
 				# agent = TD3(

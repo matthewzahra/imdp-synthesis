@@ -115,3 +115,11 @@ class GetCloserToRegionThanPolicy(RewardStructure):
 		base_distance = np.linalg.norm(new_base_state - closest_point_base)
 
 		return base_distance**2 - rl_distance**2
+
+class GetCloseToRegionAndBeatPolicy(RewardStructure):
+	def __init__(self, target1_min, target1_max, target2_min, target2_max, dims: Optional[list[int]] = None):
+		self.beat_policy = GetCloserToRegionThanPolicy(target1_min, target1_max, dims)
+		self.get_to_region = GetCloseToRegion(target2_min, target2_max, dims)
+
+	def getReward(self, old_state, new_base_state, new_rl_state, policy_action, rl_action):
+		return self.beat_policy.getReward(old_state, new_base_state, new_rl_state, policy_action, rl_action) + self.get_to_region.getReward(old_state, new_base_state, new_rl_state, policy_action, rl_action)

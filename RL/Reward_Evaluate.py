@@ -47,3 +47,11 @@ class ActionCosts(RewardEval):
 class ActionSmoothness:
 	def __init__(self):
 		raise NotImplemented
+	
+class GetToRegionDoubleReward(RewardEval):
+	'''
+	we are using 2 types of reward here
+	'''
+	def __init__(self, region1_lower, region1_upper, region2_lower, region2_upper, dims = None):
+		self.reward = RL.Reward.GetCloseToRegionAndBeatPolicy(region1_lower,region1_upper, region2_lower, region2_upper, dims)
+		self.evaluation = RL.Evaluate_Secondary.DistanceToRegion(region2_lower,region2_upper,dims)

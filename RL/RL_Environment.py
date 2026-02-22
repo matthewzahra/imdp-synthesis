@@ -119,7 +119,7 @@ class Env(gym.Env):
 		if self.t > self.max_steps:
 			self.too_long += 1
 			terminated = True
-			reward = -100	# minor penalty for not completing the task in time
+			reward = -10	# minor penalty for not completing the task in time
 			info = {}
 			return self.state, reward, np.array(terminated, dtype=bool), np.array(truncated, dtype=bool), info
 
@@ -148,7 +148,7 @@ class Env(gym.Env):
 		if abstract_state in self.partition.critical['idxs']:
 			self.critical_count += 1
 			terminated = True
-			reward = -1000 # large penalty for entering a critical region
+			reward = -20 # large penalty for entering a critical region
 
 		# check if we are in a goal state
 		else:
