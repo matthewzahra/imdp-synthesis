@@ -21,6 +21,7 @@ import time
 from pathlib import Path
 import jax
 import numpy as np
+import jax.numpy as jnp
 import sys
 
 import benchmarks
@@ -32,7 +33,7 @@ from core.partition import RectangularPartition
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3 import SAC
 from RL.RL_Environment import Env
-from RL.generate_action_sets import L_infinity
+from RL.generate_action_sets import L_infinity, Spheres
 import RL.Reward_Evaluate
 from RL.run_agents import Agents
 from core.imdp import IMDP
@@ -134,11 +135,35 @@ if __name__ == '__main__':
         # TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
         # NOTE - if the radii are too large then we get really poor satisfaction probability 
         action_dim = model.p
-        sphere_radius = 0.1
-        radii = np.full(action_dim, sphere_radius) # if large can also make the process really slow 
-        with open("results.txt", "a") as f:
-            f.write(f"Sphere Radius: {sphere_radius}\n")
-        actions = RectangularForward(args=args, partition=partition, model=model, action_sets=reinforcement_learning, radii=radii)     
+
+        # TODO - incorporate the new spheres stuff from below up here!!!
+
+                # TODO - bit hard coded for the Dubins_small example
+        # define the spheres here, including what dimensions need wrapping and what ones need clipping
+        thresholds = jnp.array([4,3,2,1,0])
+        radii_options = jnp.array([
+            [jnp.pi*0.4, 0.3],
+            [jnp.pi*0.2, 0.2],
+            [jnp.pi*0.1, 0.1],
+            [jnp.pi*0.05, 0.05],
+            [0,0]
+        ])
+
+        vals_to_clip = [[-np.pi*0.5,np.pi*0.5],[-3,3]]
+        vals_to_wrap = [None,None]
+        spheres = Spheres(
+            thresholds=thresholds,
+            radii_options=radii_options,
+            vals_to_clip=vals_to_clip,
+            vals_to_wrap=vals_to_wrap,
+            critical_regions=model.critical
+        )
+
+        # sphere_radius = 0.1
+        # radii = np.full(action_dim, sphere_radius) # if large can also make the process really slow 
+        # with open("results.txt", "a") as f:
+        #     f.write(f"Sphere Radius: {sphere_radius}\n")
+        actions = RectangularForward(args=args, partition=partition, model=model, action_spheres=spheres)     
         actions_inputs = actions.id_to_input   
     else:
         actions = RectangularForward(args=args, partition=partition, model=model)
@@ -200,14 +225,13 @@ if __name__ == '__main__':
         # reward_evals['get_close_bottom_right'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([10,-10]), region_upper=np.array([10,-10]), dims=[0,1])
         # reward_evals['get_close_vertical_critical'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
         # reward_evals['get_closer_than_base_to_bottom_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,-10]), region_upper=np.array([10,-10]), dims=[0,1])
-        reward_evals['get_closer_than_base_to_top_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
+        # reward_evals['get_closer_than_base_to_top_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
         # reward_evals['get_closer_than_base_to_bottom_left'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-10,-10]), region_upper=np.array([-10,-10]), dims=[0,1])
         # reward_evals['get_closer_than_base_to_vertical_critical'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
         reward_evals['get_closer_than_base_to_top_opening'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,6.5]), region_upper=np.array([-1,6.5]), dims=[0,1])
-        reward_evals['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region1_lower=np.array([-1,6.5]), region1_upper=np.array([-1,6.5]), region2_lower=np.array([10,10]), region2_upper=np.array([10,10]), dims=[0,1])
-        reward_evals['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region2_lower=np.array([-1,6.5]), region2_upper=np.array([-1,6.5]), region1_lower=np.array([10,10]), region1_upper=np.array([10,10]), dims=[0,1])
+        # reward_evals['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region1_lower=np.array([-1,6.5]), region1_upper=np.array([-1,6.5]), region2_lower=np.array([10,10]), region2_upper=np.array([10,10]), dims=[0,1])
+        # reward_evals['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region2_lower=np.array([-1,6.5]), region2_upper=np.array([-1,6.5]), region1_lower=np.array([10,10]), region1_upper=np.array([10,10]), dims=[0,1])
 
-        derive_set = lambda centre: L_infinity(centre,radii,model.uMin,model.uMax)
 
         print("Constructing RL Environment")
         # vectorize the environment
@@ -222,14 +246,14 @@ if __name__ == '__main__':
                     initial_state=model.x0,
                     model=model,
                     policy_inputs=policy_inputs,
-                    derive_set=derive_set,
+                    spheres=spheres,
                     reward_structure=reward_structure,
                     partition=partition
                 ),
                 n_envs=1
             )
         
-        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 250_000)
+        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 120_000)
 
         # train all the agents
         agents.train_agents(dont_train=args.no_train)
@@ -264,7 +288,7 @@ if __name__ == '__main__':
             policy=policy,
             policy_inputs=policy_inputs,
             sim_values=sim_values,
-            derive_set=derive_set,
+            spheres=spheres,
             show_plot=False
         )
 

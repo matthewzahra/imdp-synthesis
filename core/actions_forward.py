@@ -6,13 +6,11 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from tqdm import tqdm
-
-from RL.generate_action_sets import L_infinity, wrap_theta
 from RL.helper_functions import distance_from_box_to_box
 
 
 @partial(jax.jit, static_argnums=(0,9))
-def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_dim, cell_width, boundary_lb, boundary_ub, action_sets, radii=None, critical_regions=None):
+def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_dim, cell_width, boundary_lb, boundary_ub, action_spheres=None):
     """jax
     Computes the forward reachable set for a given state region and control input.
 
@@ -41,55 +39,9 @@ def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_di
     """
 
     # Compute the continuous bounds of the forward reachable set
-    if action_sets:
-        # find the distance between input and the nearest critical region
-        calc_distances = jax.vmap(
-            lambda lb, ub: distance_from_box_to_box(state_min,state_max,lb,ub),
-        )
-
-        distances = calc_distances(critical_regions[:,0,:], critical_regions[:,1,:])
-        closest = jnp.min(distances)
-
-        # determine the sphere size
-        # TODO: choose the sphere sizes better
-        # TODO: ALLOW DIFFERENT RADII FOR EACH DIMENSION AS SOMETIMES WE HAVE A FORCE AND AN ANGLE SUCH AS IN DUBINS_SMALL
-        # pairs are of the form (distance to nearest critical, radii)
-        # NOTE: HARD CODED FOR DIMENSION OF 2
-        thresholds = jnp.array([3,1,0.5,0.1,0])
-        possible_radii = jnp.array([0.5,0.3,0.2,0.1,0])
-
-        # # first action dimension is angle, second is force
-        # possible_radii = jnp.array([
-        #     [np.pi, 0.5],
-        #     [np.pi*0.5, 0.3],
-        #     [np.pi*0.1, 0.1],
-        #     [0,0]
-        # ])
-
-        mask = closest >= thresholds
-        # valid_radii = jnp.where(
-        #     mask[:, None],
-        #     possible_radii,
-        #     -jnp.inf
-        # )
-        # radii = jnp.max(valid_radii, axis=0)
-        radii = jnp.full(input.size, jnp.max(jnp.where(mask,possible_radii,-jnp.inf)))
-
-        # # wrap angles
-        # wrap_mask = jnp.array([True,False])
-        # radii = jnp.where(
-        #     wrap_mask,
-        #     wrap_theta,
-        #     radii
-        # )
-        
-        # # clip forces
-        # clip_mask = jnp.array([False,True])
-
-
-
-        # may need to wrap some dimensions and need to clip some others
-        lower, upper = L_infinity(centre=input, distances=radii)
+    if action_spheres is not None:
+        # lower, upper = L_infinity(centre=input, distances=radii)
+        lower,upper = action_spheres.get_action_sphere(action_centre=input,state_min=state_min,state_max=state_max)
         frs_min, frs_max = step_set(state_min, state_max, lower, upper)
     else:
         frs_min, frs_max = step_set(state_min, state_max, input, input)
@@ -144,9 +96,11 @@ class RectangularForward(object):
         idxs (np.ndarray): Indices of all actions, shape [num_actions]
     """
 
-    def __init__(self, args, partition, model, action_sets = False, radii = None):
+    def __init__(self, args, partition, model, action_spheres=None):
         """
         Initialize and compute forward reachable sets for all regions and actions.
+
+        action_spheres is either None (for no spheres) or a Sphere object
 
         :param partition: Partition object containing the discretized state space
         :param model: Model object containing the dynamics and control action specifications
@@ -159,7 +113,7 @@ class RectangularForward(object):
         vmap_forward_reach = jax.jit(
             jax.vmap(
                 forward_reach,
-                in_axes=(None, None, None, 0, None, None, None, None, None, None, None, None),
+                in_axes=(None, None, None, 0, None, None, None, None, None, None),
                 out_axes=(0, 0, 0, 0, 0)
             ),
             static_argnums=(0,9)
@@ -212,9 +166,7 @@ class RectangularForward(object):
                 partition.cell_width,
                 partition.boundary_lb,
                 partition.boundary_ub,
-                action_sets,
-                radii,
-                model.critical
+                action_spheres,
             )
 
             # Store the computed forward reachable set bounds and indices

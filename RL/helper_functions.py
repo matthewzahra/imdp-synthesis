@@ -23,7 +23,7 @@ def plot(sim, model, args, stamp, partition, sim_values, sim_policy_inputs, file
 		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/mountaincar_{stamp}.gif')
 
 
-def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_inputs, sim_values, derive_set, iterations=1000, verbose=False, show_plot=True):
+def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_inputs, sim_values, spheres, iterations=1000, verbose=False, show_plot=True):
 	'''
 	Docstring for run_simulations
 	
@@ -50,7 +50,7 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 				evaluation.closest = float('inf')
 
 			# run sims with RL agent
-			sim_rl = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, project_action, verbose=False, iterations=iterations, evaluate_secondary=evaluation, agent=agent, derive_set=derive_set, vecnorm=vecnorm)
+			sim_rl = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, project_action, verbose=False, iterations=iterations, evaluate_secondary=evaluation, agent=agent, spheres=spheres, vecnorm=vecnorm)
 			f.write(f"Average Secondary Score with RL agent: {sim_rl.results['secondary_score']}\n")
 			f.write(f"Empirical satisfaciton probability with RL agent: {sim_rl.results['satprob']}\n")
 			if isinstance(evaluation, RL.Evaluate_Secondary.DistanceToRegion):

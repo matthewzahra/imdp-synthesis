@@ -27,7 +27,7 @@ class Env(gym.Env):
 			initial_state,
 			model,
 			policy_inputs,
-			derive_set,
+			spheres,
 			reward_structure,
 			partition,
 			max_steps=200
@@ -42,7 +42,7 @@ class Env(gym.Env):
 		:param initial_state: initial state for the agent
 		:param model: the system model that implements the dynamics - must implement "step"
 		:param policy_inputs: IMDP policy that maps states to a single concrete action
-		:param derive_set: take a concrete action and derive the set of actions that we will allow the RL agent to choose from
+		:param spheres: sphere object that given a concrete action, can dynamically generate the action spheres
 		:param reward_structure: of type RL.Reward. Given the RL agent's suggested action and the resulting state it computes the reward
 		:param partition: partition the state space into the goal and critical states so that the agent knows when it must terminate
 		:param max_steps: max number of steps before we terminate the process
@@ -71,7 +71,7 @@ class Env(gym.Env):
 		# the model that implements the dynamics
 		self.model = model
 
-		self.derive_set = derive_set
+		self.spheres=spheres
 		self.policy_inputs = policy_inputs
 		self.reward_structure = reward_structure
 		self.partition = partition
@@ -130,15 +130,17 @@ class Env(gym.Env):
 		# NOTE: since our RL state includes the action space, we need to trim it 
 		policy_action = self.policy_inputs[self.partition.x2state(self.state[:-self.action_dim])[0]]
 
-		action_set_lower_bounds, action_set_upper_bounds = self.derive_set(policy_action)
+
+		old_concrete_state = self.state[:-self.action_dim]
+
+		action_set_lower_bounds, action_set_upper_bounds = self.spheres.get_action_sphere(action_centre=policy_action, state=old_concrete_state)
 		projected_action = self._project_action(proposed_action,action_set_lower_bounds,action_set_upper_bounds)
 
 		# progress the state using the model's dynamics 
 		# NOTE: need to remove the action space from the RL state in order to get the concrete state
-		new_concrete_state = self.model.step(self.state[:-self.action_dim],projected_action,noise)
-		new_base_state = self.model.step(self.state[:-self.action_dim],policy_action,noise)
+		new_concrete_state = self.model.step(old_concrete_state,projected_action,noise)
+		new_base_state = self.model.step(old_concrete_state,policy_action,noise)
 
-		old_state = self.state[:-self.action_dim]
 		self.state = np.concatenate([new_concrete_state,self.policy_inputs[self.partition.x2state(new_concrete_state)[0]]])
 
 		# find what abstract state we are in 
@@ -155,7 +157,7 @@ class Env(gym.Env):
 			if abstract_state in self.partition.goal['idxs']:
 				self.goal_count += 1
 				terminated = True 
-			reward = self.reward_structure.getReward(old_state=old_state, new_base_state=new_base_state, new_rl_state=new_concrete_state, policy_action=policy_action, rl_action=projected_action)
+			reward = self.reward_structure.getReward(old_state=old_concrete_state, new_base_state=new_base_state, new_rl_state=new_concrete_state, policy_action=policy_action, rl_action=projected_action)
 
 
 		return self.state, reward, np.array(terminated, dtype=bool), np.array(truncated, dtype=bool), info

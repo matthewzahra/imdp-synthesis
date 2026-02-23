@@ -9,7 +9,7 @@ class MonteCarloSim():
     Class to run Monte Carlo simulations on the discrete-time stochastic system closed under a fixed Markov policy.
     '''
 
-    def __init__(self, model, partition, policy, policy_inputs, x0, project_action=None, iterations=100, sim_horizon=1000, random_initial_state=False, verbose=True, evaluate_secondary: Optional[EvaluateSecondary] = None, agent = None, derive_set = None, vecnorm = None, **kwargs):
+    def __init__(self, model, partition, policy, policy_inputs, x0, project_action=None, iterations=100, sim_horizon=1000, random_initial_state=False, verbose=True, evaluate_secondary: Optional[EvaluateSecondary] = None, agent = None, spheres = None, vecnorm = None, **kwargs):
 
         print('\nStarting Monte Carlo simulations...')
 
@@ -38,7 +38,7 @@ class MonteCarloSim():
             'secondary_score': 0    # secondary score (if we are using it)
         }
 
-        self.derive_set = derive_set
+        self.spheres = spheres
         self.agent = agent
         self.vecnorm = vecnorm
 
@@ -157,7 +157,7 @@ class MonteCarloSim():
                     proposed_action,_ = self.agent.predict(observation=obs, deterministic=True) # TODO - do we want this to be deterministic
 
                     # project the action
-                    action_set_lower_bounds, action_set_upper_bounds = self.derive_set(policy_action)
+                    action_set_lower_bounds, action_set_upper_bounds = self.spheres.get_action_sphere(action_centre=policy_action,state=concrete_state)
                     projected_action = self.project_action(proposed_action,action_set_lower_bounds,action_set_upper_bounds)
 
                     # save the action so that it can be executed later

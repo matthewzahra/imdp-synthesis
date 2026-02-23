@@ -1,5 +1,7 @@
 import numpy as np
 import jax.numpy as jnp
+import jax
+from RL.helper_functions import distance_from_box_to_box
 
 '''
 Here we write functions ot help us compute F(x,a), where x is a concrete state and a an abstract action (or similar?)
@@ -19,14 +21,110 @@ def L_infinity(centre, distances, lower_bounds=None, upper_bounds=None):
 
 	assert centre.size == distances.size
 	if lower_bounds is not None or upper_bounds is not None:
-		return np.maximum(centre-distances,lower_bounds),np.minimum(centre+distances, upper_bounds) # TODO - check this return type - should it be in a list? 
+		return jnp.maximum(centre-distances,lower_bounds),jnp.minimum(centre+distances, upper_bounds) # TODO - check this return type - should it be in a list? 
 	else:
 		return centre-distances, centre+distances
-	
-def wrap_theta(theta):
-    return (theta + jnp.pi) % (2 * jnp.pi) - jnp.pi
 
+
+def wrap_interval(x, lower, upper):
+	width = upper - lower
+
+	return (x - lower) % width + lower
+
+
+def separate_lower_and_upper_bounds_to_jnp_arrays(bounds):
+	lower = jnp.array([v[0] if v is not None else 0 for v in bounds])
+	upper = jnp.array([v[1] if v is not None else 0 for v in bounds])
+	return lower,upper
 
 # DEFINE A FUNCTION THAT DERIVES THESE IRREGULAR SPHERES
 # WE NEED TO BE ABLE TO CLIP AND WE NEED TO BE ABLE TO WRAP SOME DIMENSIONS
-# def generate_sphere()
+# should be jax compatable 
+        # # may need to wrap some dimensions and need to clip some others
+def generate_sphere(centre, radii, vals_to_clip, vals_to_wrap):
+	'''
+	given a centre, radii for each dimension and lower/upper bounds for dimension=wise clippping/wrapping, produce the (irregular) sphere
+	'''
+	lb,ub = L_infinity(centre, radii)
+
+	# deal with clipping
+	clip_mask = jnp.array([v is not None for v in vals_to_clip])
+
+	clip_lower,clip_upper = separate_lower_and_upper_bounds_to_jnp_arrays(vals_to_clip)
+
+	lb_clipped = jnp.clip(lb,clip_lower, clip_upper)
+	ub_clipped = jnp.clip(ub,clip_lower, clip_upper)
+
+	# only apply clipping to the right places
+	lb = jnp.where(clip_mask, lb_clipped, lb)
+	ub = jnp.where(clip_mask, ub_clipped, ub)
+
+
+
+	# TODO - deal with lower and upper bounds swapping after wrapping
+	# deal with wrapping
+	wrap_mask = jnp.array([v is not None for v in vals_to_wrap])
+	wrap_lower,wrap_upper = separate_lower_and_upper_bounds_to_jnp_arrays(vals_to_wrap)
+	
+	lb_wrapped = wrap_interval(lb,wrap_lower,wrap_upper)
+	ub_wrapped = wrap_interval(ub,wrap_lower,wrap_upper)
+
+	lb = jnp.where(wrap_mask, lb_wrapped, lb)
+	ub = jnp.where(wrap_mask, ub_wrapped, ub)
+	return lb,ub
+
+
+class Spheres:
+	'''
+	class to dynamically generate action spheres.
+	they may be dependent on different dimensions, clipping and wrap around, as well as proximity to critical/goal regions
+	'''
+	def __init__(
+			self,
+			thresholds,
+			radii_options,
+			vals_to_clip,
+			vals_to_wrap,
+			critical_regions
+		):
+		self.thresholds = thresholds
+		self.radii_options = radii_options
+		self.vals_to_clip = vals_to_clip
+		self.vals_to_wrap = vals_to_wrap
+		self.critical_regions = critical_regions
+
+	def get_action_sphere(self, action_centre, state=None, state_min=None,state_max=None):
+		'''
+		for a given action, give the sphere - this is dependent on the current state.
+		use state_min/max when calculating forward reachable sets, so calculating the action spheres for a set (box) of states
+		'''
+
+		# make the box a single point if we are just working with 1 single state
+		if state_min is None  or state_max is None:
+			state_min = state
+			state_max = state
+
+		# find the distance between input and the nearest critical region
+		calc_distances = jax.vmap(
+            lambda lb, ub: distance_from_box_to_box(state_min,state_max,lb,ub),
+        )
+
+		critical_distances = calc_distances(self.critical_regions[:,0,:], self.critical_regions[:,1,:])
+		closest_critical = jnp.min(critical_distances)
+
+		mask = closest_critical >= self.thresholds
+		radii = jnp.where(
+			mask[:, None],
+			self.radii_options,
+			0
+		)
+
+		# pick the largest radii values that are allowed
+		idx = len(mask) - jnp.sum(mask)
+		idx = jnp.maximum(idx,0)
+
+
+		# jax.debug.print("mask = {}, radii = {}, idx = {}, selected_radii = {}", mask, radii, idx, radii[idx])
+
+		return generate_sphere(action_centre,radii[idx],self.vals_to_clip,self.vals_to_wrap)
+
