@@ -37,7 +37,7 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 	'''
 
 	# TODO - maybe we want to run the sims without the RL agent on the policy that was synthesised without spheres as this is the status quo? 
-	with open("results.txt", "a") as f:
+	with open(f"{stamp}_results.txt", "a") as f:
 		for (s,agent,vecnorm,evaluation) in agent_envs:
 			f.write(f'Doing simulation for {s}\n')
 			# run sims without RL agent

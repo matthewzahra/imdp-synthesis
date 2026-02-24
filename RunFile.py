@@ -159,10 +159,6 @@ if __name__ == '__main__':
             critical_regions=model.critical
         )
 
-        # sphere_radius = 0.1
-        # radii = np.full(action_dim, sphere_radius) # if large can also make the process really slow 
-        # with open("results.txt", "a") as f:
-        #     f.write(f"Sphere Radius: {sphere_radius}\n")
         actions = RectangularForward(args=args, partition=partition, model=model, action_spheres=spheres)     
         actions_inputs = actions.id_to_input   
     else:
