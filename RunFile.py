@@ -7,12 +7,12 @@ The file can be run from the terminal as
 For all available arguments, please see the function :func:`core.options.parse_arguments`.
 '''
 # %%
-import sys
-sys.argv = [
-    "RunFile.py",
-    "--model", "Dubins_small",
-    "--rl"
-]
+# import sys
+# sys.argv = [
+#     "RunFile.py",
+#     "--model", "Dubins_small",
+#     "--rl"
+# ]
 
 # %%
 import datetime
@@ -142,8 +142,8 @@ if __name__ == '__main__':
         # define the spheres here, including what dimensions need wrapping and what ones need clipping
         thresholds = jnp.array([4,3,2,1,0])
         radii_options = jnp.array([
-            [jnp.pi*0.4, 0.3],
-            [jnp.pi*0.2, 0.2],
+            [jnp.pi*0.2, 0.3],
+            [jnp.pi*0.1, 0.2],
             [jnp.pi*0.1, 0.1],
             [jnp.pi*0.05, 0.05],
             [0,0]
@@ -225,12 +225,12 @@ if __name__ == '__main__':
         # reward_evals['get_close_bottom_right'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([10,-10]), region_upper=np.array([10,-10]), dims=[0,1])
         # reward_evals['get_close_vertical_critical'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
         # reward_evals['get_closer_than_base_to_bottom_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,-10]), region_upper=np.array([10,-10]), dims=[0,1])
-        # reward_evals['get_closer_than_base_to_top_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
+        reward_evals['get_closer_than_base_to_top_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
         # reward_evals['get_closer_than_base_to_bottom_left'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-10,-10]), region_upper=np.array([-10,-10]), dims=[0,1])
         # reward_evals['get_closer_than_base_to_vertical_critical'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
         reward_evals['get_closer_than_base_to_top_opening'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,6.5]), region_upper=np.array([-1,6.5]), dims=[0,1])
-        # reward_evals['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region1_lower=np.array([-1,6.5]), region1_upper=np.array([-1,6.5]), region2_lower=np.array([10,10]), region2_upper=np.array([10,10]), dims=[0,1])
-        # reward_evals['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region2_lower=np.array([-1,6.5]), region2_upper=np.array([-1,6.5]), region1_lower=np.array([10,10]), region1_upper=np.array([10,10]), dims=[0,1])
+        reward_evals['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region1_lower=np.array([-1,6.5]), region1_upper=np.array([-1,6.5]), region2_lower=np.array([10,10]), region2_upper=np.array([10,10]), dims=[0,1])
+        reward_evals['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region2_lower=np.array([-1,6.5]), region2_upper=np.array([-1,6.5]), region1_lower=np.array([10,10]), region1_upper=np.array([10,10]), dims=[0,1])
 
 
         print("Constructing RL Environment")
@@ -253,7 +253,7 @@ if __name__ == '__main__':
                 n_envs=1
             )
         
-        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 120_000)
+        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 250_000)
 
         # train all the agents
         agents.train_agents(dont_train=args.no_train)
@@ -276,6 +276,9 @@ if __name__ == '__main__':
     # evaluation = TimeSteps()
 
     # TODO - currently we only support infinite horizons - we should extend this to finite horizons
+
+    # define if we want to check if the model enteres a given box (None if we don't)
+    tracked_region = np.array([[-0.5, 2, -np.pi],[3,10,np.pi]])
     if reinforcement_learning:
         agent_envs = agents.get_agents_envs_evals()
 
@@ -289,12 +292,15 @@ if __name__ == '__main__':
             policy_inputs=policy_inputs,
             sim_values=sim_values,
             spheres=spheres,
-            show_plot=False
+            show_plot=False,
+            tracked_region=tracked_region     # define the region to track entering (if we want to)
         )
 
     else:
-        sim = MonteCarloSim(model, partition, sim_policy, sim_policy_inputs, model.x0, verbose=False, iterations=1000)
+        sim = MonteCarloSim(model, partition, sim_policy, sim_policy_inputs, model.x0, verbose=False, iterations=1000,tracked_region=tracked_region)
         print('Empirical satisfaction probability:', sim.results['satprob'])
+        if tracked_region is not None:
+            print(f'Times entered tracked region: {sim.results['tracked_region']}')
         plot(sim,model,args,stamp,partition,sim_values,sim_policy_inputs)
 
     # %% Plot

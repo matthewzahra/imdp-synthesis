@@ -23,7 +23,7 @@ def plot(sim, model, args, stamp, partition, sim_values, sim_policy_inputs, file
 		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/mountaincar_{stamp}.gif')
 
 
-def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_inputs, sim_values, spheres, iterations=1000, verbose=False, show_plot=True):
+def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_inputs, sim_values, spheres, iterations=1000, verbose=False, show_plot=True, tracked_region=None):
 	'''
 	Docstring for run_simulations
 	
@@ -41,7 +41,7 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 		for (s,agent,vecnorm,evaluation) in agent_envs:
 			f.write(f'Doing simulation for {s}\n')
 			# run sims without RL agent
-			sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, project_action, verbose=False, iterations=iterations, evaluate_secondary=evaluation)
+			sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, project_action, verbose=verbose, iterations=iterations, evaluate_secondary=evaluation, tracked_region=tracked_region)
 			f.write(f'Average Secondary Score: {sim.results["secondary_score"]}\n')
 			f.write(f'Empirical satisfaction probability: {sim.results['satprob']}\n')
 
@@ -49,14 +49,20 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 				f.write(f'closest = {evaluation.closest}\n')
 				evaluation.closest = float('inf')
 
+			if tracked_region is not None:
+				f.write(f'Times entered tracked region: {sim.results['tracked_region']}\n')
+
 			# run sims with RL agent
-			sim_rl = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, project_action, verbose=False, iterations=iterations, evaluate_secondary=evaluation, agent=agent, spheres=spheres, vecnorm=vecnorm)
+			sim_rl = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, project_action, verbose=verbose, iterations=iterations, evaluate_secondary=evaluation, agent=agent, spheres=spheres, vecnorm=vecnorm, tracked_region=tracked_region)
 			f.write(f"Average Secondary Score with RL agent: {sim_rl.results['secondary_score']}\n")
 			f.write(f"Empirical satisfaciton probability with RL agent: {sim_rl.results['satprob']}\n")
 			if isinstance(evaluation, RL.Evaluate_Secondary.DistanceToRegion):
 				f.write(f'closest = {evaluation.closest}\n')
 				evaluation.closest = float('inf')
 			
+			if tracked_region is not None:
+				f.write(f'Times RL agent entered tracked region: {sim_rl.results['tracked_region']}\n')
+
 			f.write('\n')
 
 			plot(

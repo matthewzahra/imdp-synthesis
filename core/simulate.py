@@ -9,7 +9,12 @@ class MonteCarloSim():
     Class to run Monte Carlo simulations on the discrete-time stochastic system closed under a fixed Markov policy.
     '''
 
-    def __init__(self, model, partition, policy, policy_inputs, x0, project_action=None, iterations=100, sim_horizon=1000, random_initial_state=False, verbose=True, evaluate_secondary: Optional[EvaluateSecondary] = None, agent = None, spheres = None, vecnorm = None, **kwargs):
+    def __init__(self, model, partition, policy, policy_inputs, x0, project_action=None, iterations=100, sim_horizon=1000, random_initial_state=False, verbose=True, evaluate_secondary: Optional[EvaluateSecondary] = None, agent = None, spheres = None, vecnorm = None, tracked_region = None, **kwargs):
+        '''
+        tracked_region helps us to know if the simulations passed through a given box. it is of the form [lower,upper].
+        NOTE - that it deals with CONCRETE STATES! 
+        FURTHER NOTE: assumes that the tracked region is NOT a goal or a critical region.
+        '''
 
         print('\nStarting Monte Carlo simulations...')
 
@@ -35,19 +40,22 @@ class MonteCarloSim():
             'goal_reached': np.full(self.iterations, False, dtype=bool),
             'traces': {}, 
             'secondary_scores': np.zeros(self.iterations),
-            'secondary_score': 0    # secondary score (if we are using it)
+            'secondary_score': 0,    # secondary score (if we are using it)
+            'tracked_region': np.zeros(self.iterations)
         }
 
         self.spheres = spheres
         self.agent = agent
         self.vecnorm = vecnorm
+        self.tracked_region = tracked_region
 
         # For each of the monte carlo iterations
         for m in tqdm(range(self.iterations)):
-            self.results['traces'][m], self.results['goal_reached'][m], self.results['secondary_scores'][m] = self._runIteration(x0, m)
+            self.results['traces'][m], self.results['goal_reached'][m], self.results['secondary_scores'][m], self.results['tracked_region'][m] = self._runIteration(x0, m)
 
         self.results['satprob'] = np.mean(self.results['goal_reached'])
         self.results['secondary_score'] = np.mean(self.results['secondary_scores'])
+        self.results['tracked_region'] = np.sum(self.results['tracked_region'])
 
     def define_noise_values(self):
         '''
@@ -58,6 +66,10 @@ class MonteCarloSim():
         self.noise = np.random.multivariate_normal(
             np.zeros(self.model.n), self.model.noise['cov'] ** 2,
             (self.iterations, self.horizon))
+        
+    def check_in_tracked_region(self,point):
+        return np.all((point >= self.tracked_region[0]) & (point <= self.tracked_region[1]))
+
 
     def _runIteration(self, x0, m):
         '''
@@ -96,6 +108,9 @@ class MonteCarloSim():
         trace['k'] += [0]
         trace['x'] += [x[0]]
 
+        # used to track if we enter the tracked region (if we are using it)
+        tracked_region = 0
+
         ######
 
         # record the current secondary score - we will only use this if evaluate_secondary was set in the instantiation of this class
@@ -117,7 +132,7 @@ class MonteCarloSim():
 
                 if self.verbose:
                     print(f'- Absorbing state reached at k = {k} (x = {x[k]}), so abort')
-                return trace, success, current_secondary_score / k+1
+                return trace, success, current_secondary_score / k+1, tracked_region
 
             # If current region is the goal state ...
             if s[k] in self.partition.goal['idxs']:
@@ -125,27 +140,32 @@ class MonteCarloSim():
                 success = True
                 if self.verbose:
                     print(f'- Goal state reached (x = {x[k]})')
-                return trace, success, current_secondary_score / k+1
+                return trace, success, current_secondary_score / k+1, tracked_region
 
             # If current region is in critical states...
             elif s[k] in self.partition.critical['idxs']:
                 # Then abort current iteration
                 if self.verbose:
                     print('- Critical state reached, so abort')
-                return trace, success, current_secondary_score / k+1
+                return trace, success, current_secondary_score / k+1, tracked_region
 
             # Check if we can still perform another action within the horizon
             elif k >= self.horizon:
-                return trace, success, current_secondary_score / k+1
+                return trace, success, current_secondary_score / k+1, tracked_region
 
             # Retreive the action from the policy
             if len(self.policy.shape) == 1:
                 # If infinite horizon, policy does not have a time index
                 a[k] = self.policy[s[k]]
 
+                concrete_state = x[k]
+
+                if self.tracked_region is not None:
+                    if self.check_in_tracked_region(concrete_state):
+                        tracked_region = 1
+
                 # check if we should be using an RL agent to make the decision 
                 if self.agent is not None:
-                    concrete_state = x[k] # ???
 
                     # need to add the policy action to the cocnrete state to get the observation
                     policy_action = self.policy_inputs[s[k]]
@@ -196,4 +216,4 @@ class MonteCarloSim():
 
         ######
 
-        return trace, success, current_secondary_score / k
+        return trace, success, current_secondary_score / k, tracked_region
