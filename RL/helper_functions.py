@@ -52,6 +52,10 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 			if tracked_region is not None:
 				f.write(f'Times entered tracked region: {sim.results['tracked_region']}\n')
 
+			f.write(f'Average trace length: {int(np.mean(list(map(lambda trace: len(trace['u']), list(sim.results['traces'].values())))))}\n')
+			
+			f.write('\n')
+
 			# run sims with RL agent
 			sim_rl = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, project_action, verbose=verbose, iterations=iterations, evaluate_secondary=evaluation, agent=agent, spheres=spheres, vecnorm=vecnorm, tracked_region=tracked_region)
 			f.write(f"Average Secondary Score with RL agent: {sim_rl.results['secondary_score']}\n")
@@ -63,7 +67,10 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 			if tracked_region is not None:
 				f.write(f'Times RL agent entered tracked region: {sim_rl.results['tracked_region']}\n')
 
-			f.write('\n')
+
+			f.write(f'Average trace length: {int(np.mean(list(map(lambda trace: len(trace['u']), list(sim_rl.results['traces'].values())))))}\n')
+
+			f.write('\n\n')
 
 			plot(
 				sim=sim,
