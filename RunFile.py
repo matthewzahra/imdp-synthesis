@@ -37,7 +37,7 @@ from RL.generate_action_sets import L_infinity, Spheres
 import RL.Reward_Evaluate
 from RL.run_agents import Agents
 from core.imdp import IMDP
-import RL.Evaluate_Secondary
+from RL.helper_functions import create_borders
 
 # Uncomment one of the following lines to run an example benchmark.
 # If it seems to be 'stuck' when computing the transition probabilities, consider decreasing the batch size (e.g., to 1000).
@@ -149,12 +149,19 @@ if __name__ == '__main__':
 
         vals_to_clip = [[-np.pi*0.5,np.pi*0.5],[-3,3]]
         vals_to_wrap = [None,None]
+
+        # add 4 critical regions to contain the whole arena
+        # NOTE: we assume that the first 2 values of each point are the physical x and y coordinates
+        # TODO - currently we assume only a 2D space
+        boundaries = model.partition['boundary']
+        borders = create_borders(spatial_dimension=2,lower_bounds=boundaries[0],upper_bounds=boundaries[1])
+
         spheres = Spheres(
             thresholds=thresholds,
             radii_options=radii_options,
             vals_to_clip=vals_to_clip,
             vals_to_wrap=vals_to_wrap,
-            critical_regions=model.critical
+            critical_regions=np.concatenate([model.critical, borders]) # include the borders as critical regions
         )
 
         actions = RectangularForward(args=args, partition=partition, model=model, action_spheres=spheres)     

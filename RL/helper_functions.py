@@ -105,3 +105,33 @@ def distance_from_box_to_box(box1_lower, box1_upper, box2_lower, box2_upper):
     )
 	distance = jnp.linalg.norm(sep)
 	return distance
+
+# create a spatial box around the arena by producing 4 "thin" boxes around it
+# spatial dimension of 2 => we expect first value of each coordinate to be x, and second to be y.
+def create_borders(spatial_dimension,lower_bounds,upper_bounds):
+	if spatial_dimension != 2:
+		# TODO: support 3 and more dimensions...
+		raise NotImplemented
+
+	lower_x, lower_y = lower_bounds[0:1],lower_bounds[1:2]
+	upper_x,upper_y = upper_bounds[0:1],upper_bounds[1:2]
+
+	upper_border = np.array([
+		np.concatenate([lower_x,upper_y,upper_bounds[2:]]),
+		np.concatenate([upper_x,upper_y,upper_bounds[2:]])
+	])
+	lower_border = np.array([
+		np.concatenate([lower_x,lower_y,lower_bounds[2:]]),
+		np.concatenate([upper_x,lower_y,lower_bounds[2:]])
+	])
+	left_border = np.array([
+		np.concatenate([lower_x,lower_y,lower_bounds[2:]]),
+		np.concatenate([lower_x,upper_y,upper_bounds[2:]])
+	])
+	right_border = np.array([
+		np.concatenate([upper_x,lower_y,lower_bounds[2:]]),
+		np.concatenate([upper_x,upper_y,upper_bounds[2:]])
+	])
+
+	borders = [upper_border,lower_border,left_border,right_border]
+	return borders
