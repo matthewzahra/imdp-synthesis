@@ -51,20 +51,6 @@ class Agents():
 					learning_starts=20_000
 				)
 
-				# agent = TD3(
-				# 	"MlpPolicy",
-				# 	env,
-				# 	learning_rate=1e-3,      # TD3 often uses slightly higher LR
-				# 	buffer_size=1_000_000,
-				# 	batch_size=256,
-				# 	tau=0.005,
-				# 	gamma=0.99,
-				# 	train_freq=1,
-				# 	gradient_steps=1,
-				# 	tensorboard_log="./td3_logs/",
-				# 	verbose=1,
-				# )
-
 				# train the agent 
 				print(f"Training agent for {s}")
 				agent.learn(total_timesteps=self.timesteps, progress_bar=True)

@@ -15,7 +15,6 @@ class EvaluateSecondary:
 		# TODO - should we use the NEW CONCRETE state instead???
 		'''
 
-
 		raise NotImplemented
 	
 class EnergyEfficiency(EvaluateSecondary):

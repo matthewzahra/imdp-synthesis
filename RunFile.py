@@ -133,25 +133,17 @@ if __name__ == '__main__':
     # Create actions based on forward reachable sets
     if reinforcement_learning:
         # TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
-        # NOTE - if the radii are too large then we get really poor satisfaction probability 
         action_dim = model.p
 
-        # TODO - incorporate the new spheres stuff from below up here!!!
 
-                # TODO - bit hard coded for the Dubins_small example
+        # TODO - bit hard coded for the Dubins_small example
         # define the spheres here, including what dimensions need wrapping and what ones need clipping
-        # thresholds = jnp.array([4,3,2,1,0])
-        # radii_options = jnp.array([
-        #     [jnp.pi*0.4, 0.4],
-        #     [jnp.pi*0.3, 0.3],
-        #     [jnp.pi*0.2, 0.2],
-        #     [jnp.pi*0.1, 0.1],
-        #     [0,0]
-        # ])
-
-        thresholds = jnp.array([4,0])
+        thresholds = jnp.array([4,3,2,1,0])
         radii_options = jnp.array([
-            [0,0],
+            [jnp.pi*0.4, 0.4],
+            [jnp.pi*0.3, 0.3],
+            [jnp.pi*0.2, 0.2],
+            [jnp.pi*0.1, 0.1],
             [0,0]
         ])
 
@@ -270,14 +262,6 @@ if __name__ == '__main__':
     from core.simulate import MonteCarloSim
     from RL.helper_functions import run_simulations, plot
 
-
-    # NOTE: currently set up for the Mountain Car
-    # scaling = np.array([100])
-    # evaluation = EnergyEfficiency(action_scaling=scaling)
-    # evaluation = DistanceToRegion(region_lower=np.array([-7,1], dtype=float), region_upper=np.array([-1,3], dtype=float), dims=[0,2])
-    # evaluation = TimeSteps()
-
-    # TODO - currently we only support infinite horizons - we should extend this to finite horizons
 
     # define if we want to check if the model enteres a given box (None if we don't)
     tracked_region = np.array([[1, 2, -np.pi],[3,10,np.pi]])

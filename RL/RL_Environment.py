@@ -6,14 +6,13 @@ from RL.helper_functions import project_action
 '''
 Wrap the environment inside the gymnasium API so that SB3 plugs in easily.
 
-NOTE: RL agent will only be allowed ot suggest actions in the hyperrectangle [(-1,...,-1), (1,...,1)] - we will then produce a concrete action that is scaled appropriately. 
+NOTE: RL agent will only be allowed to suggest actions in the hyperrectangle [(-1,...,-1), (1,...,1)] - we will then produce a concrete action that is scaled appropriately. 
 The origin is the same as taking the centre of the allowed sphere.
 
 TODO - do we want to give the agent the centre of the sphere as part of the state that it sees???
 '''
 
 # TODO - needs to be able to handle finite and infinite horizons - currently we assume it is an INFINITE horizon
-# TODO - currently, if we hit a critical region we terminate and give a large negative reward. There are some thing we can do with wrappers to better enforce hard constraints if this doesn't work
 
 class Env(gym.Env):
 	def __init__(
@@ -121,7 +120,6 @@ class Env(gym.Env):
 			cov=self.model.noise['cov']**2 # TODO check this - we square it here as this is what we do in the MonteCarloSum class
 		)
 	
-	# TODO - check that this is correct ...
 	# given an action proposed in the hyperrectangle [(-1,...,-1), (1,...,1)], find the corresponding real concrete action by scaling appropriately
 	def _project_action(self, action, action_lower, action_upper):
 		return project_action(action, action_lower, action_upper)
@@ -135,7 +133,6 @@ class Env(gym.Env):
 
 	# advance the enviornment by 1 time step
 	def step(self, proposed_action):
-
 		terminated = False
 		truncated = False	# use for ending a run earlier that could have in theory continue
 		info = {}
@@ -159,7 +156,6 @@ class Env(gym.Env):
 		projected_action = self._project_action(proposed_action,action_set_lower_bounds,action_set_upper_bounds)
 
 		# progress the state using the model's dynamics 
-		# NOTE: need to remove the action space from the RL state in order to get the concrete state
 		new_concrete_state = self.model.step(old_concrete_state,projected_action,noise)
 		new_base_state = self.model.step(old_concrete_state,policy_action,noise)
 

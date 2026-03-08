@@ -98,7 +98,6 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 
 # TODO - double check this is right...
 # find the shortest distance from a point to a box
-# works in n dimensions
 def distance_from_box_to_box(box1_lower, box1_upper, box2_lower, box2_upper):
 	sep = jnp.maximum(
         jnp.maximum(box1_lower - box2_upper, box2_lower - box1_upper),
