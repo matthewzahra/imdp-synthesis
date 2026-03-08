@@ -7,7 +7,10 @@ Define the different reward structures
 '''
 
 class RewardStructure:
-	def getReward(self,state,action):
+	def __init__(self, include_prev_action=False):
+		self.include_prev_action = include_prev_action
+
+	def getReward(self,old_state, new_base_state, new_rl_state, policy_action, rl_action):
 		raise NotImplemented
 
 
@@ -36,6 +39,7 @@ class AbsActionCost(RewardStructure):
 			self,
 			action_costs 	# a dictionary with a multiplier for each dimension in the action space
 		):
+		super().__init__()
 		self.action_costs = action_costs
 	
 	def getReward(self, old_state, new_base_state, new_rl_state, policy_action, rl_action):
@@ -51,25 +55,22 @@ class SmoothMovements(RewardStructure):
 	def __init__(
 		self,
 		action_element_scalings	# scalings for each dimension of the actions
-	):
+		):
+		super().__init__(include_prev_action=True)	# we want to include the previous action in the RL agent's state 
 		self.action_element_scalings = action_element_scalings
-		self.prev_action = None
+		self.prev_action = np.zeros(self.action_element_scalings.size)	# initially the previous action is (0,...,0)
 
 	def getReward(self,old_state, new_base_state, new_rl_state, policy_action, rl_action):
-		if not self.prev_action:
-			self.prev_action = rl_action
-			return 0
-		
-		else:
-			reward = np.dot(self.action_element_scalings, np.abs(rl_action - self.prev_action))
-			self.prev_action = rl_action
-			return reward
+		reward = np.dot(self.action_element_scalings, np.abs(rl_action - self.prev_action))
+		self.prev_action = rl_action
+		return -1 * reward ** 2		# square so that large adjustments are penalised more
 		
 class OptimiseTimeSteps(RewardStructure):
 	'''
 	Look to reward taking a long or a short time to reach the goal state
 	'''
 	def __init__(self, time_step_reward=-1):
+		super().__init__()
 		self.time_step_reward = time_step_reward
 
 	def getReward(self, old_state, new_base_state, new_rl_state, policy_action, rl_action):
@@ -83,6 +84,7 @@ class GetCloseToRegion(RewardStructure):
 	'''
 
 	def __init__(self, target_min, target_max, dims: Optional[list[int]] = None):
+		super().__init__()
 		self.target_min = target_min
 		self.target_max = target_max
 		self.dims = dims
@@ -99,6 +101,7 @@ class GetCloseToRegion(RewardStructure):
 
 class GetCloserToRegionThanPolicy(RewardStructure):
 	def __init__(self, target_min, target_max, dims: Optional[list[int]] = None):
+		super().__init__()
 		self.target_min = target_min
 		self.target_max = target_max
 		self.dims = dims
@@ -118,6 +121,7 @@ class GetCloserToRegionThanPolicy(RewardStructure):
 
 class GetCloseToRegionAndBeatPolicy(RewardStructure):
 	def __init__(self, target1_min, target1_max, target2_min, target2_max, dims: Optional[list[int]] = None):
+		super().__init__()
 		self.beat_policy = GetCloserToRegionThanPolicy(target1_min, target1_max, dims)
 		self.get_to_region = GetCloseToRegion(target2_min, target2_max, dims)
 

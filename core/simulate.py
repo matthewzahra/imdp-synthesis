@@ -167,9 +167,20 @@ class MonteCarloSim():
                 # check if we should be using an RL agent to make the decision 
                 if self.agent is not None:
 
-                    # need to add the policy action to the cocnrete state to get the observation
+                    # need to add the policy action to the concrete state to get the observation
                     policy_action = self.policy_inputs[s[k]]
-                    obs = np.concatenate([concrete_state,policy_action])
+                    
+                    # may need to also add the previous action
+                    if self.evaluate_secondary.include_prev_action:
+                        if k > 0:
+                            prev_action = u[k-1]
+                        else:
+                            prev_action = u[0]
+                        obs = np.concatenate([concrete_state,policy_action,prev_action])
+
+                    else:
+                        obs = np.concatenate([concrete_state,policy_action])
+
                     if self.vecnorm:
                         obs = self.vecnorm.normalize_obs(obs)
                     

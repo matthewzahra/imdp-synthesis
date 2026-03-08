@@ -30,7 +30,7 @@ class Env(gym.Env):
 			spheres,
 			reward_structure,
 			partition,
-			max_steps=200
+			max_steps=20
 			):
 		'''
 		:param state_dim: dimension of the state space
@@ -48,6 +48,9 @@ class Env(gym.Env):
 		:param max_steps: max number of steps before we terminate the process
 		'''
 
+		'''
+		NOTE: state that the agent sees is of the form (concrete state, policy action, previous action) (previous action ommitted if reward_structure.include_prev_action is False)
+		'''
 
 		# define the full action space as the hyperrectangle [(-1,...,-1), (1,...,1)]
 		self.action_space = spaces.Box(
@@ -59,10 +62,19 @@ class Env(gym.Env):
 
 		# define the full state space
 		# state is not just the concrete state that we are in, but also includes the concrete actions proposed by the policy to give the agent the full picture
+		if reward_structure.include_prev_action:
+			space_lower = np.concatenate([space_lower,action_lower, action_lower])
+			space_upper = np.concatenate([space_upper,action_upper, action_upper])
+			space_shape = state_dim+action_dim+action_dim
+		else:
+			space_lower = np.concatenate([space_lower,action_lower])
+			space_upper = np.concatenate([space_upper,action_upper])
+			space_shape = state_dim+action_dim
+
 		self.observation_space = spaces.Box(
-			low=np.asarray(np.concatenate([space_lower,action_lower]), dtype=np.float32),
-			high=np.asarray(np.concatenate([space_upper,action_upper]), dtype=np.float32),
-			shape=(state_dim+action_dim,),
+			low=np.asarray(space_lower, dtype=np.float32),
+			high=np.asarray(space_upper, dtype=np.float32),
+			shape=(space_shape,),
 			dtype=np.float32
 		)
 
@@ -76,9 +88,15 @@ class Env(gym.Env):
 		self.reward_structure = reward_structure
 		self.partition = partition
 		self.action_dim = action_dim
+		self.state_dim = state_dim
 
 		# the current state
-		self.initial_state = np.append(initial_state, self.policy_inputs[partition.x2state(initial_state)[0]])
+		if self.reward_structure.include_prev_action:
+			# TODO - are we ok with the initial previous action just being the initial one? I think it is ok, shouldn't throw the agent off
+			self.initial_state = np.concatenate([initial_state, self.policy_inputs[partition.x2state(initial_state)[0]],  self.policy_inputs[partition.x2state(initial_state)[0]]])
+		else:
+			self.initial_state = np.append(initial_state, self.policy_inputs[partition.x2state(initial_state)[0]])
+
 		self.state = self.initial_state
 
 		# the current time step
@@ -107,6 +125,13 @@ class Env(gym.Env):
 	# given an action proposed in the hyperrectangle [(-1,...,-1), (1,...,1)], find the corresponding real concrete action by scaling appropriately
 	def _project_action(self, action, action_lower, action_upper):
 		return project_action(action, action_lower, action_upper)
+	
+	# separate the state given to the RL agent into the concrete state, the action and the previous action (if used)
+	def _separate_state(self,state):
+		if self.reward_structure.include_prev_action:
+			return state[:self.state_dim],state[self.state_dim:self.state_dim+self.action_dim],state[self.state_dim+self.action_dim:self.state_dim+self.action_dim*2]
+		else:
+			return state[:self.state_dim],state[self.state_dim:],None
 
 	# advance the enviornment by 1 time step
 	def step(self, proposed_action):
@@ -127,11 +152,8 @@ class Env(gym.Env):
 		noise = self._generate_noise()
 
 		# project action into the current action sphere
-		# NOTE: since our RL state includes the action space, we need to trim it 
-		policy_action = self.policy_inputs[self.partition.x2state(self.state[:-self.action_dim])[0]]
-
-
-		old_concrete_state = self.state[:-self.action_dim]
+		old_concrete_state,old_action,old_previous_action = self._separate_state(self.state)
+		policy_action = self.policy_inputs[self.partition.x2state(old_concrete_state)[0]]
 
 		action_set_lower_bounds, action_set_upper_bounds = self.spheres.get_action_sphere(action_centre=policy_action, state=old_concrete_state)
 		projected_action = self._project_action(proposed_action,action_set_lower_bounds,action_set_upper_bounds)
@@ -141,7 +163,10 @@ class Env(gym.Env):
 		new_concrete_state = self.model.step(old_concrete_state,projected_action,noise)
 		new_base_state = self.model.step(old_concrete_state,policy_action,noise)
 
-		self.state = np.concatenate([new_concrete_state,self.policy_inputs[self.partition.x2state(new_concrete_state)[0]]])
+		if self.reward_structure.include_prev_action:
+			self.state = np.concatenate([new_concrete_state,self.policy_inputs[self.partition.x2state(new_concrete_state)[0]],old_action])
+		else:
+			self.state = np.concatenate([new_concrete_state,self.policy_inputs[self.partition.x2state(new_concrete_state)[0]]])
 
 		# find what abstract state we are in 
 		abstract_state = self.partition.x2state(new_concrete_state)[0]

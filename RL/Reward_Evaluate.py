@@ -44,9 +44,10 @@ class ActionCosts(RewardEval):
 		self.reward = RL.Reward.AbsActionCost(action_costs)
 		self.evaluation = RL.Evaluate_Secondary.EnergyEfficiency(action_costs)
 
-class ActionSmoothness:
-	def __init__(self):
-		raise NotImplemented
+class ActionSmoothness(RewardEval):
+	def __init__(self, action_scaling_reward, action_scaling_evaluate):
+		self.reward = RL.Reward.SmoothMovements(action_scaling_reward)
+		self.evaluation = RL.Evaluate_Secondary.ActionSmoothness(action_scaling_evaluate)
 	
 class GetToRegionDoubleReward(RewardEval):
 	'''
