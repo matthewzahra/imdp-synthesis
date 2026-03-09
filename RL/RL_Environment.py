@@ -150,22 +150,30 @@ class Env(gym.Env):
 
 		# project action into the current action sphere
 		old_concrete_state,old_action,old_previous_action = self._separate_state(self.state)
-		policy_action = self.policy_inputs[self.partition.x2state(old_concrete_state)[0]]
+		old_abstract_state,in_partition = self.partition.x2state(old_concrete_state)
+		if not in_partition:
+			raise ValueError("Old concrete state is not in the partition.")
+		policy_action = self.policy_inputs[old_abstract_state]
 
-		action_set_lower_bounds, action_set_upper_bounds = self.spheres.get_action_sphere(action_centre=policy_action, state=old_concrete_state)
+		# find the bounds of the concrete states that the abstract state represents and derive the action sphere
+		state_min,state_max = self.partition.regions['lower_bounds'][old_abstract_state],self.partition.regions['upper_bounds'][old_abstract_state]
+		action_set_lower_bounds, action_set_upper_bounds = self.spheres.get_action_sphere(action_centre=policy_action, state_min=state_min, state_max=state_max)
 		projected_action = self._project_action(proposed_action,action_set_lower_bounds,action_set_upper_bounds)
 
 		# progress the state using the model's dynamics 
 		new_concrete_state = self.model.step(old_concrete_state,projected_action,noise)
 		new_base_state = self.model.step(old_concrete_state,policy_action,noise)
 
+		# find what abstract state we are in 
+		abstract_state, in_partition = self.partition.x2state(new_concrete_state)
+		if not in_partition:
+			raise ValueError("New concrete state is not in the partition.")
+
 		if self.reward_structure.include_prev_action:
 			self.state = np.concatenate([new_concrete_state,self.policy_inputs[self.partition.x2state(new_concrete_state)[0]],old_action])
 		else:
 			self.state = np.concatenate([new_concrete_state,self.policy_inputs[self.partition.x2state(new_concrete_state)[0]]])
 
-		# find what abstract state we are in 
-		abstract_state = self.partition.x2state(new_concrete_state)[0]
 
 		# check if we are in a critical region
 		if abstract_state in self.partition.critical['idxs']:

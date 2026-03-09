@@ -188,7 +188,9 @@ class MonteCarloSim():
                     proposed_action,_ = self.agent.predict(observation=obs, deterministic=True) # TODO - do we want this to be deterministic
 
                     # project the action
-                    action_set_lower_bounds, action_set_upper_bounds = self.spheres.get_action_sphere(action_centre=policy_action,state=concrete_state)
+                    # TODO - use abstract state bounds instead of a single state
+                    state_min,state_max = self.partition.regions['lower_bounds'][s[k]],self.partition.regions['lower_bounds'][s[k]]
+                    action_set_lower_bounds, action_set_upper_bounds = self.spheres.get_action_sphere(action_centre=policy_action,state_min=state_min,state_max=state_max)
                     projected_action = self.project_action(proposed_action,action_set_lower_bounds,action_set_upper_bounds)
 
                     # save the action so that it can be executed later
