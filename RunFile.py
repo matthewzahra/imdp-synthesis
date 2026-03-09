@@ -161,7 +161,7 @@ if __name__ == '__main__':
             radii_options=radii_options,
             vals_to_clip=vals_to_clip,
             vals_to_wrap=vals_to_wrap,
-            critical_regions=np.concatenate([model.critical, borders]) # include the borders as critical regions
+            critical_regions=np.concatenate([model.critical, borders, model.goal]) # include the borders and goal region as critical regions
         )
 
         actions = RectangularForward(args=args, partition=partition, model=model, action_spheres=spheres)     
@@ -254,7 +254,7 @@ if __name__ == '__main__':
                 n_envs=1
             )
         
-        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 100)
+        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 250_000)
 
         # train all the agents
         agents.train_agents(dont_train=args.no_train)
