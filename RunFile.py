@@ -214,6 +214,10 @@ if __name__ == '__main__':
             policy_iteration=True)
         print (f'- RVI with JAX (random-batched asynchronous) took: {(time.time() - t):.3f} sec.')
 
+        sat_prob = V[partition.x2state(model.x0)]
+        with open(f"{stamp}_results.txt", "a") as f:
+            f.write(f"Satisfaction probability: {sat_prob}\n\n")
+
     # %% Training of the Reinforcement Learning Agent
     if reinforcement_learning:
         '''
