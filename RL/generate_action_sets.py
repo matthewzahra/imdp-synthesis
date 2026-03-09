@@ -84,6 +84,15 @@ class Spheres:
 		lb = jnp.where(wrap_mask, lb_wrapped, lb)
 		ub = jnp.where(wrap_mask, ub_wrapped, ub)
 		return lb,ub
+	
+	# generate the sphere size using a continuous function, parameterised by the distance to the nearest critical region, goal region or border
+	def generate_sphere_continuous(self, centre):
+		# find the distance to the nearest critical region
+
+		# calculate the sphere using the continuous function
+		
+		# TODO - implement this...
+		raise NotImplemented
 
 	def get_action_sphere(self, action_centre, state=None, state_min=None,state_max=None):
 		'''
