@@ -61,7 +61,7 @@ class Dubins_small(DubinsSmallDynamics):
 
         self.critical = np.array([
             [[-1, 8, -np.pi], [1, 10, np.pi]],
-            [[-1, -3, -np.pi], [1, 6, np.pi]],
+            [[-1, -3, -np.pi], [1, 4, np.pi]],
             [[-1, -10, -np.pi], [1, -8, np.pi]]
         ], dtype=float)
 
