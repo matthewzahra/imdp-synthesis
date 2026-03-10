@@ -147,12 +147,11 @@ if __name__ == '__main__':
         #     [0,0]
         # ])
 
-        thresholds = jnp.array([4,3,2,1,0])
+        thresholds = jnp.array([3,2,1,0])
         radii_options = jnp.array([
-            [jnp.pi*0.25, 0.3],
-            [jnp.pi*0.2, 0.3],
-            [jnp.pi*0.15, 0.25],
-            [jnp.pi*0.1, 0.2],
+            [jnp.pi*0.2, 0],
+            [jnp.pi*0.1, 0],
+            [jnp.pi*0.05, 0],
             [0,0]
         ])
 
@@ -170,7 +169,8 @@ if __name__ == '__main__':
             radii_options=radii_options,
             vals_to_clip=vals_to_clip,
             vals_to_wrap=vals_to_wrap,
-            critical_regions=np.concatenate([model.critical, borders, model.goal]) # include the borders and goal region as critical regions
+            critical_regions=np.concatenate([model.critical, borders, model.goal]), # include the borders and goal region as critical regions
+            model=model
         )
 
         actions = RectangularForward(args=args, partition=partition, model=model, action_spheres=spheres)     
@@ -243,8 +243,8 @@ if __name__ == '__main__':
         # reward_evals['get_closer_than_base_to_bottom_left'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-10,-10]), region_upper=np.array([-10,-10]), dims=[0,1])
         # reward_evals['get_closer_than_base_to_vertical_critical'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
         # reward_evals['get_closer_than_base_to_top_opening'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,6.5]), region_upper=np.array([-1,6.5]), dims=[0,1])
-        reward_evals['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region1_lower=np.array([-1,6.5]), region1_upper=np.array([-1,6.5]), region2_lower=np.array([10,10]), region2_upper=np.array([10,10]), dims=[0,1])
-        reward_evals['top_opening_double_reward2'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region2_lower=np.array([-1,6.5]), region2_upper=np.array([-1,6.5]), region1_lower=np.array([10,10]), region1_upper=np.array([10,10]), dims=[0,1])
+        # reward_evals['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region1_lower=np.array([-1,6.5]), region1_upper=np.array([-1,6.5]), region2_lower=np.array([10,10]), region2_upper=np.array([10,10]), dims=[0,1])
+        # reward_evals['top_opening_double_reward2'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region2_lower=np.array([-1,6.5]), region2_upper=np.array([-1,6.5]), region1_lower=np.array([10,10]), region1_upper=np.array([10,10]), dims=[0,1])
         # reward_evals['smooth_actions'] = RL.Reward_Evaluate.ActionSmoothness(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
 
         print("Constructing RL Environment")

@@ -40,7 +40,6 @@ def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_di
 
     # Compute the continuous bounds of the forward reachable set
     if action_spheres is not None:
-        # lower, upper = L_infinity(centre=input, distances=radii)
         lower,upper = action_spheres.get_action_sphere(action_centre=input,state_min=state_min,state_max=state_max)
         frs_min, frs_max = step_set(state_min, state_max, lower, upper)
     else:

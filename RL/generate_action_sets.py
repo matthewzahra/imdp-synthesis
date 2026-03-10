@@ -18,13 +18,15 @@ class Spheres:
 			radii_options,
 			vals_to_clip,
 			vals_to_wrap,
-			critical_regions
+			critical_regions,
+			model
 		):
 		self.thresholds = thresholds
 		self.radii_options = radii_options
 		self.vals_to_clip = vals_to_clip
 		self.vals_to_wrap = vals_to_wrap
 		self.critical_regions = critical_regions
+		self.model = model
 
 	# the most basic one is simply an L_infinity ball around a with a given direction - this forms a hyperrectangle
 	# we must clip it so that if we are on the extreme of the action space, we don't allow invalid actions (if lower and upper bounds provided)
@@ -107,15 +109,21 @@ class Spheres:
 			state_min = state
 			state_max = state
 
-		# find the distance between input and the nearest critical region
-		calc_distances = jax.vmap(
-            lambda lb, ub: distance_from_box_to_box(state_min,state_max,lb,ub),
+		# find reachable set using a radius of 0
+		frs_min,frs_max = self.model.step_set(state_min, state_max, action_centre, action_centre)
+		
+		# find the distance between 1 box and a set of other boxes
+		calc_distances = lambda lb1, ub1: jax.vmap(
+            lambda lb2, ub2: distance_from_box_to_box(lb1,ub1,lb2,ub2),
         )
 
-		critical_distances = calc_distances(self.critical_regions[:,0,:], self.critical_regions[:,1,:])
-		closest_critical = jnp.min(critical_distances)
+		# find minimum distance from the forward reachable set (with radius 0) to the critical regions
+		distance_to_frs = calc_distances(frs_min,frs_max)
+		frs_critical_distances = distance_to_frs(self.critical_regions[:,0,:], self.critical_regions[:,1,:])
+		frs_closest_critical = jnp.min(frs_critical_distances)
 
-		mask = closest_critical >= self.thresholds
+		# select the radii for each dimension
+		mask = frs_closest_critical >= self.thresholds
 		radii = jnp.where(
 			mask[:, None],
 			self.radii_options,
