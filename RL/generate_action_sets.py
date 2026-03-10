@@ -63,6 +63,8 @@ class Spheres:
 		'''
 		lb,ub = self.L_infinity(centre, radii)
 
+		# jax.debug.print('centre: {}, radii: {}, lb: {}, ub: {}', centre, radii, lb, ub)
+
 		# deal with clipping
 		clip_mask = jnp.array([v is not None for v in vals_to_clip])
 
@@ -85,6 +87,9 @@ class Spheres:
 
 		lb = jnp.where(wrap_mask, lb_wrapped, lb)
 		ub = jnp.where(wrap_mask, ub_wrapped, ub)
+
+		# jax.debug.print('action centre: {}, clipped lb: {}, clipped ub: {}', centre, lb, ub)
+
 		return lb,ub
 	
 	# generate the sphere size using a continuous function, parameterised by the distance to the nearest critical region, goal region or border
@@ -133,6 +138,8 @@ class Spheres:
 		# pick the largest radii values that are allowed
 		idx = len(mask) - jnp.sum(mask)
 		idx = jnp.maximum(idx,0)
+
+		# jax.debug.print('closest is distance: {}, radii = {}', frs_closest_critical, radii[idx])
 
 		return self.generate_sphere(action_centre,radii[idx],self.vals_to_clip,self.vals_to_wrap)
 

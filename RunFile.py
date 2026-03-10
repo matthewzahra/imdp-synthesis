@@ -25,19 +25,17 @@ import jax.numpy as jnp
 import sys
 
 import benchmarks
-from core.Gaussian_probabilities import compute_probability_intervals
-from core.actions_forward import RectangularForward
 from core.model import parse_linear_model, parse_nonlinear_model
 from core.options import parse_arguments
 from core.partition import RectangularPartition
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3 import SAC
 from RL.RL_Environment import Env
-from RL.generate_action_sets import Spheres
 import RL.Reward_Evaluate
 from RL.run_agents import Agents
 from core.imdp import IMDP
-from RL.helper_functions import create_borders
+from RL.sphere_defs import build_sphere_defs
+from core.build_policy import build_policy
 
 # Uncomment one of the following lines to run an example benchmark.
 # If it seems to be 'stuck' when computing the transition probabilities, consider decreasing the batch size (e.g., to 1000).
@@ -129,13 +127,34 @@ if __name__ == '__main__':
 
     # Create partition of the continuous state space into convex polytope
     partition = RectangularPartition(model=model)
+
+    if args.test_spheres:
+        sphere_defs = build_sphere_defs()
+
+        # bit hard coded...
+        vals_to_clip = [[-np.pi*0.5,np.pi*0.5],[-3,3]]
+        vals_to_wrap = [None,None]
+
+        for sphere in sphere_defs:
+            thresholds, radii_options = sphere.thresholds, sphere.radii
+
+            V, policy, policy_inputs, spheres = build_policy(
+                thresholds=thresholds,
+                radii_options=radii_options,
+                vals_to_clip=vals_to_clip,
+                vals_to_wrap=vals_to_wrap,
+                model=model,
+                partition=partition,
+                args=args,
+                stamp=stamp,
+                t=t,
+                reinforcement_learning=reinforcement_learning
+            )
+
+        exit()
+
+    else:
     
-    # Create actions based on forward reachable sets
-    if reinforcement_learning:
-        # TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
-        action_dim = model.p
-
-
         # TODO - bit hard coded for the Dubins_small example
         # define the spheres here, including what dimensions need wrapping and what ones need clipping
         # thresholds = jnp.array([4,3,2,1,0])
@@ -147,85 +166,26 @@ if __name__ == '__main__':
         #     [0,0]
         # ])
 
-        thresholds = jnp.array([3,2,1,0])
+        thresholds = jnp.array([0])
         radii_options = jnp.array([
-            [jnp.pi*0.2, 0],
-            [jnp.pi*0.1, 0],
-            [jnp.pi*0.05, 0],
             [0,0]
         ])
 
         vals_to_clip = [[-np.pi*0.5,np.pi*0.5],[-3,3]]
         vals_to_wrap = [None,None]
 
-        # add 4 critical regions to contain the whole arena
-        # NOTE: we assume that the first 2 values of each point are the physical x and y coordinates
-        # TODO - currently we assume only a 2D space
-        boundaries = model.partition['boundary']
-        borders = create_borders(spatial_dimension=2,lower_bounds=boundaries[0],upper_bounds=boundaries[1])
-
-        spheres = Spheres(
+        V, policy, policy_inputs, spheres = build_policy(
             thresholds=thresholds,
             radii_options=radii_options,
             vals_to_clip=vals_to_clip,
             vals_to_wrap=vals_to_wrap,
-            critical_regions=np.concatenate([model.critical, borders, model.goal]), # include the borders and goal region as critical regions
-            model=model
+            model=model,
+            partition=partition,
+            args=args,
+            stamp=stamp,
+            t=t,
+            reinforcement_learning=reinforcement_learning
         )
-
-        actions = RectangularForward(args=args, partition=partition, model=model, action_spheres=spheres)     
-        actions_inputs = actions.id_to_input   
-    else:
-        actions = RectangularForward(args=args, partition=partition, model=model)
-        actions_inputs = actions.id_to_input
-
-
-    # TODO - edit this function to use the new probability intervals 
-
-    P_full, S_id, A_id, P_absorbing = compute_probability_intervals(args=args, 
-                                                                    model=model, 
-                                                                    partition=partition, 
-                                                                    actions=actions,
-                                                                    vectorized=True)
-    
-    del actions
-
-    imdp = IMDP(partition=partition,
-                states=np.array(partition.regions['idxs']),
-                actions_inputs=actions_inputs,
-                x0=model.x0,
-                goal_regions=np.array(partition.goal['bools']),
-                critical_regions=np.array(partition.critical['bools']),
-                P_full=P_full,
-                S_id=S_id,
-                A_id=A_id,
-                P_absorbing=P_absorbing)
-
-    print(f'- Generating abstraction took: {(time.time() - t):.3f} sec.')
-
-    # %% Build and verify with JAX-based RVI
-
-    from core.imdp import RVI_JAX, RVI
-
-    print('Compute optimal policy via robust value iteration with JAX...')
-
-    with jax.default_device(args.rvi_device):
-
-        t = time.time()
-        V, _, policy, policy_inputs = RVI_JAX(
-            args=args, 
-            imdp=imdp, 
-            s0=partition.x2state(model.x0)[0], 
-            max_iterations=100, 
-            epsilon=1e-6, 
-            RND_SWEEPS=True, 
-            BATCH_SIZE=1000, 
-            policy_iteration=True)
-        print (f'- RVI with JAX (random-batched asynchronous) took: {(time.time() - t):.3f} sec.')
-
-        sat_prob = V[partition.x2state(model.x0)]
-        with open(f"{stamp}_results.txt", "a") as f:
-            f.write(f"Satisfaction probability: {sat_prob}\n\n")
 
     # %% Training of the Reinforcement Learning Agent
     if reinforcement_learning:

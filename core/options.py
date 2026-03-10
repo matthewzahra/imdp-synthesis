@@ -53,6 +53,9 @@ def parse_arguments():
 
     parser.add_argument('--no_train', action='store_true', default=False,
                         help="don't train new RL agents, just use existing ones")
+    
+    parser.add_argument('--test_spheres', action='store_true', default=False,
+                        help='test spheres defined in RL.sphere_defs.py for the satisfaction probabilities that they produce')
 
     # Parse arguments
     args = parser.parse_args()
