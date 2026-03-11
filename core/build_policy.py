@@ -26,12 +26,14 @@ def build_policy(thresholds, radii_options, vals_to_clip, vals_to_wrap, model, p
 			vals_to_clip=vals_to_clip,
 			vals_to_wrap=vals_to_wrap,
 			critical_regions=np.concatenate([model.critical, borders, model.goal]), # include the borders and goal region as critical regions
+			# critical_regions = model.critical, # TODO - revert this - just this way to see if this was an issue
 			model=model
 		)
 
 		actions = RectangularForward(args=args, partition=partition, model=model, action_spheres=spheres)     
 		actions_inputs = actions.id_to_input   
 	else:
+		spheres = None
 		actions = RectangularForward(args=args, partition=partition, model=model)
 		actions_inputs = actions.id_to_input
 
@@ -61,8 +63,7 @@ def build_policy(thresholds, radii_options, vals_to_clip, vals_to_wrap, model, p
 
 	print(f'- Generating abstraction took: {(time.time() - t):.3f} sec.')
 
-	# %% Build and verify with JAX-based RVI
-
+	
 	from core.imdp import RVI_JAX, RVI
 
 	print('Compute optimal policy via robust value iteration with JAX...')

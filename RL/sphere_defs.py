@@ -43,6 +43,21 @@ def build_sphere_defs():
 		# 	])
 		# ),
 
+		SphereDef(
+			thresholds = jnp.array([2,1.8,1.6,1.4,1.2,1,0.8,0.6,0]),
+			radii = jnp.array([
+				[jnp.pi*0.24, 0],
+				[jnp.pi*0.23, 0],
+				[jnp.pi*0.22, 0],
+				[jnp.pi*0.21, 0],
+				[jnp.pi*0.2, 0],
+				[jnp.pi*0.18, 0],
+				[jnp.pi*0.16, 0],
+				[jnp.pi*0.14, 0],
+				[0,0]
+			])
+		),
+
 		# performs badly, 0.000166
 		# SphereDef(
 		# 	thresholds = jnp.array([2,1.8,1.6,1.4,1.2,1,0.8,0.6,0]),
