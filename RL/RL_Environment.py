@@ -29,7 +29,7 @@ class Env(gym.Env):
 			spheres,
 			reward_structure,
 			partition,
-			max_steps=200
+			max_steps=200 # TODO - re-lower?
 			):
 		'''
 		:param state_dim: dimension of the state space
