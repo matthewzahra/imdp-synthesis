@@ -9,7 +9,7 @@ import time
 import jax
 
 # build the policy, including performing value/policy iteration
-def build_policy(thresholds, radii_options, vals_to_clip, vals_to_wrap, model, partition, args, stamp, t, reinforcement_learning=False):
+def build_policy(thresholds, radii_options, vals_to_clip, vals_to_wrap, model, partition, args, stamp, t, continuous, radii_funcs=None, reinforcement_learning=False):
 	# Create actions based on forward reachable sets
 	if reinforcement_learning:
 		# TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
@@ -27,7 +27,9 @@ def build_policy(thresholds, radii_options, vals_to_clip, vals_to_wrap, model, p
 			vals_to_wrap=vals_to_wrap,
 			critical_regions=np.concatenate([model.critical, borders, model.goal]), # include the borders and goal region as critical regions
 			# critical_regions = model.critical, # TODO - revert this - just this way to see if this was an issue
-			model=model
+			model=model,
+			radii_funcs=radii_funcs,
+			continuous=continuous
 		)
 
 		actions = RectangularForward(args=args, partition=partition, model=model, action_spheres=spheres)     

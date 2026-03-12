@@ -14,12 +14,14 @@ class Spheres:
 	'''
 	def __init__(
 			self,
-			thresholds,
-			radii_options,
 			vals_to_clip,
 			vals_to_wrap,
 			critical_regions,
-			model
+			model,
+			continuous=False,
+			thresholds=None,
+			radii_options=None,
+			radii_funcs=None
 		):
 		self.thresholds = thresholds
 		self.radii_options = radii_options
@@ -27,6 +29,8 @@ class Spheres:
 		self.vals_to_wrap = vals_to_wrap
 		self.critical_regions = critical_regions
 		self.model = model
+		self.radii_funcs=radii_funcs
+		self.continuous = continuous
 
 	# the most basic one is simply an L_infinity ball around a with a given direction - this forms a hyperrectangle
 	# we must clip it so that if we are on the extreme of the action space, we don't allow invalid actions (if lower and upper bounds provided)
@@ -93,15 +97,34 @@ class Spheres:
 		return lb,ub
 	
 	# generate the sphere size using a continuous function, parameterised by the distance to the nearest critical region, goal region or border
-	def generate_sphere_continuous(self, centre):
+	# assuems we have a continuous function per action dimension
+	def generate_sphere_continuous(self, action_centre, state=None, state_min=None, state_max=None):
+		# make the box a single point if we are just working with 1 single state
+		if state_min is None or state_max is None:
+			state_min = state
+			state_max = state
+
 		# find the distance to the nearest critical region
+		# find reachable set using a radius of 0
+		frs_min,frs_max = self.model.step_set(state_min, state_max, action_centre, action_centre)
+		
+		# find the distance between 1 box and a set of other boxes
+		calc_distances = lambda lb1, ub1: jax.vmap(
+            lambda lb2, ub2: distance_from_box_to_box(lb1,ub1,lb2,ub2),
+        )
+
+		# find minimum distance from the forward reachable set (with radius 0) to the critical regions
+		distance_to_frs = calc_distances(frs_min,frs_max)
+		frs_critical_distances = distance_to_frs(self.critical_regions[:,0,:], self.critical_regions[:,1,:])
+		frs_closest_critical = jnp.min(frs_critical_distances)
+
 
 		# calculate the sphere using the continuous function
-		
-		# TODO - implement this...
-		raise NotImplemented
+		radii = jnp.array([f(frs_closest_critical) for f in self.radii_funcs])
+		return self.generate_sphere(action_centre,radii,self.vals_to_clip,self.vals_to_wrap)
 
-	def get_action_sphere(self, action_centre, state=None, state_min=None,state_max=None):
+
+	def generate_sphere_discrete(self, action_centre, state=None, state_min=None,state_max=None):
 		'''
 		for a given action, give the sphere - this is dependent on the current state.
 		use state_min/max when calculating forward reachable sets, so calculating the action spheres for a set (box) of states
@@ -143,3 +166,8 @@ class Spheres:
 
 		return self.generate_sphere(action_centre,radii[idx],self.vals_to_clip,self.vals_to_wrap)
 
+	def get_action_sphere(self, action_centre, state=None, state_min=None, state_max = None):
+		if self.continuous:
+			return self.generate_sphere_continuous(action_centre,state,state_min,state_max)
+		else:
+			return self.generate_sphere_discrete(action_centre,state,state_min,state_max)

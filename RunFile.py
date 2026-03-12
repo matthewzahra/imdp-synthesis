@@ -135,6 +135,11 @@ if __name__ == '__main__':
         vals_to_clip = [[-np.pi*0.5,np.pi*0.5],[-3,3]]
         vals_to_wrap = [None,None]
 
+        radii_funcs = [
+            lambda d: jnp.where(d < 0.5, 0, ((d**2)/20)*np.pi),
+            lambda d: 0
+        ]
+
         for sphere in sphere_defs:
             thresholds, radii_options = sphere.thresholds, sphere.radii
 
@@ -148,7 +153,9 @@ if __name__ == '__main__':
                 args=args,
                 stamp=stamp,
                 t=t,
-                reinforcement_learning=reinforcement_learning
+                reinforcement_learning=reinforcement_learning,
+                radii_funcs=radii_funcs,
+                continuous=False
             )
 
         exit()
@@ -194,7 +201,8 @@ if __name__ == '__main__':
             args=args,
             stamp=stamp,
             t=t,
-            reinforcement_learning=reinforcement_learning
+            reinforcement_learning=reinforcement_learning,
+            continuous=False
         )
 
     # %% Training of the Reinforcement Learning Agent
