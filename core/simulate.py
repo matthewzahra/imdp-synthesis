@@ -99,7 +99,7 @@ class MonteCarloSim():
             s0, _ = self.partition.x2state(x0)
             x[0] = np.random.uniform(
                 low=self.partition.regions['lower_bounds'][s0],
-                high=self.partition.regions['lower_bounds'][s0])
+                high=self.partition.regions['upper_bounds'][s0])
 
         else:
             x[0] = x0
