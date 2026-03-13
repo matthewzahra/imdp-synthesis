@@ -171,3 +171,24 @@ class Spheres:
 			return self.generate_sphere_continuous(action_centre,state,state_min,state_max)
 		else:
 			return self.generate_sphere_discrete(action_centre,state,state_min,state_max)
+		
+	# we get a policy that uses radii = 0 everywhere and look to evaluate it to see where we should allow spheres
+	def evaluate_and_generate_sphere(self, action_centre, state_min, state_max, V, policy, partition, eval_secondary):
+		# TODO - can we include satisfaction probability?
+
+		# get current expected score with no sphere
+		frs_min,frs_max = self.model.step_set(state_min,state_max,action_centre,action_centre)
+		current_score = eval_secondary(frs_min,frs_max,...)
+		current_abstract_state = partition.x2state((state_min+state_max)/2)
+
+		# TODO - reason in each dimension of the action separately? 
+		for dim in range(action_centre.shaoe[0]):
+			
+
+
+		for action in adjacent_actions:
+			frs_min_adj, frs_max_adj = self.model.step_set(state_min,state_max,action,action)
+			adj_score = eval_secondary(frs_min_adj,frs_max_adj,...)
+
+			if adj_score > current_score:
+				# add radius in this direction 
