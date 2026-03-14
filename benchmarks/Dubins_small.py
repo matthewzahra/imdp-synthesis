@@ -44,7 +44,7 @@ class Dubins_small(DubinsSmallDynamics):
 
         self.partition['boundary'] = np.array([[-15, -10, -np.pi], [10, 10, np.pi]])
         self.partition['boundary_jnp'] = jnp.array(self.partition['boundary'])
-        self.partition['number_per_dim'] = np.array([20, 20, 11])
+        self.partition['number_per_dim'] = np.array([30, 30, 21])
 
         # self.goal = np.array([
         #     [[-10, 5, -np.pi], [-5, 10, np.pi]]
