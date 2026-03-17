@@ -10,7 +10,33 @@ class SphereDef:
 		self.thresholds = thresholds
 		self.radii = radii
 
-def build_sphere_defs():
+
+def build_sphere_model(model_name: str) -> SphereDef:
+	spheres = dict()
+	spheres['Dubins_small'] = SphereDef(
+		thresholds = jnp.array([3.4,3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0]),
+        radii = jnp.array([
+            [jnp.pi*0.34, 0.34],
+            [jnp.pi*0.32, 0.32],
+            [jnp.pi*0.3, 0.3],
+            [jnp.pi*0.28, 0.28],
+            [jnp.pi*0.26, 0.26],
+            [jnp.pi*0.24, 0.24],
+            [jnp.pi*0.20, 0.20],
+            [jnp.pi*0.16, 0.16],
+            [jnp.pi*0.12, 0.12],
+            [jnp.pi*0.08, 0.08],
+            [jnp.pi*0.04, 0.04],
+            [0, 0],
+        ])
+	)
+
+
+	return spheres[model_name]
+
+
+def build_sphere_defs_test():
+	# TODO - currently, we are NOT model specific here... we should be to be more general, like how we are in the function 'build_sphere_model'
 	spheres = [
 
 		# seems decent...

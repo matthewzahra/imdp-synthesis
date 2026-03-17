@@ -34,7 +34,7 @@ from RL.RL_Environment import Env
 import RL.Reward_Evaluate
 from RL.run_agents import Agents
 from core.imdp import IMDP
-from RL.sphere_defs import build_sphere_defs
+from RL.sphere_defs import build_sphere_defs_test, build_sphere_model
 from core.build_policy import build_policy
 
 # Uncomment one of the following lines to run an example benchmark.
@@ -129,7 +129,7 @@ if __name__ == '__main__':
     partition = RectangularPartition(model=model)
 
     if args.test_spheres:
-        sphere_defs = build_sphere_defs()
+        sphere_defs = build_sphere_defs_test()
 
         # bit hard coded...
         vals_to_clip = [[-np.pi*0.5,np.pi*0.5],[-3,3]]
@@ -161,33 +161,11 @@ if __name__ == '__main__':
         exit()
 
     else:
-    
-        # TODO - bit hard coded for the Dubins_small example
-        # define the spheres here, including what dimensions need wrapping and what ones need clipping
-        # thresholds = jnp.array([4,3,2,1,0])
-        # radii_options = jnp.array([
-        #     [jnp.pi*0.4, 0.4],
-        #     [jnp.pi*0.3, 0.3],
-        #     [jnp.pi*0.2, 0.2],
-        #     [jnp.pi*0.1, 0.1],
-        #     [0,0]
-        # ])
+        # extract the saved sphere definition for the model that we are running
+        sphere_def = build_sphere_model(model_name=args.model)
+        thresholds = sphere_def.thresholds
+        radii_options = sphere_def.radii
 
-        thresholds = jnp.array([3.4,3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0])
-        radii_options = jnp.array([
-            [jnp.pi*0.34, 0.34],
-            [jnp.pi*0.32, 0.32],
-            [jnp.pi*0.3, 0.3],
-            [jnp.pi*0.28, 0.28],
-            [jnp.pi*0.26, 0.26],
-            [jnp.pi*0.24, 0.24],
-            [jnp.pi*0.20, 0.20],
-            [jnp.pi*0.16, 0.16],
-            [jnp.pi*0.12, 0.12],
-            [jnp.pi*0.08, 0.08],
-            [jnp.pi*0.04, 0.04],
-            [0, 0],
-        ])
 
         vals_to_clip = [[-np.pi*0.5,np.pi*0.5],[-3,3]]
         vals_to_wrap = [None,None]
