@@ -173,19 +173,20 @@ if __name__ == '__main__':
         #     [0,0]
         # ])
 
-        thresholds = jnp.array([2,1.9,1.8,1.7,1.6,1.5,1.4,1.2,1,0.8,0])
+        thresholds = jnp.array([3.4,3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0])
         radii_options = jnp.array([
-            [jnp.pi*0.24, 0],
-            [jnp.pi*0.22, 0],
-            [jnp.pi*0.21, 0],
-            [jnp.pi*0.2, 0],
-            [jnp.pi*0.19, 0],
-            [jnp.pi*0.18, 0],
-            [jnp.pi*0.17, 0],
-            [jnp.pi*0.16, 0],
-            [jnp.pi*0.14, 0],
-            [jnp.pi*0.12, 0],
-            [0,0]
+            [jnp.pi*0.34, 0.34],
+            [jnp.pi*0.32, 0.32],
+            [jnp.pi*0.3, 0.3],
+            [jnp.pi*0.28, 0.28],
+            [jnp.pi*0.26, 0.26],
+            [jnp.pi*0.24, 0.24],
+            [jnp.pi*0.20, 0.20],
+            [jnp.pi*0.16, 0.16],
+            [jnp.pi*0.12, 0.12],
+            [jnp.pi*0.08, 0.08],
+            [jnp.pi*0.04, 0.04],
+            [0, 0],
         ])
 
         vals_to_clip = [[-np.pi*0.5,np.pi*0.5],[-3,3]]
@@ -214,14 +215,14 @@ if __name__ == '__main__':
         reward_evals = dict()
         # reward_evals['minimise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,-1])) # use 0 to not tax the angle in the input
         # reward_evals['maximise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,1])) # use 0 to not tax the angle in the input
-        # reward_evals['get_close_top_right'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
+        reward_evals['get_close_top_right'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
         # reward_evals['get_close_vertical_critical'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
         # reward_evals['get_closer_than_base_to_bottom_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,-10]), region_upper=np.array([10,-10]), dims=[0,1])
-        # reward_evals['get_closer_than_base_to_top_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
+        reward_evals['get_closer_than_base_to_top_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
         # reward_evals['get_closer_than_base_to_bottom_left'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-10,-10]), region_upper=np.array([-10,-10]), dims=[0,1])
         # reward_evals['get_closer_than_base_to_vertical_critical'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
         # reward_evals['get_closer_than_base_to_top_opening'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,6.5]), region_upper=np.array([-1,6.5]), dims=[0,1])
-        # reward_evals['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region1_lower=np.array([-1,6.5]), region1_upper=np.array([-1,6.5]), region2_lower=np.array([10,10]), region2_upper=np.array([10,10]), dims=[0,1])
+        reward_evals['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region1_lower=np.array([-1,6.5]), region1_upper=np.array([-1,6.5]), region2_lower=np.array([10,10]), region2_upper=np.array([10,10]), dims=[0,1])
         reward_evals['top_opening_double_reward2'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region2_lower=np.array([-1,5]), region2_upper=np.array([1,10]), region1_lower=np.array([10,10]), region1_upper=np.array([10,10]), dims=[0,1])
         # reward_evals['smooth_actions'] = RL.Reward_Evaluate.ActionSmoothness(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
 
@@ -245,7 +246,7 @@ if __name__ == '__main__':
                 n_envs=1
             )
         
-        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 250_000)
+        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 100_000)
 
         # train all the agents
         agents.train_agents(dont_train=args.no_train)
