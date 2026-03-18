@@ -35,8 +35,7 @@ from RL.run_agents import Agents
 from core.imdp import IMDP
 from RL.sphere_defs import build_sphere_defs_test, build_sphere_model
 from core.build_policy import build_policy
-from RL.RL_goals import generate_reward_eval
-
+from RL.Reward_Evaluate import generate_reward_eval
 # Uncomment one of the following lines to run an example benchmark.
 # If it seems to be 'stuck' when computing the transition probabilities, consider decreasing the batch size (e.g., to 1000).
 # sys.argv = ['RunFile.py', '--model', 'Dubins_small', '--batch_size', '30000']
