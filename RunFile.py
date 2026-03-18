@@ -166,7 +166,6 @@ if __name__ == '__main__':
         thresholds = sphere_def.thresholds
         radii_options = sphere_def.radii
 
-
         vals_to_clip = [[-np.pi*0.5,np.pi*0.5],[-3,3]]
         vals_to_wrap = [None,None]
 

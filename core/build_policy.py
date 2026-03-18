@@ -19,14 +19,17 @@ def build_policy(thresholds, radii_options, vals_to_clip, vals_to_wrap, model, p
 		# TODO - currently we assume only a 2D space
 		boundaries = model.partition['boundary']
 		borders = create_borders(spatial_dimension=2,lower_bounds=boundaries[0],upper_bounds=boundaries[1])
+		if model.critical.size == 0:
+			critical_regions = np.concatenate([borders, model.goal])
+		else:
+			critical_regions = np.concatenate([model.critical, borders, model.goal])
 
 		spheres = Spheres(
 			thresholds=thresholds,
 			radii_options=radii_options,
 			vals_to_clip=vals_to_clip,
 			vals_to_wrap=vals_to_wrap,
-			critical_regions=np.concatenate([model.critical, borders, model.goal]), # include the borders and goal region as critical regions
-			# critical_regions = model.critical, # TODO - revert this - just this way to see if this was an issue
+			critical_regions=critical_regions, # include the borders and goal region as critical regions
 			model=model,
 			radii_funcs=radii_funcs,
 			continuous=continuous

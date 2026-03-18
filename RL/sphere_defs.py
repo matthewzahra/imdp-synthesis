@@ -31,6 +31,11 @@ def build_sphere_model(model_name: str) -> SphereDef:
         ])
 	)
 
+	# NOTE - there are no critical regions... So for dynamic spheres, just 1 threshold should be needed
+	spheres['MountainCar'] = SphereDef(
+		thresholds=jnp.array([0]),
+		radii=jnp.array([0.2])
+	)
 
 	return spheres[model_name]
 

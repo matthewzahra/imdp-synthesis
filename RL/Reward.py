@@ -64,6 +64,15 @@ class SmoothMovements(RewardStructure):
 		reward = np.dot(self.action_element_scalings, np.abs(rl_action - self.prev_action))
 		self.prev_action = rl_action
 		return -1 * reward ** 2		# square so that large adjustments are penalised more
+	
+class SmoothMovementsAveraged(RewardStructure):
+	'''
+	Penalise Jerky movements, but average over a trace length so that we don't take the trace length into account
+	'''
+
+	# TODO - Not sure this works?
+	def __init__(self):
+		raise NotImplemented
 		
 class OptimiseTimeSteps(RewardStructure):
 	'''
