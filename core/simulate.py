@@ -40,7 +40,9 @@ class MonteCarloSim():
             'goal_reached': np.full(self.iterations, False, dtype=bool),
             'traces': {}, 
             'secondary_scores': np.zeros(self.iterations),
-            'secondary_score': 0,    # secondary score (if we are using it)
+            'secondary_scores_averaged': np.zeros(self.iterations),
+            'secondary_score': 0,               # secondary score (if we are using it)
+            'secondary_score_average': 0,       # secondary score averaged over each trace (if we are using it)
             'tracked_region': np.zeros(self.iterations)
         }
 
@@ -51,10 +53,11 @@ class MonteCarloSim():
 
         # For each of the monte carlo iterations
         for m in tqdm(range(self.iterations)):
-            self.results['traces'][m], self.results['goal_reached'][m], self.results['secondary_scores'][m], self.results['tracked_region'][m] = self._runIteration(x0, m)
+            self.results['traces'][m], self.results['goal_reached'][m], self.results['secondary_scores'][m], self.results['secondary_scores_averaged'][m], self.results['tracked_region'][m] = self._runIteration(x0, m)
 
         self.results['satprob'] = np.mean(self.results['goal_reached'])
         self.results['secondary_score'] = np.mean(self.results['secondary_scores'])
+        self.results['secondary_score_average'] = np.mean(self.results['secondary_scores_averaged'])
         self.results['tracked_region'] = np.sum(self.results['tracked_region'])
 
     def define_noise_values(self):
@@ -132,7 +135,7 @@ class MonteCarloSim():
 
                 if self.verbose:
                     print(f'- Absorbing state reached at k = {k} (x = {x[k]}), so abort')
-                return trace, success, current_secondary_score / k+1, tracked_region
+                return trace, success, current_secondary_score, current_secondary_score / k+1, tracked_region
 
             # If current region is the goal state ...
             if s[k] in self.partition.goal['idxs']:
@@ -140,18 +143,18 @@ class MonteCarloSim():
                 success = True
                 if self.verbose:
                     print(f'- Goal state reached (x = {x[k]})')
-                return trace, success, current_secondary_score / k+1, tracked_region
+                return trace, success, current_secondary_score, current_secondary_score / k+1, tracked_region
 
             # If current region is in critical states...
             elif s[k] in self.partition.critical['idxs']:
                 # Then abort current iteration
                 if self.verbose:
                     print('- Critical state reached, so abort')
-                return trace, success, current_secondary_score / k+1, tracked_region
+                return trace, success, current_secondary_score, current_secondary_score / k+1, tracked_region
 
             # Check if we can still perform another action within the horizon
             elif k >= self.horizon:
-                return trace, success, current_secondary_score / k+1, tracked_region
+                return trace, success, current_secondary_score, current_secondary_score / k+1, tracked_region
 
             # Retreive the action from the policy
             if len(self.policy.shape) == 1:
@@ -228,4 +231,4 @@ class MonteCarloSim():
 
         ######
 
-        return trace, success, current_secondary_score / k, tracked_region
+        return trace, success, current_secondary_score, current_secondary_score / k, tracked_region

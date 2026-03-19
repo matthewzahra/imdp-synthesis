@@ -33,7 +33,7 @@ from stable_baselines3 import SAC
 from RL.RL_Environment import Env
 from RL.run_agents import Agents
 from core.imdp import IMDP
-from RL.sphere_defs import build_sphere_defs_test, build_sphere_model
+from RL.sphere_defs import build_sphere_defs_test, build_sphere_model, generate_clip_wrap_vals
 from core.build_policy import build_policy
 from RL.Reward_Evaluate import generate_reward_eval
 # Uncomment one of the following lines to run an example benchmark.
@@ -130,9 +130,7 @@ if __name__ == '__main__':
     if args.test_spheres:
         sphere_defs = build_sphere_defs_test()
 
-        # bit hard coded...
-        vals_to_clip = [[-np.pi*0.5,np.pi*0.5],[-3,3]]
-        vals_to_wrap = [None,None]
+        vals_to_clip,vals_to_wrap = generate_clip_wrap_vals(args.model)
 
         radii_funcs = [
             lambda d: jnp.where(d < 0.5, 0, ((d**2)/20)*np.pi),
@@ -165,8 +163,7 @@ if __name__ == '__main__':
         thresholds = sphere_def.thresholds
         radii_options = sphere_def.radii
 
-        vals_to_clip = [[-np.pi*0.5,np.pi*0.5],[-3,3]]
-        vals_to_wrap = [None,None]
+        vals_to_clip,vals_to_wrap = generate_clip_wrap_vals(args.model)
 
         V, policy, policy_inputs, spheres = build_policy(
             thresholds=thresholds,
@@ -210,7 +207,7 @@ if __name__ == '__main__':
                 n_envs=1
             )
         
-        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 100_000)
+        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 250_000)
 
         # train all the agents
         agents.train_agents(dont_train=args.no_train)
@@ -227,7 +224,7 @@ if __name__ == '__main__':
 
 
     # define if we want to check if the model enteres a given box (None if we don't)
-    tracked_region = np.array([[1, 2, -np.pi],[3,10,np.pi]])
+    tracked_region = {"Dubins_small": np.array([[1, 2, -np.pi],[3,10,np.pi]])}
     if reinforcement_learning:
         agent_envs = agents.get_agents_envs_evals()
 
@@ -242,11 +239,11 @@ if __name__ == '__main__':
             sim_values=sim_values,
             spheres=spheres,
             show_plot=False,
-            tracked_region=tracked_region     # define the region to track entering (if we want to)
+            tracked_region=tracked_region.get(args.model, None)     # define the region to track entering (if we want to, None
         )
 
     else:
-        sim = MonteCarloSim(model, partition, sim_policy, sim_policy_inputs, model.x0, verbose=False, iterations=1000,tracked_region=tracked_region)
+        sim = MonteCarloSim(model, partition, sim_policy, sim_policy_inputs, model.x0, verbose=False, iterations=1000,tracked_region=tracked_region.get(args.model,None))
         print('Empirical satisfaction probability:', sim.results['satprob'])
         if tracked_region is not None:
             print(f'Times entered tracked region: {sim.results['tracked_region']}')

@@ -77,6 +77,7 @@ def generate_reward_eval():
 	# reward_evals['get_closer_than_base_to_top_opening'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,6.5]), region_upper=np.array([-1,6.5]), dims=[0,1])
 	# reward_evals['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region1_lower=np.array([-1,6.5]), region1_upper=np.array([-1,6.5]), region2_lower=np.array([10,10]), region2_upper=np.array([10,10]), dims=[0,1])
 	# reward_evals['top_opening_double_reward2'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region2_lower=np.array([-1,5]), region2_upper=np.array([1,10]), region1_lower=np.array([10,10]), region1_upper=np.array([10,10]), dims=[0,1])
-	reward_evals['smooth_actions'] = RL.Reward_Evaluate.ActionSmoothness(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
+	reward_evals['smooth_actions'] = ActionSmoothness(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
+	reward_evals['energy_efficient'] = ActionCosts(action_costs=[1])
 
 	return reward_evals

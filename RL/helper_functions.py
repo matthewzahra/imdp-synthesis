@@ -42,7 +42,8 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 			f.write(f'Doing simulation for {s}\n')
 			# run sims without RL agent
 			sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, project_action, verbose=verbose, iterations=iterations, evaluate_secondary=evaluation, tracked_region=tracked_region)
-			f.write(f'Average Secondary Score: {sim.results["secondary_score"]}\n')
+			f.write(f'Secondary Score: {sim.results["secondary_score"]}\n')
+			f.write(f'Trace Average Secondary Score: {sim.results["secondary_score_average"]}\n')
 			f.write(f'Empirical satisfaction probability: {sim.results['satprob']}\n')
 
 			if isinstance(evaluation, RL.Evaluate_Secondary.DistanceToRegion):
@@ -58,7 +59,8 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 
 			# run sims with RL agent
 			sim_rl = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, project_action, verbose=verbose, iterations=iterations, evaluate_secondary=evaluation, agent=agent, spheres=spheres, vecnorm=vecnorm, tracked_region=tracked_region)
-			f.write(f"Average Secondary Score with RL agent: {sim_rl.results['secondary_score']}\n")
+			f.write(f"Secondary Score with RL agent: {sim_rl.results['secondary_score']}\n")
+			f.write(f"Trace Average Secondary Score with RL agent: {sim_rl.results['secondary_score_average']}\n")
 			f.write(f"Empirical satisfaciton probability with RL agent: {sim_rl.results['satprob']}\n")
 			if isinstance(evaluation, RL.Evaluate_Secondary.DistanceToRegion):
 				f.write(f'closest = {evaluation.closest}\n')

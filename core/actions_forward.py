@@ -43,7 +43,8 @@ def forward_reach(step_set, state_min, state_max, input, cov_diag, number_per_di
         lower,upper = action_spheres.get_action_sphere(action_centre=input,state_min=state_min,state_max=state_max)
         frs_min, frs_max = step_set(state_min, state_max, lower, upper)
     else:
-        epsilon = jnp.array([0.2])
+        # epsilon = jnp.array([0.2])
+        epsilon=jnp.array([0])
         frs_min, frs_max = step_set(state_min, state_max, input-epsilon, input+epsilon)
 
     # Calculate how many grid cells the forward reachable set spans in each dimension

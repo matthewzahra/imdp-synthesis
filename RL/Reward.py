@@ -35,6 +35,9 @@ class MinDistanceToGoal(RewardStructure):
 		return -1*(np.linalg.norm(delta) * self.scaling) # make negative since we are trying to maximise reward 
 	
 class AbsActionCost(RewardStructure):
+	'''
+	Penalise large actions (i.e. we want to aim for actions that are nearer the origin)
+	'''
 	def __init__(
 			self,
 			action_costs 	# a dictionary with a multiplier for each dimension in the action space
@@ -46,7 +49,7 @@ class AbsActionCost(RewardStructure):
 		'''
 		we will make all the values their absolute values in the action
 		'''
-		return np.dot(np.abs(rl_action), self.action_costs) ** 3 # we cube it to avoid saturation at the boundaries - we either want to reward big actions or small ones
+		return -1 * (np.dot(np.abs(rl_action), self.action_costs) ** 2)
 	
 class SmoothMovements(RewardStructure):
 	'''
@@ -63,7 +66,7 @@ class SmoothMovements(RewardStructure):
 	def getReward(self,old_state, new_base_state, new_rl_state, policy_action, rl_action):
 		reward = np.dot(self.action_element_scalings, np.abs(rl_action - self.prev_action))
 		self.prev_action = rl_action
-		return -1 * reward ** 2		# square so that large adjustments are penalised more
+		return -1 * (reward ** 2)		# square so that large adjustments are penalised more
 	
 class SmoothMovementsAveraged(RewardStructure):
 	'''
