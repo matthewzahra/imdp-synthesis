@@ -171,3 +171,25 @@ class Spheres:
 			return self.generate_sphere_continuous(action_centre,state,state_min,state_max)
 		else:
 			return self.generate_sphere_discrete(action_centre,state,state_min,state_max)
+		
+	# write the sphere definition to a file
+	def __str__(self):
+		if self.continuous:
+			raise NotImplemented
+		else:
+			s = ''
+
+			s += "thresholds = ["
+			for threshold in self.thresholds:
+				s += f'{threshold},'
+			s += ']'
+
+			s += '\n'
+
+			s += 'radii = [\n' 
+			for radii in self.radii_options:
+				s += f'{radii},\n'
+			s += ']'
+			s += '\n'
+		
+			return s
