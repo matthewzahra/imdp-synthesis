@@ -61,10 +61,10 @@ class Agents():
 
 				print("Saving Agent")
 				# save the trained agent
-				agent.save(f'sac_agent_{s}_{self.timesteps}')
+				agent.save(f'RL/agents/sac_agent_{s}_{self.timesteps}')
 
 			print("Saving VecNormalize statistics")
-			env.save(f"vecnormalize_{s}.pkl")
+			env.save(f"RL/agent_envs/vecnormalize_{s}.pkl")
 
 
 	def get_agents_envs_evals(self):
@@ -72,9 +72,9 @@ class Agents():
 		agent_envs = []
 
 		for s,(reward_structure,evaluation) in self.reward_evals.items():
-			agent = SAC.load(f"sac_agent_{s}_{self.timesteps}")
+			agent = SAC.load(f"RL/agents/sac_agent_{s}_{self.timesteps}")
 			dummy_env = self.init_env(reward_structure)
-			vecnorm = VecNormalize.load(f"vecnormalize_{s}.pkl", dummy_env)
+			vecnorm = VecNormalize.load(f"RL/agent_envs/vecnormalize_{s}.pkl", dummy_env)
 			vecnorm.training = False # don't allow the saved statistics to update
 			vecnorm.norm_reward = False # don't normalise the rewards
 		

@@ -32,6 +32,21 @@ class Spheres:
 		self.radii_funcs=radii_funcs
 		self.continuous = continuous
 
+		self.clip_mask = jnp.array([v is not None for v in self.vals_to_clip])
+		self.clip_lower,self.clip_upper = self.separate_lower_and_upper_bounds_to_jnp_arrays(self.vals_to_clip)
+
+		self.wrap_mask = jnp.array([v is not None for v in self.vals_to_wrap])
+		self.wrap_lower,self.wrap_upper = self.separate_lower_and_upper_bounds_to_jnp_arrays(self.vals_to_wrap)
+
+		if not jnp.all(~self.wrap_mask):
+			raise ValueError("Currently doesn't faithfully support wrapping in action spheres - need to be able to deal with when wrapping causes the lower bound to be larger than the upper bound")
+		
+		self.distance_between_boxes = jax.vmap(
+            lambda lb1, ub1, lb2, ub2: distance_from_box_to_box(lb1,ub1,lb2,ub2),
+			in_axes=(0,0,None,None)
+        )
+
+
 	# the most basic one is simply an L_infinity ball around a with a given direction - this forms a hyperrectangle
 	# we must clip it so that if we are on the extreme of the action space, we don't allow invalid actions (if lower and upper bounds provided)
 	def L_infinity(self, centre, distances, lower_bounds=None, upper_bounds=None):
@@ -61,36 +76,28 @@ class Spheres:
 
 	# function that generates irregular spheres - i.e. we allow for different radii in each dimension
 	# we also allow for some values ot be clipped and some values to be wrapped
-	def generate_sphere(self,centre, radii, vals_to_clip, vals_to_wrap):
+	def generate_sphere(self,centre, radii):
 		'''
 		given a centre, radii for each dimension and lower/upper bounds for dimension=wise clippping/wrapping, produce the (irregular) sphere
 		'''
 		lb,ub = self.L_infinity(centre, radii)
 
-		# jax.debug.print('centre: {}, radii: {}, lb: {}, ub: {}', centre, radii, lb, ub)
-
 		# deal with clipping
-		clip_mask = jnp.array([v is not None for v in vals_to_clip])
-
-		clip_lower,clip_upper = self.separate_lower_and_upper_bounds_to_jnp_arrays(vals_to_clip)
-
-		lb_clipped = jnp.clip(lb,clip_lower, clip_upper)
-		ub_clipped = jnp.clip(ub,clip_lower, clip_upper)
+		lb_clipped = jnp.clip(lb,self.clip_lower, self.clip_upper)
+		ub_clipped = jnp.clip(ub,self.clip_lower, self.clip_upper)
 
 		# only apply clipping to the right places
-		lb = jnp.where(clip_mask, lb_clipped, lb)
-		ub = jnp.where(clip_mask, ub_clipped, ub)
+		lb = jnp.where(self.clip_mask, lb_clipped, lb)
+		ub = jnp.where(self.clip_mask, ub_clipped, ub)
 
 		# TODO - deal with lower and upper bounds swapping after wrapping
-		# deal with wrapping
-		wrap_mask = jnp.array([v is not None for v in vals_to_wrap])
-		wrap_lower,wrap_upper = self.separate_lower_and_upper_bounds_to_jnp_arrays(vals_to_wrap)
-		
-		lb_wrapped = self.wrap_interval(lb,wrap_lower,wrap_upper)
-		ub_wrapped = self.wrap_interval(ub,wrap_lower,wrap_upper)
+		# NOTE - wrapping not fully supported yet so we don't use it at the moment... see the Value error in __init__...
+		# deal with wrapping		
+		# lb_wrapped = self.wrap_interval(lb,self.wrap_lower,self.wrap_upper)
+		# ub_wrapped = self.wrap_interval(ub,self.wrap_lower,self.wrap_upper)
 
-		lb = jnp.where(wrap_mask, lb_wrapped, lb)
-		ub = jnp.where(wrap_mask, ub_wrapped, ub)
+		# lb = jnp.where(self.wrap_mask, lb_wrapped, lb)
+		# ub = jnp.where(self.wrap_mask, ub_wrapped, ub)
 
 		# jax.debug.print('action centre: {}, clipped lb: {}, clipped ub: {}', centre, lb, ub)
 
@@ -108,20 +115,20 @@ class Spheres:
 		# find reachable set using a radius of 0
 		frs_min,frs_max = self.model.step_set(state_min, state_max, action_centre, action_centre)
 		
-		# find the distance between 1 box and a set of other boxes
-		calc_distances = lambda lb1, ub1: jax.vmap(
-            lambda lb2, ub2: distance_from_box_to_box(lb1,ub1,lb2,ub2),
-        )
 
 		# find minimum distance from the forward reachable set (with radius 0) to the critical regions
-		distance_to_frs = calc_distances(frs_min,frs_max)
-		frs_critical_distances = distance_to_frs(self.critical_regions[:,0,:], self.critical_regions[:,1,:])
-		frs_closest_critical = jnp.min(frs_critical_distances)
+		frs_critical_distances = self.distance_between_boxes(
+			self.critical_regions[:, 0, :],
+			self.critical_regions[:, 1, :],
+			frs_min,
+			frs_max,
+		)
 
+		frs_closest_critical = jnp.min(frs_critical_distances)
 
 		# calculate the sphere using the continuous function
 		radii = jnp.array([f(frs_closest_critical) for f in self.radii_funcs])
-		return self.generate_sphere(action_centre,radii,self.vals_to_clip,self.vals_to_wrap)
+		return self.generate_sphere(action_centre,radii)
 
 
 	def generate_sphere_discrete(self, action_centre, state=None, state_min=None,state_max=None):
@@ -139,17 +146,20 @@ class Spheres:
 
 		# find reachable set using a radius of 0
 		frs_min,frs_max = self.model.step_set(state_min, state_max, action_centre, action_centre)
-		
-		# find the distance between 1 box and a set of other boxes
-		calc_distances = lambda lb1, ub1: jax.vmap(
-            lambda lb2, ub2: distance_from_box_to_box(lb1,ub1,lb2,ub2),
-        )
+
 
 		# find minimum distance from the forward reachable set (with radius 0) to the critical regions
-		distance_to_frs = calc_distances(frs_min,frs_max)
-		frs_critical_distances = distance_to_frs(self.critical_regions[:,0,:], self.critical_regions[:,1,:])
+		# find minimum distance from the forward reachable set (with radius 0) to the critical regions
+		frs_critical_distances = self.distance_between_boxes(
+			self.critical_regions[:, 0, :],
+			self.critical_regions[:, 1, :],
+			frs_min,
+			frs_max,
+		)
+
 		frs_closest_critical = jnp.min(frs_critical_distances)
 
+		# TODO - this could perhaps be sped up...
 		# select the radii for each dimension
 		mask = frs_closest_critical >= self.thresholds
 		radii = jnp.where(
@@ -164,7 +174,7 @@ class Spheres:
 
 		# jax.debug.print('closest is distance: {}, radii = {}', frs_closest_critical, radii[idx])
 
-		return self.generate_sphere(action_centre,radii[idx],self.vals_to_clip,self.vals_to_wrap)
+		return self.generate_sphere(action_centre,radii[idx])
 
 	def get_action_sphere(self, action_centre, state=None, state_min=None, state_max = None):
 		if self.continuous:
