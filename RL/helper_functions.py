@@ -4,6 +4,7 @@ from plotting.traces import plot_traces
 from plotting.heatmap import heatmap
 import RL.Evaluate_Secondary
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
 
 # given an action proposed in the hyperrectangle [(-1,...,-1), (1,...,1)], find the corresponding real concrete action by scaling appropriately
 def project_action(action, action_lower, action_upper):
@@ -77,6 +78,7 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 
 			f.write('\n\n')
 
+			# plot the traces, heatmaps etc...
 			plot(
 				sim=sim,
 				model=model,
@@ -100,6 +102,13 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 				filename=s+'_RL',
 				show_plot=show_plot
 			)
+
+			# check if we want to plot the control inputs over time - currently only support 1-dimensional inputs... so just MountainCar
+			if args.model == 'MountainCar':
+				plot_control_inputs_all_traces(s+'_control_inputs_NO_RL', sim.results['traces'])
+				plot_control_inputs_all_traces(s+'_control_inputs_RL', sim_rl.results['traces'])
+
+
 
 # TODO - double check this is right...
 # find the shortest distance from a box to a box
@@ -140,3 +149,39 @@ def create_borders(spatial_dimension,lower_bounds,upper_bounds):
 
 	borders = [upper_border,lower_border,left_border,right_border]
 	return borders
+
+# plot the control inputs over timesteps
+# NOTE: currently only supports 1-dimensional control inputs
+def plot_control_inputs(fname,trace):
+	values = trace['u']
+	timesteps = [i for i in range(len(values))]
+
+	plt.clf()
+
+	plt.plot(timesteps, values)
+	plt.xlabel("Timesteps")
+	plt.ylabel("Control Input")
+	plt.axhline(0)
+
+	# save the figure
+	plt.savefig(f"{fname}.png")
+
+	plt.clf()
+
+def plot_control_inputs_all_traces(fname,traces):
+	plt.clf()
+
+	for trace in list(traces.values()):
+		values = trace['u']
+		timesteps = [i for i in range(len(values))]
+
+		plt.plot(timesteps, values)
+		
+	plt.xlabel("Timesteps")
+	plt.ylabel("Control Input")
+	plt.axhline(0)
+
+	# save the figure
+	plt.savefig(f"{fname}.png")
+
+	plt.clf()
