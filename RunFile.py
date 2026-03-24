@@ -36,6 +36,7 @@ from core.imdp import IMDP
 from RL.sphere_defs import build_sphere_defs_test, build_sphere_model, generate_clip_wrap_vals
 from core.build_policy import build_policy
 from RL.Reward_Evaluate import generate_reward_eval
+import RL.Evaluate_Secondary
 # Uncomment one of the following lines to run an example benchmark.
 # If it seems to be 'stuck' when computing the transition probabilities, consider decreasing the batch size (e.g., to 1000).
 # sys.argv = ['RunFile.py', '--model', 'Dubins_small', '--batch_size', '30000']
@@ -165,6 +166,23 @@ if __name__ == '__main__':
 
         vals_to_clip,vals_to_wrap = generate_clip_wrap_vals(args.model)
 
+        # generate the policy that takes spheres into account that the RL agent will make use of
+        if reinforcement_learning:
+            V_rl, policy_rl, policy_inputs_rl, spheres_rl = build_policy(
+                thresholds=thresholds,
+                radii_options=radii_options,
+                vals_to_clip=vals_to_clip,
+                vals_to_wrap=vals_to_wrap,
+                model=model,
+                partition=partition,
+                args=args,
+                stamp=stamp,
+                t=t,
+                reinforcement_learning=reinforcement_learning,
+                continuous=False
+            )
+        
+        # generate the sphere-less policy
         V, policy, policy_inputs, spheres = build_policy(
             thresholds=thresholds,
             radii_options=radii_options,
@@ -175,7 +193,7 @@ if __name__ == '__main__':
             args=args,
             stamp=stamp,
             t=t,
-            reinforcement_learning=reinforcement_learning,
+            reinforcement_learning=False,
             continuous=False
         )
 
@@ -200,7 +218,7 @@ if __name__ == '__main__':
                     initial_state=model.x0,
                     model=model,
                     policy_inputs=policy_inputs,
-                    spheres=spheres,
+                    spheres=spheres_rl,
                     reward_structure=reward_structure,
                     partition=partition,
                 ),
@@ -215,13 +233,14 @@ if __name__ == '__main__':
 
     # %% Simulations
 
-    sim_policy = policy
-    sim_policy_inputs = policy_inputs
-    sim_values = V
+    # sim_policy = policy_rl
+    # sim_policy_inputs = policy_inputs_rl
+    # sim_values = V_rl
 
     from core.simulate import MonteCarloSim
     from RL.helper_functions import run_simulations, plot
 
+    agent_envs = None
 
     # define if we want to check if the model enteres a given box (None if we don't)
     tracked_region = {"Dubins_small": np.array([[1, 2, -np.pi],[3,10,np.pi]])}
@@ -234,20 +253,44 @@ if __name__ == '__main__':
             args=args,
             stamp=stamp,
             partition=partition,
-            policy=policy,
-            policy_inputs=policy_inputs,
-            sim_values=sim_values,
-            spheres=spheres,
+            policy=policy_rl,
+            policy_inputs=policy_inputs_rl,
+            sim_values=V_rl,
+            spheres=spheres_rl,
             show_plot=False,
             tracked_region=tracked_region.get(args.model, None)     # define the region to track entering (if we want to, None
         )
 
+    # get the evals used (if any)
+    if agent_envs is not None:
+        with open(f"{stamp}_results.txt", "a") as f:
+            f.write("Running Evaluations for the standard NO-RL-NO-SPHERE approach\n")
+            for (s,_,_,evaluation) in agent_envs:
+                f.write(f'Doing simulation for {s}\n')
+                sim = MonteCarloSim(model,partition,policy,policy_inputs,model.x0,verbose=False,iterations=1000,tracked_region=tracked_region.get(args.model,None),evaluate_secondary=evaluation)
+                f.write(f'Secondary Score: {sim.results["secondary_score"]}\n')
+                f.write(f'Trace Average Secondary Score: {sim.results["secondary_score_average"]}\n')
+                f.write(f'Empirical satisfaction probability: {sim.results['satprob']}\n')
+
+                if isinstance(evaluation, RL.Evaluate_Secondary.DistanceToRegion):
+                    f.write(f'closest = {evaluation.closest}\n')
+                    evaluation.closest = float('inf')
+
+                if tracked_region is not None:
+                    f.write(f'Times entered tracked region: {sim.results['tracked_region']}\n')
+
+
+                f.write(f'Average trace length: {int(np.mean(list(map(lambda trace: len(trace['u']), list(sim.results['traces'].values())))))}\n')
+                
+                f.write('\n\n')
+
+
     else:
-        sim = MonteCarloSim(model, partition, sim_policy, sim_policy_inputs, model.x0, verbose=False, iterations=1000,tracked_region=tracked_region.get(args.model,None))
+        sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=1000,tracked_region=tracked_region.get(args.model,None))
         print('Empirical satisfaction probability:', sim.results['satprob'])
-        if tracked_region is not None:
+        if tracked_region.get(args.model,None) is not None:
             print(f'Times entered tracked region: {sim.results['tracked_region']}')
-        plot(sim,model,args,stamp,partition,sim_values,sim_policy_inputs)
+        plot(sim,model,args,stamp,partition,V,policy_inputs)
 
     # %% Plot
 

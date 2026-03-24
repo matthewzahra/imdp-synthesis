@@ -105,8 +105,8 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 
 			# check if we want to plot the control inputs over time - currently only support 1-dimensional inputs... so just MountainCar
 			if args.model == 'MountainCar':
-				plot_control_inputs_all_traces(s+'_control_inputs_NO_RL', sim.results['traces'])
-				plot_control_inputs_all_traces(s+'_control_inputs_RL', sim_rl.results['traces'])
+				plot_control_inputs_all_traces('output/'+s+'_control_inputs_NO_RL', sim.results['traces'])
+				plot_control_inputs_all_traces('output/'+s+'_control_inputs_RL', sim_rl.results['traces'])
 
 
 
