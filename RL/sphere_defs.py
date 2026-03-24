@@ -36,7 +36,7 @@ def build_sphere_model(model_name: str) -> SphereDef:
 	spheres['MountainCar'] = SphereDef(
 		thresholds=jnp.array([0]),
 		radii=jnp.array([
-			[0.2]
+			[0.18]
 		])
 	)
 
