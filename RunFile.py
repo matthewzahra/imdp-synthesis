@@ -156,6 +156,9 @@ if __name__ == '__main__':
                 continuous=False
             )
 
+            with open(f"{stamp}_results.txt", "a") as f:
+                f.write(str(spheres))
+
         exit()
 
     else:
