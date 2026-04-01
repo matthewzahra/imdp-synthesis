@@ -50,6 +50,18 @@ class AbsActionCost(RewardStructure):
 		we will make all the values their absolute values in the action
 		'''
 		return -1 * (np.dot(np.abs(rl_action), self.action_costs) ** 2)
+
+class MaxAbsActionCost(AbsActionCost):
+	'''
+	reward large actions
+	'''
+
+	def __init__(self,action_costs):
+		super().__init__(action_costs=action_costs)
+
+	def getReward(self, old_state, new_base_state, new_rl_state, policy_action, rl_action):
+		return -1 * super().getReward(old_state, new_base_state, new_rl_state, policy_action, rl_action)
+
 	
 class SmoothMovements(RewardStructure):
 	'''
@@ -67,6 +79,16 @@ class SmoothMovements(RewardStructure):
 		reward = np.dot(self.action_element_scalings, np.abs(rl_action - self.prev_action))
 		self.prev_action = rl_action
 		return -1 * (reward ** 2)		# square so that large adjustments are penalised more
+	
+class JerkyMovements(SmoothMovements):
+	'''
+	reward jerky movements
+	'''
+	def __init__(self,action_element_scalings):
+		super().__init__(action_element_scalings=action_element_scalings)
+
+	def getReward(self, old_state, new_base_state, new_rl_state, policy_action, rl_action):
+		return -1 * super().getReward(old_state, new_base_state, new_rl_state, policy_action, rl_action)
 	
 class SmoothMovementsAveraged(RewardStructure):
 	'''

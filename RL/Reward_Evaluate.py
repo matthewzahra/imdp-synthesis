@@ -45,9 +45,19 @@ class ActionCosts(RewardEval):
 		self.reward = RL.Reward.AbsActionCost(action_costs)
 		self.evaluation = RL.Evaluate_Secondary.EnergyEfficiency(action_costs)
 
+class MaxActionCosts(RewardEval):
+	def __init__(self,action_costs):
+		self.reward = RL.Reward.MaxAbsActionCost(action_costs)
+		self.evaluation = RL.Evaluate_Secondary.EnergyEfficiency(action_costs)		
+
 class ActionSmoothness(RewardEval):
 	def __init__(self, action_scaling_reward, action_scaling_evaluate):
 		self.reward = RL.Reward.SmoothMovements(action_scaling_reward)
+		self.evaluation = RL.Evaluate_Secondary.ActionSmoothness(action_scaling_evaluate)
+
+class JerkyMovements(RewardEval):
+	def __init__(self, action_scaling_reward, action_scaling_evaluate):
+		self.reward = RL.Reward.JerkyMovements(action_scaling_reward)
 		self.evaluation = RL.Evaluate_Secondary.ActionSmoothness(action_scaling_evaluate)
 	
 class GetToRegionDoubleReward(RewardEval):
@@ -77,7 +87,9 @@ def generate_reward_eval():
 	# reward_evals['get_closer_than_base_to_top_opening'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,6.5]), region_upper=np.array([-1,6.5]), dims=[0,1])
 	# reward_evals['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region1_lower=np.array([-1,6.5]), region1_upper=np.array([-1,6.5]), region2_lower=np.array([10,10]), region2_upper=np.array([10,10]), dims=[0,1])
 	# reward_evals['top_opening_double_reward2'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region2_lower=np.array([-1,5]), region2_upper=np.array([1,10]), region1_lower=np.array([10,10]), region1_upper=np.array([10,10]), dims=[0,1])
-	reward_evals['smooth_actions'] = ActionSmoothness(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
-	# reward_evals['energy_efficient'] = ActionCosts(action_costs=[1])
+	reward_evals['smooth_actions'] = ActionSmoothness(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
+	reward_evals['energy_efficient'] = ActionCosts(action_costs=[1,1])
+	reward_evals['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
+	reward_evals['max_energy'] = MaxActionCosts(action_costs=[1,1])
 
 	return reward_evals
