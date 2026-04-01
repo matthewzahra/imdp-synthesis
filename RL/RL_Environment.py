@@ -106,6 +106,10 @@ class Env(gym.Env):
 		self.goal_count = 0
 		self.critical_count = 0
 
+		# set up the punishment values
+		self.critical_punishment = -20
+		self.too_long_punishment = -10
+
 	# get a new episode
 	def reset(self, seed=None, options=None):
 		super().reset(seed=seed)
@@ -141,7 +145,7 @@ class Env(gym.Env):
 		if self.t > self.max_steps:
 			self.too_long += 1
 			terminated = True
-			reward = -10	# minor penalty for not completing the task in time
+			reward = self.too_long_punishment	# minor penalty for not completing the task in time
 			info = {}
 			return self.state, reward, np.array(terminated, dtype=bool), np.array(truncated, dtype=bool), info
 
@@ -166,20 +170,19 @@ class Env(gym.Env):
 
 		# find what abstract state we are in 
 		abstract_state, in_partition = self.partition.x2state(new_concrete_state)
-		if not in_partition:
-			raise ValueError("New concrete state is not in the partition.")
 
 		if self.reward_structure.include_prev_action:
 			self.state = np.concatenate([new_concrete_state,self.policy_inputs[self.partition.x2state(new_concrete_state)[0]],old_action])
 		else:
 			self.state = np.concatenate([new_concrete_state,self.policy_inputs[self.partition.x2state(new_concrete_state)[0]]])
 
-
+		# TODO - check that this is the correct approach
+		# if we are somehow not in the partition, we treat this the same as hitting a critical region
 		# check if we are in a critical region
-		if abstract_state in self.partition.critical['idxs']:
+		if not in_partition or abstract_state in self.partition.critical['idxs']:
 			self.critical_count += 1
 			terminated = True
-			reward = -20 # large penalty for entering a critical region
+			reward = self.critical_punishment # large penalty for entering a critical region
 
 		# check if we are in a goal state
 		else:
