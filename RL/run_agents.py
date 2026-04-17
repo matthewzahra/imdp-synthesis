@@ -1,6 +1,7 @@
 from RL.Reward_Evaluate import RewardEval
 from stable_baselines3.common.vec_env import VecNormalize, VecMonitor
-from stable_baselines3 import SAC, TD3
+from stable_baselines3 import SAC
+from RL.NeuralNetworks import ZeroActorLastLayer
 
 '''
 frame work to train several agents and then simulate them all
@@ -41,7 +42,7 @@ class Agents():
 
 			if not dont_train:
 				agent = SAC(
-					"MlpPolicy",
+					ZeroActorLastLayer,
 					env,
 					verbose=1,
 					ent_coef="auto_0.1",           # TODO - should play with this: disable entropy otherwise the agent collapses on smaller actions where possible. Great if we want minimization, poor if we want maximisation
