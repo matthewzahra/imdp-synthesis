@@ -220,7 +220,7 @@ if __name__ == '__main__':
                     action_upper=model.uMax,
                     initial_state=model.x0,
                     model=model,
-                    policy_inputs=policy_inputs,
+                    policy_inputs=policy_inputs_rl,
                     spheres=spheres_rl,
                     reward_structure=reward_structure,
                     partition=partition,
