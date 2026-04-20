@@ -1,7 +1,8 @@
 import numpy as np
 import jax.numpy as jnp
 import jax
-from RL.helper_functions import distance_from_box_to_box
+from RL.helper_functions import distance_from_box_to_box, project_action
+from core.partition import x2state_jax
 
 '''
 Here we write functions ot help us compute F(x,a), where x is a concrete state and a an abstract action (or similar?)
@@ -23,6 +24,7 @@ class Spheres:
 			radii_options=None,
 			radii_funcs=None
 		):
+		
 		self.thresholds = thresholds
 		self.radii_options = radii_options
 		self.vals_to_clip = vals_to_clip
@@ -203,3 +205,107 @@ class Spheres:
 			s += '\n'
 		
 			return s
+
+class RLAwareSpherePreCompute:
+	'''
+	NOTE - this does not support instances that require the previous action in the agent's observation space
+	'''
+	def __init__(
+		self,
+		sphere: Spheres,
+		rl_agent,
+		vecnorm,
+		policy_inputs,
+		partition,
+		actions_inputs,
+		action_epsilon=0.1,
+	):
+		self.sphere = sphere
+		self.rl_agent = rl_agent
+		self.vecnorm = vecnorm
+		self.policy_inputs = policy_inputs
+		self.partition = partition
+		self.actions_inputs = jnp.array(actions_inputs)
+		self.action_epsilon=action_epsilon
+		self._compute_dead_spheres_mask()	# track which abstract state-action pairs have spheres that we want to kill off
+
+	def _compute_dead_spheres_mask(self):
+		print("Precomputing RL Aware Spheres")
+		lower_bounds = self.partition.regions['lower_bounds']
+		upper_bounds = self.partition.regions['upper_bounds']
+
+		num_states = len(lower_bounds)
+		num_actions = len(self.actions_inputs)
+
+		killed = np.zeros((num_states, num_actions), dtype=bool)
+
+		killed_total = 0
+
+		for s in range(num_states):
+			lb = lower_bounds[s]
+			ub = upper_bounds[s]
+			concrete_state = (lb + ub) / 2
+
+			for a in range(num_actions):
+				action_centre = np.asarray(self.actions_inputs[a])
+
+				obs = np.concatenate([concrete_state, action_centre])
+
+				# apply normalization here if needed
+				proposed_action, _ = self.rl_agent.predict(observation=obs, deterministic=True)
+
+				killed[s, a] = np.linalg.norm(proposed_action) < self.action_epsilon
+				if killed[s, a]:
+					killed_total += 1
+
+		self.killed_mask = jnp.array(killed)
+
+		print(f"Out of {num_states + num_actions}, {killed_total} spheres were killed.")
+			
+	def _get_action_id(self, action_centre):
+		matches = jnp.all(jnp.isclose(self.actions_inputs, action_centre), axis=1)
+		return jnp.argmax(matches), jnp.any(matches)
+
+	# TODO - this is VERY slow...
+	def get_action_sphere(self, action_centre, state=None, state_min=None, state_max=None):
+		if state is not None:
+			concrete_state = state
+		else:
+			concrete_state = (state_min + state_max) / 2
+
+		state_id, _ = x2state_jax(
+			concrete_state,
+			self.partition.boundary_lb,
+			self.partition.boundary_ub,
+			self.partition.number_per_dim,
+			self.partition.region_idx_array,
+			self.partition.size,
+		)
+
+		action_id, has_match = self._get_action_id(action_centre)
+
+		def matched_case(_):
+			killed = self.killed_mask[state_id, action_id]
+
+			def kill(_):
+				return action_centre, action_centre
+
+			def keep(_):
+				return self.sphere.get_action_sphere(
+					action_centre=action_centre,
+					state=state,
+					state_min=state_min,
+					state_max=state_max,
+				)
+
+			return jax.lax.cond(killed, kill, keep, operand=None)
+
+		def unmatched_case(_):
+			return self.sphere.get_action_sphere(
+				action_centre=action_centre,
+				state=state,
+				state_min=state_min,
+				state_max=state_max,
+			)
+
+		return jax.lax.cond(has_match, matched_case, unmatched_case, operand=None)

@@ -9,7 +9,7 @@ import time
 import jax
 
 # build the policy, including performing value/policy iteration
-def build_policy(thresholds, radii_options, vals_to_clip, vals_to_wrap, model, partition, args, stamp, t, continuous, radii_funcs=None, reinforcement_learning=False):
+def build_policy(thresholds, radii_options, vals_to_clip, vals_to_wrap, model, partition, args, stamp, t, continuous, radii_funcs=None, reinforcement_learning=False, spheres=None):
 	# Create actions based on forward reachable sets
 	if reinforcement_learning:
 		# TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
@@ -24,16 +24,18 @@ def build_policy(thresholds, radii_options, vals_to_clip, vals_to_wrap, model, p
 		else:
 			critical_regions = np.concatenate([model.critical, borders, model.goal])
 
-		spheres = Spheres(
-			thresholds=thresholds,
-			radii_options=radii_options,
-			vals_to_clip=vals_to_clip,
-			vals_to_wrap=vals_to_wrap,
-			critical_regions=critical_regions, # include the borders and goal region as critical regions
-			model=model,
-			radii_funcs=radii_funcs,
-			continuous=continuous
-		)
+		# deal with the case where we haven't already built a spheres model and must construct it
+		if spheres is None:
+			spheres = Spheres(
+				thresholds=thresholds,
+				radii_options=radii_options,
+				vals_to_clip=vals_to_clip,
+				vals_to_wrap=vals_to_wrap,
+				critical_regions=critical_regions, # include the borders and goal region as critical regions
+				model=model,
+				radii_funcs=radii_funcs,
+				continuous=continuous
+			)
 
 		actions = RectangularForward(args=args, partition=partition, model=model, action_spheres=spheres)     
 		actions_inputs = actions.id_to_input   
@@ -90,4 +92,4 @@ def build_policy(thresholds, radii_options, vals_to_clip, vals_to_wrap, model, p
 		with open(f"{stamp}_results.txt", "a") as f:
 			f.write(f"Satisfaction probability: {sat_prob}\n\n")
 
-	return V, policy, policy_inputs, spheres
+	return V, policy, policy_inputs, spheres, actions_inputs

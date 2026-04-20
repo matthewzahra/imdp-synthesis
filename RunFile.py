@@ -29,14 +29,13 @@ from core.model import parse_linear_model, parse_nonlinear_model
 from core.options import parse_arguments
 from core.partition import RectangularPartition
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3 import SAC
 from RL.RL_Environment import Env
 from RL.run_agents import Agents
-from core.imdp import IMDP
 from RL.sphere_defs import build_sphere_defs_test, build_sphere_model, generate_clip_wrap_vals
 from core.build_policy import build_policy
 from RL.Reward_Evaluate import generate_reward_eval
 import RL.Evaluate_Secondary
+from RL.generate_action_sets import RLAwareSpherePreCompute
 # Uncomment one of the following lines to run an example benchmark.
 # If it seems to be 'stuck' when computing the transition probabilities, consider decreasing the batch size (e.g., to 1000).
 # sys.argv = ['RunFile.py', '--model', 'Dubins_small', '--batch_size', '30000']
@@ -141,7 +140,7 @@ if __name__ == '__main__':
         for sphere in sphere_defs:
             thresholds, radii_options = sphere.thresholds, sphere.radii
 
-            V, policy, policy_inputs, spheres = build_policy(
+            V, policy, policy_inputs, spheres, _ = build_policy(
                 thresholds=thresholds,
                 radii_options=radii_options,
                 vals_to_clip=vals_to_clip,
@@ -171,7 +170,7 @@ if __name__ == '__main__':
 
         # generate the policy that takes spheres into account that the RL agent will make use of
         if reinforcement_learning:
-            V_rl, policy_rl, policy_inputs_rl, spheres_rl = build_policy(
+            V_rl, policy_rl, policy_inputs_rl, spheres_rl, actions_inputs_rl = build_policy(
                 thresholds=thresholds,
                 radii_options=radii_options,
                 vals_to_clip=vals_to_clip,
@@ -186,7 +185,7 @@ if __name__ == '__main__':
             )
         
         # generate the sphere-less policy
-        V, policy, policy_inputs, spheres = build_policy(
+        V, policy, policy_inputs, spheres, _ = build_policy(
             thresholds=thresholds,
             radii_options=radii_options,
             vals_to_clip=vals_to_clip,
@@ -231,6 +230,57 @@ if __name__ == '__main__':
         agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 250_000)
 
         # train all the agents
+        agents.train_agents(dont_train=args.no_train)
+
+        # TODO - currently only supports 1 RL agent and we replace the sphere used everywhere with the new one
+        rl_aware_sphere = True
+        if rl_aware_sphere:
+            reward_evals = generate_reward_eval()
+            (s,agent,vecnorm,evaluation) = agents.get_agents_envs_evals()[0]
+
+            rl_aware_sphere = RLAwareSpherePreCompute(
+                sphere=spheres_rl,
+                rl_agent=agent,
+                vecnorm=vecnorm,
+                policy_inputs=policy_inputs_rl,
+                partition=partition,
+                actions_inputs=actions_inputs_rl
+            )
+
+            V_rl, policy_rl, policy_inputs_rl, spheres_rl, _ = build_policy(
+                thresholds=thresholds,
+                radii_options=radii_options,
+                vals_to_clip=vals_to_clip,
+                vals_to_wrap=vals_to_wrap,
+                model=model,
+                partition=partition,
+                args=args,
+                stamp=stamp,
+                t=t,
+                reinforcement_learning=reinforcement_learning,
+                continuous=False,
+                spheres=rl_aware_sphere
+            )
+
+            init_env = lambda reward_structure: make_vec_env(
+                lambda: Env(
+                    state_dim=model.n,
+                    space_lower=model.partition['boundary'][0],
+                    space_upper=model.partition['boundary'][1],
+                    action_dim=model.p,
+                    action_lower=model.uMin,
+                    action_upper=model.uMax,
+                    initial_state=model.x0,
+                    model=model,
+                    policy_inputs=policy_inputs_rl,
+                    spheres=rl_aware_sphere,                # this is the only change here...
+                    reward_structure=reward_structure,
+                    partition=partition,
+                ),
+                n_envs=1
+            )
+
+        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 250_000)
         agents.train_agents(dont_train=args.no_train)
 
 

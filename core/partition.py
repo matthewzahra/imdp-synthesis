@@ -271,3 +271,24 @@ class RectangularPartition(object):
 
         else:
             return self.size, False
+        
+'''
+jax compatible version of x2state - doesn't support "self" so we must pass everything as an argument
+'''
+@jax.jit
+def x2state_jax(x, boundary_lb, boundary_ub, number_per_dim, region_idx_array, size):
+    in_partition = jnp.all((x >= boundary_lb) & (x <= boundary_ub))
+
+    def inside(_):
+        x_norm = jnp.floor(
+            (x - boundary_lb) / (boundary_ub - boundary_lb) * number_per_dim
+        ).astype(jnp.int32)
+
+        state = region_idx_array[tuple(x_norm)]
+        return state.astype(jnp.int32), jnp.bool_(True)
+
+    def outside(_):
+        return jnp.asarray(size, dtype=jnp.int32), jnp.bool_(False)
+
+    return jax.lax.cond(in_partition, inside, outside, operand=None)
+
