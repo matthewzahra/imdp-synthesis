@@ -133,9 +133,14 @@ if __name__ == '__main__':
 
         vals_to_clip,vals_to_wrap = generate_clip_wrap_vals(args.model)
 
+        # radii_funcs = [
+        #     lambda d: jnp.where(d < 0.5, 0, ((d**2)/20)*np.pi),
+        #     lambda d: 0
+        # ]
+
         radii_funcs = [
-            lambda d: jnp.where(d < 0.5, 0, ((d**2)/20)*np.pi),
-            lambda d: 0
+            lambda d: (d-0.5)/10 * np.pi,
+            lambda d: (d-0.5)/10
         ]
 
         for sphere in sphere_defs:
@@ -153,7 +158,7 @@ if __name__ == '__main__':
                 t=t,
                 reinforcement_learning=reinforcement_learning,
                 radii_funcs=radii_funcs,
-                continuous=False
+                continuous=True
             )
 
             with open(f"{stamp}_results.txt", "a") as f:
@@ -162,15 +167,15 @@ if __name__ == '__main__':
         exit()
 
     else:
-        # extract the saved sphere definition for the model that we are running
-        sphere_def = build_sphere_model(model_name=args.model)
-        thresholds = sphere_def.thresholds
-        radii_options = sphere_def.radii
-
-        vals_to_clip,vals_to_wrap = generate_clip_wrap_vals(args.model)
-
         # generate the policy that takes spheres into account that the RL agent will make use of
         if reinforcement_learning:
+            # extract the saved sphere definition for the model that we are running
+            sphere_def = build_sphere_model(model_name=args.model)
+            thresholds = sphere_def.thresholds
+            radii_options = sphere_def.radii
+
+            vals_to_clip,vals_to_wrap = generate_clip_wrap_vals(args.model)
+
             V_rl, policy_rl, policy_inputs_rl, spheres_rl = build_policy(
                 thresholds=thresholds,
                 radii_options=radii_options,
@@ -181,23 +186,18 @@ if __name__ == '__main__':
                 args=args,
                 stamp=stamp,
                 t=t,
-                reinforcement_learning=reinforcement_learning,
+                reinforcement_learning=True,
                 continuous=False
             )
         
         # generate the sphere-less policy
         V, policy, policy_inputs, spheres = build_policy(
-            thresholds=thresholds,
-            radii_options=radii_options,
-            vals_to_clip=vals_to_clip,
-            vals_to_wrap=vals_to_wrap,
             model=model,
             partition=partition,
             args=args,
             stamp=stamp,
             t=t,
             reinforcement_learning=False,
-            continuous=False
         )
 
     # %% Training of the Reinforcement Learning Agent
@@ -206,7 +206,7 @@ if __name__ == '__main__':
         define the reward/evaluation pairs we want to use
         '''
 
-        reward_evals = generate_reward_eval()
+        reward_evals = generate_reward_eval(args.model)
 
         print("Constructing RL Environment")
         # vectorize the environment

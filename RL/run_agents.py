@@ -44,7 +44,7 @@ class Agents():
 				agent = SAC(
 					ZeroActorLastLayer,
 					env,
-					verbose=1,
+					verbose=0,
 					ent_coef="auto_0.1",           # TODO - should play with this: disable entropy otherwise the agent collapses on smaller actions where possible. Great if we want minimization, poor if we want maximisation
 					target_entropy="auto",
 					tensorboard_log="./sac_logs/",
