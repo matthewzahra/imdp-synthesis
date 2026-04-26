@@ -106,4 +106,11 @@ def generate_reward_eval(model_name):
 	reward_evals['Drone2D']['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
 	reward_evals['Drone2D']['max_energy'] = MaxActionCosts(action_costs=[1,1])
 
+	# Pendulum
+	reward_evals['Pendulum'] = dict()
+	reward_evals['Pendulum']['smooth_actions'] = ActionSmoothness(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
+	reward_evals['Pendulum']['energy_efficient'] = ActionCosts(action_costs=[1])
+	reward_evals['Pendulum']['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
+	reward_evals['Pendulum']['max_energy'] = MaxActionCosts(action_costs=[1])
+
 	return reward_evals[model_name]

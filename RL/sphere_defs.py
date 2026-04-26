@@ -57,6 +57,13 @@ def build_sphere_model(model_name: str) -> SphereDef:
 				[0, 0],
 			])
 		)
+	
+	spheres['Pendulum'] = SphereDef(
+			thresholds=jnp.array([0]),
+			radii=jnp.array([
+				[0.25]
+			])
+		)
 
 	return spheres[model_name]
 
@@ -110,6 +117,41 @@ def build_sphere_defs_test(model_name):
 		)
 	]
 
+	# NOTE - there are no critical regions... just a goal region and then the sides of the arena
+	spheres['Pendulum'] = [
+		SphereDef(
+			thresholds=jnp.array([0]),
+			radii=jnp.array([
+				[0.25]
+			])
+		),
+		SphereDef(
+			thresholds=jnp.array([0]),
+			radii=jnp.array([
+				[0.3]
+			])
+		),
+		SphereDef(
+			thresholds=jnp.array([0]),
+			radii=jnp.array([
+				[0.35]
+			])
+		),
+		SphereDef(
+			thresholds=jnp.array([0]),
+			radii=jnp.array([
+				[0.4]
+			])
+		),
+		SphereDef(
+			thresholds=jnp.array([0]),
+			radii=jnp.array([
+				[0.45]
+			])
+		),
+	
+	]
+
 	return spheres[model_name]
 
 '''
@@ -119,13 +161,15 @@ def generate_clip_wrap_vals(model_name):
 	vals_to_clip = {
 		'Dubins_small':[[-np.pi*0.5,np.pi*0.5],[-3,3]],
 		'MountainCar': [[-1,1]],
-		'Drone2D': [[-3,3],[-3,3]]
+		'Drone2D': [[-3,3],[-3,3]],
+		'Pendulum':[[-2,2]]
 	}
 
 	vals_to_wrap = {
 		'Dubins_small':[None,None],
 		'MountainCar': [None],
-		'Drone2D': [None,None]
+		'Drone2D': [None,None],
+		'Pendulum': [None]
 	}
 
 	if model_name not in vals_to_clip.keys() or model_name not in vals_to_wrap.keys():

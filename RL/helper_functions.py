@@ -18,10 +18,10 @@ def plot(sim, model, args, stamp, partition, sim_values, sim_policy_inputs, file
 	heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=sim_policy_inputs[:,0], filename="heatmap_inputs", show_plot=show_plot)
 	
 	if args.model == 'Pendulum':
-		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/pendulum_{stamp}.gif')
+		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/pendulum_{filename}_{stamp}.gif')
 
 	if args.model == 'MountainCar':
-		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/mountaincar_{stamp}.gif')
+		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/mountaincar_{filename}_{stamp}.gif')
 
 		# check if we want to plot the control inputs over time - currently only support 1-dimensional inputs... so just MountainCar
 		plot_control_inputs_all_traces('output/'+filename+'_control_inputs', sim.results['traces'])
