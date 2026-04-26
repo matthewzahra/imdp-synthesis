@@ -129,7 +129,7 @@ if __name__ == '__main__':
     partition = RectangularPartition(model=model)
 
     if args.test_spheres:
-        sphere_defs = build_sphere_defs_test()
+        sphere_defs = build_sphere_defs_test(args.model)
 
         vals_to_clip,vals_to_wrap = generate_clip_wrap_vals(args.model)
 
@@ -158,7 +158,7 @@ if __name__ == '__main__':
                 t=t,
                 reinforcement_learning=reinforcement_learning,
                 radii_funcs=radii_funcs,
-                continuous=True
+                continuous=False
             )
 
             with open(f"{stamp}_results.txt", "a") as f:
@@ -287,6 +287,17 @@ if __name__ == '__main__':
                 
                 f.write('\n\n')
 
+                plot(
+                    sim=sim,
+                    model=model,
+                    args=args,
+                    stamp=stamp,
+                    partition=partition,
+                    sim_values=V,
+                    sim_policy_inputs=policy_inputs,
+                    filename=s+'_NO_RL_NO_SPHERE',
+                    show_plot=False
+                )
 
     else:
         sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=1000,tracked_region=tracked_region.get(args.model,None))

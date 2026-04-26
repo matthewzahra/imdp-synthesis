@@ -88,6 +88,9 @@ def build_policy(model, partition, args, stamp, t, thresholds=None, radii_option
 
 		sat_prob = V[partition.x2state(model.x0)]
 		with open(f"{stamp}_results.txt", "a") as f:
-			f.write(f"Satisfaction probability: {sat_prob}\n\n")
+			if reinforcement_learning:
+				f.write(f"Satisfaction probability for Spheres: {sat_prob}\n\n")
+			else:
+				f.write(f"Satisfaction probability: {sat_prob}\n\n")
 
 	return V, policy, policy_inputs, spheres

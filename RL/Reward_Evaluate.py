@@ -77,6 +77,7 @@ def generate_reward_eval(model_name):
 	reward_evals = dict()
 
 	# Dubins_small
+	reward_evals['Dubins_small'] = dict()
 	# reward_evals['Dubins_small']['minimise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,-1])) # use 0 to not tax the angle in the input
 	# reward_evals['Dubins_small']['maximise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,1])) # use 0 to not tax the angle in the input
 	# reward_evals['Dubins_small']['get_close_top_right'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
@@ -89,14 +90,20 @@ def generate_reward_eval(model_name):
 	# reward_evals['Dubins_small']['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region1_lower=np.array([-1,6.5]), region1_upper=np.array([-1,6.5]), region2_lower=np.array([10,10]), region2_upper=np.array([10,10]), dims=[0,1])
 	# reward_evals['Dubins_small']['top_opening_double_reward2'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region2_lower=np.array([-1,5]), region2_upper=np.array([1,10]), region1_lower=np.array([10,10]), region1_upper=np.array([10,10]), dims=[0,1])
 	# reward_evals['Dubins_small']['smooth_actions'] = ActionSmoothness(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
-	reward_evals['Dubins_small']['energy_efficient'] = ActionCosts(action_costs=[1,1])
+	reward_evals['Dubins_small']['energy_efficient'] = ActionCosts(action_costs=[1,1]) # TODO - should we tax the angle?
 	# reward_evals['Dubins_small']['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
 	# reward_evals['Dubins_small']['max_energy'] = MaxActionCosts(action_costs=[1,1])
 
 
 	# MountainCar
+	reward_evals['MountainCar'] = dict()
 	reward_evals['MountainCar']['energy_efficient'] = ActionCosts(action_costs=[1])
 
 	# Drone2D
+	reward_evals['Drone2D'] = dict()	
+	reward_evals['Drone2D']['smooth_actions'] = ActionSmoothness(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
+	reward_evals['Drone2D']['energy_efficient'] = ActionCosts(action_costs=[1,1])
+	reward_evals['Drone2D']['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
+	reward_evals['Drone2D']['max_energy'] = MaxActionCosts(action_costs=[1,1])
 
 	return reward_evals[model_name]

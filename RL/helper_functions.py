@@ -23,6 +23,9 @@ def plot(sim, model, args, stamp, partition, sim_values, sim_policy_inputs, file
 	if args.model == 'MountainCar':
 		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/mountaincar_{stamp}.gif')
 
+		# check if we want to plot the control inputs over time - currently only support 1-dimensional inputs... so just MountainCar
+		plot_control_inputs_all_traces('output/'+filename+'_control_inputs', sim.results['traces'])
+
 
 def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_inputs, sim_values, spheres, iterations=1000, verbose=False, show_plot=True, tracked_region=None):
 	'''
@@ -87,7 +90,7 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 				partition=partition,
 				sim_values=sim_values,
 				sim_policy_inputs=policy_inputs,
-				filename=s+'_NO_RL',
+				filename=s+'_NO_RL_WITH_SPHERE',
 				show_plot=show_plot
 			)
 
@@ -102,12 +105,6 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 				filename=s+'_RL',
 				show_plot=show_plot
 			)
-
-			# check if we want to plot the control inputs over time - currently only support 1-dimensional inputs... so just MountainCar
-			if args.model == 'MountainCar':
-				plot_control_inputs_all_traces('output/'+s+'_control_inputs_NO_RL', sim.results['traces'])
-				plot_control_inputs_all_traces('output/'+s+'_control_inputs_RL', sim_rl.results['traces'])
-
 
 
 # TODO - double check this is right...
