@@ -241,7 +241,7 @@ if __name__ == '__main__':
     # sim_values = V_rl
 
     from core.simulate import MonteCarloSim
-    from RL.helper_functions import run_simulations, plot
+    from RL.helper_functions import run_simulations, plot_trace
 
     agent_envs = None
 
@@ -287,7 +287,7 @@ if __name__ == '__main__':
                 
                 f.write('\n\n')
 
-                plot(
+                plot_trace(
                     sim=sim,
                     model=model,
                     args=args,
@@ -304,7 +304,7 @@ if __name__ == '__main__':
         print('Empirical satisfaction probability:', sim.results['satprob'])
         if tracked_region.get(args.model,None) is not None:
             print(f'Times entered tracked region: {sim.results['tracked_region']}')
-        plot(sim,model,args,stamp,partition,V,policy_inputs)
+        plot_trace(sim,model,args,stamp,partition,V,policy_inputs)
 
     # %% Plot
 

@@ -11,20 +11,68 @@ def project_action(action, action_lower, action_upper):
 	result = action_lower + (action + 1) * (action_upper - action_lower) / 2
 	return result
 
+# plot the magnitude of each action over time for a set of given traces
+def plot_action_magnitudes(fname,traces):
+	plt.clf()
+
+	for trace in list(traces.values()):
+		values = trace['u']
+
+		magnitudes = list(map(np.linalg.norm,values))
+
+		timesteps = [i for i in range(len(magnitudes))]
+
+		plt.plot(timesteps, magnitudes)
+		
+	plt.xlabel("Timesteps")
+	plt.ylabel("Control Input")
+	plt.axhline(0)
+
+	# save the figure
+	plt.savefig(f"{fname}.png")
+
+	plt.clf()
+
+# plot the difference in magnitudes between successive actions
+def plot_action_magnitude_differences(fname,traces):
+	plt.clf()
+
+	for trace in list(traces.values()):
+		values = trace['u']
+		magnitudes = list(map(np.linalg.norm,values))
+		paired_magnitudes = list(zip(magnitudes,magnitudes[1:]))
+		magnitude_differences = list(map(lambda pair: abs(pair[0] - pair[1]),paired_magnitudes))
+
+		timesteps = [i for i in range(len(magnitude_differences))]
+
+		plt.plot(timesteps, magnitude_differences)
+		
+	plt.xlabel("Timesteps")
+	plt.ylabel("Control Input")
+	plt.axhline(0)
+
+	# save the figure
+	plt.savefig(f"{fname}.png")
+
+	plt.clf()
+
 # plot the traces of a simulation
-def plot(sim, model, args, stamp, partition, sim_values, sim_policy_inputs, filename="traces", show_plot = True):
+def plot_trace(sim, model, args, stamp, partition, sim_values, sim_policy_inputs, filename="traces", show_plot = True, evaluation=None):
 	plot_traces(args, stamp, model.plot_dimensions, partition, model, sim.results['traces'], line=False, num_traces=10, add_unsafe_box=False,filename=filename,show_plot=show_plot)
 	heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=sim_values, filename="heatmap_satprob", show_plot=show_plot)
 	heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=sim_policy_inputs[:,0], filename="heatmap_inputs", show_plot=show_plot)
+	
+	if evaluation and isinstance(evaluation, RL.Evaluate_Secondary.EnergyEfficiency):
+		plot_action_magnitudes(fname=f'output/{filename}_action_magnitudes')
+	
+	elif evaluation and isinstance(evaluation, RL.Evaluate_Secondary.ActionSmoothness):
+		plot_action_magnitude_differences(fname=f'output/{filename}_action_deltas')
 	
 	if args.model == 'Pendulum':
 		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/pendulum_{filename}_{stamp}.gif')
 
 	if args.model == 'MountainCar':
 		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/mountaincar_{filename}_{stamp}.gif')
-
-		# check if we want to plot the control inputs over time - currently only support 1-dimensional inputs... so just MountainCar
-		plot_control_inputs_all_traces('output/'+filename+'_control_inputs', sim.results['traces'])
 
 
 def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_inputs, sim_values, spheres, iterations=1000, verbose=False, show_plot=True, tracked_region=None):
@@ -82,7 +130,7 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 			f.write('\n\n')
 
 			# plot the traces, heatmaps etc...
-			plot(
+			plot_trace(
 				sim=sim,
 				model=model,
 				args=args,
@@ -94,7 +142,7 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 				show_plot=show_plot
 			)
 
-			plot(
+			plot_trace(
 				sim=sim_rl,
 				model=model,
 				args=args,
@@ -146,39 +194,3 @@ def create_borders(spatial_dimension,lower_bounds,upper_bounds):
 
 	borders = [upper_border,lower_border,left_border,right_border]
 	return borders
-
-# plot the control inputs over timesteps
-# NOTE: currently only supports 1-dimensional control inputs
-def plot_control_inputs(fname,trace):
-	values = trace['u']
-	timesteps = [i for i in range(len(values))]
-
-	plt.clf()
-
-	plt.plot(timesteps, values)
-	plt.xlabel("Timesteps")
-	plt.ylabel("Control Input")
-	plt.axhline(0)
-
-	# save the figure
-	plt.savefig(f"{fname}.png")
-
-	plt.clf()
-
-def plot_control_inputs_all_traces(fname,traces):
-	plt.clf()
-
-	for trace in list(traces.values()):
-		values = trace['u']
-		timesteps = [i for i in range(len(values))]
-
-		plt.plot(timesteps, values)
-		
-	plt.xlabel("Timesteps")
-	plt.ylabel("Control Input")
-	plt.axhline(0)
-
-	# save the figure
-	plt.savefig(f"{fname}.png")
-
-	plt.clf()
