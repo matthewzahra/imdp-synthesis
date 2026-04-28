@@ -299,7 +299,8 @@ if __name__ == '__main__':
                     sim_values=V,
                     sim_policy_inputs=policy_inputs,
                     filename=s+'_NO_RL_NO_SPHERE',
-                    show_plot=False
+                    show_plot=False,
+                    evaluation=evaluation
                 )
 
     else:

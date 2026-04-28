@@ -139,7 +139,8 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 				sim_values=sim_values,
 				sim_policy_inputs=policy_inputs,
 				filename=s+'_NO_RL_WITH_SPHERE',
-				show_plot=show_plot
+				show_plot=show_plot,
+				evaluation=evaluation
 			)
 
 			plot_trace(
@@ -151,7 +152,8 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 				sim_values=sim_values,
 				sim_policy_inputs=policy_inputs,
 				filename=s+'_RL',
-				show_plot=show_plot
+				show_plot=show_plot,
+				evaluation=evaluation
 			)
 
 
