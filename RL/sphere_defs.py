@@ -35,16 +35,16 @@ def build_sphere_model(model_name: str) -> SphereDef:
 	spheres['Dubins_small'] = SphereDef(
 		thresholds = jnp.array([3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0]),
 		radii = jnp.array([
-			[jnp.pi*0.34, 0.34],
-			[jnp.pi*0.32, 0.32],
-			[jnp.pi*0.3, 0.3],
-			[jnp.pi*0.28, 0.28],
-			[jnp.pi*0.26, 0.26],
-			[jnp.pi*0.24, 0.24],
-			[jnp.pi*0.18, 0.22],
-			[jnp.pi*0.14, 0.2],
-			[jnp.pi*0.10, 0.18],
-			[jnp.pi*0.08, 0.16],
+			[jnp.pi*0.38, 0.18],
+			[jnp.pi*0.36, 0.16],
+			[jnp.pi*0.34, 0.16],
+			[jnp.pi*0.32, 0.15],
+			[jnp.pi*0.3, 0.15],
+			[jnp.pi*0.28, 0.14],
+			[jnp.pi*0.24, 0.13],
+			[jnp.pi*0.18, 0.12],
+			[jnp.pi*0.12, 0.10],
+			[jnp.pi*0.10, 0.10],
 			[0, 0],
 		])
 	)
@@ -92,16 +92,16 @@ def build_sphere_defs_test(model_name):
 		SphereDef(
 			thresholds = jnp.array([3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0]),
 			radii = jnp.array([
-				[jnp.pi*0.36, 0.34],
-				[jnp.pi*0.34, 0.32],
-				[jnp.pi*0.32, 0.3],
-				[jnp.pi*0.3, 0.28],
-				[jnp.pi*0.28, 0.27],
-				[jnp.pi*0.26, 0.26],
-				[jnp.pi*0.24, 0.24],
-				[jnp.pi*0.18, 0.22],
-				[jnp.pi*0.14, 0.2],
-				[jnp.pi*0.10, 0.18],
+				[jnp.pi*0.36, 0.20],
+				[jnp.pi*0.34, 0.18],
+				[jnp.pi*0.32, 0.17],
+				[jnp.pi*0.3, 0.16],
+				[jnp.pi*0.28, 0.15],
+				[jnp.pi*0.26, 0.14],
+				[jnp.pi*0.24, 0.13],
+				[jnp.pi*0.18, 0.12],
+				[jnp.pi*0.12, 0.10],
+				[jnp.pi*0.10, 0.10],
 				[0, 0],
 			])
 		)
@@ -182,24 +182,24 @@ def build_sphere_defs_test(model_name):
 				[0.3]
 			])
 		),
-		SphereDef(
-			thresholds=jnp.array([0]),
-			radii=jnp.array([
-				[0.35]
-			])
-		),
-		SphereDef(
-			thresholds=jnp.array([0]),
-			radii=jnp.array([
-				[0.4]
-			])
-		),
-		SphereDef(
-			thresholds=jnp.array([0]),
-			radii=jnp.array([
-				[0.45]
-			])
-		),
+		# SphereDef(
+		# 	thresholds=jnp.array([0]),
+		# 	radii=jnp.array([
+		# 		[0.35]
+		# 	])
+		# ),
+		# SphereDef(
+		# 	thresholds=jnp.array([0]),
+		# 	radii=jnp.array([
+		# 		[0.4]
+		# 	])
+		# ),
+		# SphereDef(
+		# 	thresholds=jnp.array([0]),
+		# 	radii=jnp.array([
+		# 		[0.45]
+		# 	])
+		# ),
 	
 	]
 
