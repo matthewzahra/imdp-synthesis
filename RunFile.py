@@ -228,7 +228,7 @@ if __name__ == '__main__':
                 n_envs=1
             )
         
-        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 250_000)
+        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 100_000)
 
         # train all the agents
         agents.train_agents(dont_train=args.no_train)
@@ -246,7 +246,10 @@ if __name__ == '__main__':
     agent_envs = None
 
     # define if we want to check if the model enteres a given box (None if we don't)
-    tracked_region = {"Dubins_small": np.array([[1, 2, -np.pi],[3,10,np.pi]])}
+    tracked_region = {
+        "Dubins_small": np.array([[-1, 3, -np.pi],[1,10,np.pi]]),
+        "Pendulum": np.array([[0.11*np.pi,-2],[0.3*np.pi,2]])    
+    }
     if reinforcement_learning:
         agent_envs = agents.get_agents_envs_evals()
 

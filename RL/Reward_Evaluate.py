@@ -11,7 +11,6 @@ class RewardEval:
 	def get_pair(self):
 		return self.reward,self.evaluation
 	
-
 class GetCloseToArea(RewardEval):
 	'''
 	Reward/evaluate getting close to some box
@@ -24,7 +23,6 @@ class GetCloserThanBaseToArea(RewardEval):
 	def __init__(self, region_lower, region_upper, dims = None):
 		self.reward = RL.Reward.GetCloserToRegionThanPolicy(region_lower,region_upper,dims)
 		self.evaluation = RL.Evaluate_Secondary.DistanceToRegion(region_lower,region_upper,dims)
-
 
 class TimeTaken(RewardEval):
 	'''
@@ -76,23 +74,23 @@ generate the reward/evaluation pairs
 def generate_reward_eval(model_name):
 	reward_evals = dict()
 
+	# TODO - once we have decided on the arena for Dubins_small, we must update some of the target areas in some of the rewards below...
 	# Dubins_small
 	reward_evals['Dubins_small'] = dict()
-	# reward_evals['Dubins_small']['minimise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,-1])) # use 0 to not tax the angle in the input
-	# reward_evals['Dubins_small']['maximise_action_costs'] = RL.Reward_Evaluate.ActionCosts(np.array([0,1])) # use 0 to not tax the angle in the input
-	# reward_evals['Dubins_small']['get_close_top_right'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
-	# reward_evals['Dubins_small']['get_close_vertical_critical'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
+	reward_evals['Dubins_small']['get_close_top_right'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
+	# reward_evals['Dubins_small']['get_close_vertical_critical'] = RL.Reward_Evaluate.GetCloseToArea(region_lower=np.array([-1,-4]), region_upper=np.array([1,4.5]), dims=[0,1])
 	# reward_evals['Dubins_small']['get_closer_than_base_to_bottom_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,-10]), region_upper=np.array([10,-10]), dims=[0,1])
-	# reward_evals['Dubins_small']['get_closer_than_base_to_top_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
+	reward_evals['Dubins_small']['get_closer_than_base_to_top_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,10]), region_upper=np.array([10,10]), dims=[0,1])
 	# reward_evals['Dubins_small']['get_closer_than_base_to_bottom_left'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-10,-10]), region_upper=np.array([-10,-10]), dims=[0,1])
 	# reward_evals['Dubins_small']['get_closer_than_base_to_vertical_critical'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,-5]), region_upper=np.array([1,4]), dims=[0,1])
-	# reward_evals['Dubins_small']['get_closer_than_base_to_top_opening'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,6.5]), region_upper=np.array([-1,6.5]), dims=[0,1])
-	# reward_evals['Dubins_small']['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region1_lower=np.array([-1,6.5]), region1_upper=np.array([-1,6.5]), region2_lower=np.array([10,10]), region2_upper=np.array([10,10]), dims=[0,1])
-	# reward_evals['Dubins_small']['top_opening_double_reward2'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region2_lower=np.array([-1,5]), region2_upper=np.array([1,10]), region1_lower=np.array([10,10]), region1_upper=np.array([10,10]), dims=[0,1])
+	reward_evals['Dubins_small']['get_closer_than_base_to_top_opening'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([-1,6.75]), region_upper=np.array([-1,6.75]), dims=[0,1])
+	reward_evals['Dubins_small']['top_opening_double_reward'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region1_lower=np.array([-1,6.75]), region1_upper=np.array([-1,6.75]), region2_lower=np.array([10,10]), region2_upper=np.array([10,10]), dims=[0,1])
+	reward_evals['Dubins_small']['top_opening_double_reward2'] = RL.Reward_Evaluate.GetToRegionDoubleReward(region2_lower=np.array([-1,6.75]), region2_upper=np.array([-1,6.75]), region1_lower=np.array([10,10]), region1_upper=np.array([10,10]), dims=[0,1])
 	# reward_evals['Dubins_small']['smooth_actions'] = ActionSmoothness(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
-	reward_evals['Dubins_small']['energy_efficient'] = ActionCosts(action_costs=[1,1]) # TODO - should we tax the angle?
+	# reward_evals['Dubins_small']['energy_efficient'] = ActionCosts(action_costs=[1,1]) # TODO - should we tax the angle?
 	# reward_evals['Dubins_small']['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
 	# reward_evals['Dubins_small']['max_energy'] = MaxActionCosts(action_costs=[1,1])
+	# reward_evals['Dubins_small']['energy_efficient_no_angle_tax'] = ActionCosts(action_costs=[0,1])
 
 
 	# MountainCar
@@ -110,7 +108,10 @@ def generate_reward_eval(model_name):
 	reward_evals['Pendulum'] = dict()
 	reward_evals['Pendulum']['smooth_actions'] = ActionSmoothness(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
 	reward_evals['Pendulum']['energy_efficient'] = ActionCosts(action_costs=[1])
-	reward_evals['Pendulum']['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
-	reward_evals['Pendulum']['max_energy'] = MaxActionCosts(action_costs=[1])
+	# reward_evals['Pendulum']['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
+	# reward_evals['Pendulum']['max_energy'] = MaxActionCosts(action_costs=[1])
+
+	# TODO - check that this works - will try and manipulate the pendulum to swing up in both directions
+	reward_evals['Pendulum']['swing_up_right'] = GetCloseToArea(region_lower=[0.25*np.pi],region_upper=[0.25*np.pi],dims=[0])
 
 	return reward_evals[model_name]

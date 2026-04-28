@@ -14,22 +14,39 @@ class SphereDef:
 
 def build_sphere_model(model_name: str) -> SphereDef:
 	spheres = dict()
+	# spheres['Dubins_small'] = SphereDef(
+	# 	thresholds = jnp.array([3.4,3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0]),
+    #     radii = jnp.array([
+    #         [jnp.pi*0.34, 0.34],
+    #         [jnp.pi*0.32, 0.32],
+    #         [jnp.pi*0.3, 0.3],
+    #         [jnp.pi*0.28, 0.28],
+    #         [jnp.pi*0.26, 0.26],
+    #         [jnp.pi*0.24, 0.24],
+    #         [jnp.pi*0.20, 0.20],
+    #         [jnp.pi*0.16, 0.16],
+    #         [jnp.pi*0.12, 0.12],
+    #         [jnp.pi*0.08, 0.08],
+    #         [jnp.pi*0.04, 0.04],
+    #         [0, 0],
+    #     ])
+	# )
+
 	spheres['Dubins_small'] = SphereDef(
-		thresholds = jnp.array([3.4,3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0]),
-        radii = jnp.array([
-            [jnp.pi*0.34, 0.34],
-            [jnp.pi*0.32, 0.32],
-            [jnp.pi*0.3, 0.3],
-            [jnp.pi*0.28, 0.28],
-            [jnp.pi*0.26, 0.26],
-            [jnp.pi*0.24, 0.24],
-            [jnp.pi*0.20, 0.20],
-            [jnp.pi*0.16, 0.16],
-            [jnp.pi*0.12, 0.12],
-            [jnp.pi*0.08, 0.08],
-            [jnp.pi*0.04, 0.04],
-            [0, 0],
-        ])
+		thresholds = jnp.array([3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0]),
+		radii = jnp.array([
+			[jnp.pi*0.34, 0.34],
+			[jnp.pi*0.32, 0.32],
+			[jnp.pi*0.3, 0.3],
+			[jnp.pi*0.28, 0.28],
+			[jnp.pi*0.26, 0.26],
+			[jnp.pi*0.24, 0.24],
+			[jnp.pi*0.18, 0.22],
+			[jnp.pi*0.14, 0.2],
+			[jnp.pi*0.10, 0.18],
+			[jnp.pi*0.08, 0.16],
+			[0, 0],
+		])
 	)
 
 	# NOTE - there are no critical regions... just a goal region and then the sides of the arena
@@ -72,23 +89,57 @@ def build_sphere_defs_test(model_name):
 	spheres = dict()
 	
 	spheres["Dubins_small"] = [
- 		SphereDef(
-			thresholds = jnp.array([3.4,3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0]),
+		SphereDef(
+			thresholds = jnp.array([3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0]),
 			radii = jnp.array([
-				[jnp.pi*0.34, 0.34],
-				[jnp.pi*0.32, 0.32],
-				[jnp.pi*0.3, 0.3],
-				[jnp.pi*0.28, 0.28],
+				[jnp.pi*0.36, 0.34],
+				[jnp.pi*0.34, 0.32],
+				[jnp.pi*0.32, 0.3],
+				[jnp.pi*0.3, 0.28],
+				[jnp.pi*0.28, 0.27],
 				[jnp.pi*0.26, 0.26],
 				[jnp.pi*0.24, 0.24],
-				[jnp.pi*0.20, 0.20],
-				[jnp.pi*0.16, 0.16],
-				[jnp.pi*0.12, 0.12],
-				[jnp.pi*0.08, 0.08],
-				[jnp.pi*0.04, 0.04],
+				[jnp.pi*0.18, 0.22],
+				[jnp.pi*0.14, 0.2],
+				[jnp.pi*0.10, 0.18],
 				[0, 0],
 			])
-		),
+		)
+		# SphereDef(
+		# 		thresholds = jnp.array([3.4,3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0]),
+		# 		radii = jnp.array([
+		# 			[jnp.pi*0.34, 0.34],
+		# 			[jnp.pi*0.32, 0.32],
+		# 			[jnp.pi*0.3, 0.3],
+		# 			[jnp.pi*0.28, 0.28],
+		# 			[jnp.pi*0.26, 0.26],
+		# 			[jnp.pi*0.24, 0.24],
+		# 			[jnp.pi*0.20, 0.20],
+		# 			[jnp.pi*0.16, 0.16],
+		# 			[jnp.pi*0.12, 0.12],
+		# 			[jnp.pi*0.08, 0.08],
+		# 			[jnp.pi*0.04, 0.04],
+		# 			[0, 0],
+		# 		])
+		# 	),
+		# SphereDef(
+		# 		thresholds = jnp.array([3.6,3.4,3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0]),
+		# 		radii = jnp.array([
+		# 			[jnp.pi*0.36, 0.36],
+		# 			[jnp.pi*0.34, 0.34],
+		# 			[jnp.pi*0.32, 0.32],
+		# 			[jnp.pi*0.3, 0.3],
+		# 			[jnp.pi*0.28, 0.28],
+		# 			[jnp.pi*0.26, 0.26],
+		# 			[jnp.pi*0.24, 0.24],
+		# 			[jnp.pi*0.20, 0.20],
+		# 			[jnp.pi*0.16, 0.16],
+		# 			[jnp.pi*0.12, 0.12],
+		# 			[jnp.pi*0.08, 0.08],
+		# 			[jnp.pi*0.04, 0.04],
+		# 			[0, 0],
+		# 		])
+		# 	),
 	]
 
 	spheres["Drone2D"] = [
