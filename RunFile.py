@@ -247,7 +247,7 @@ if __name__ == '__main__':
 
     # define if we want to check if the model enteres a given box (None if we don't)
     tracked_region = {
-        "Dubins_small": np.array([[-1, 3, -np.pi],[1,10,np.pi]]),
+        "Dubins_small": np.array([[0, -10, -np.pi],[5,-2.25,np.pi]]),
         "Pendulum": np.array([[0.11*np.pi,-2],[0.3*np.pi,2]])    
     }
     if reinforcement_learning:

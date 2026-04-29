@@ -32,8 +32,25 @@ def build_sphere_model(model_name: str) -> SphereDef:
     #     ])
 	# )
 
+	# spheres['Dubins_small'] = SphereDef(
+	# 	thresholds = jnp.array([3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0]),
+	# 	radii = jnp.array([
+	# 		[jnp.pi*0.38, 0.18],
+	# 		[jnp.pi*0.36, 0.16],
+	# 		[jnp.pi*0.34, 0.16],
+	# 		[jnp.pi*0.32, 0.15],
+	# 		[jnp.pi*0.3, 0.15],
+	# 		[jnp.pi*0.28, 0.14],
+	# 		[jnp.pi*0.24, 0.13],
+	# 		[jnp.pi*0.18, 0.12],
+	# 		[jnp.pi*0.12, 0.10],
+	# 		[jnp.pi*0.10, 0.10],
+	# 		[0, 0],
+	# 	])
+	# )
+
 	spheres['Dubins_small'] = SphereDef(
-		thresholds = jnp.array([3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0]),
+		thresholds = jnp.array([3.4,3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0.2,0]),
 		radii = jnp.array([
 			[jnp.pi*0.38, 0.18],
 			[jnp.pi*0.36, 0.16],
@@ -45,6 +62,8 @@ def build_sphere_model(model_name: str) -> SphereDef:
 			[jnp.pi*0.18, 0.12],
 			[jnp.pi*0.12, 0.10],
 			[jnp.pi*0.10, 0.10],
+			[jnp.pi*0.08, 0.10],
+			[jnp.pi*0.06, 0.10],
 			[0, 0],
 		])
 	)
@@ -90,7 +109,7 @@ def build_sphere_defs_test(model_name):
 	
 	spheres["Dubins_small"] = [
 		SphereDef(
-				thresholds = jnp.array([3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0]),
+				thresholds = jnp.array([3.3,3.1,2.9,2.7,2.5,2.1,1.7,1.3,0.9,0.5,0.3,0]),
 				radii = jnp.array([
 					[jnp.pi*0.38, 0.18],
 					[jnp.pi*0.36, 0.16],
@@ -100,6 +119,7 @@ def build_sphere_defs_test(model_name):
 					[jnp.pi*0.28, 0.14],
 					[jnp.pi*0.24, 0.13],
 					[jnp.pi*0.18, 0.12],
+					[jnp.pi*0.14, 0.11],
 					[jnp.pi*0.12, 0.10],
 					[jnp.pi*0.10, 0.10],
 					[0, 0],
@@ -119,6 +139,8 @@ def build_sphere_defs_test(model_name):
 				[jnp.pi*0.18, 0.12],
 				[jnp.pi*0.12, 0.10],
 				[jnp.pi*0.10, 0.10],
+				[jnp.pi*0.08, 0.10],
+				[jnp.pi*0.06, 0.10],
 				[0, 0],
 			])
 		)
