@@ -15,23 +15,11 @@ class SphereDef:
 def build_sphere_model(model_name: str) -> SphereDef:
 	spheres = dict()
 	spheres['Dubins_small'] = SphereDef(
-		thresholds = jnp.array([3.4,3.2,3,2.8,2.6,2.4,2,1.6,1.2,0.8,0.4,0.2,0]),
-		radii = jnp.array([
-			[jnp.pi*0.38, 0.18],
-			[jnp.pi*0.36, 0.16],
-			[jnp.pi*0.34, 0.16],
-			[jnp.pi*0.32, 0.15],
-			[jnp.pi*0.3, 0.15],
-			[jnp.pi*0.28, 0.14],
-			[jnp.pi*0.24, 0.13],
-			[jnp.pi*0.18, 0.12],
-			[jnp.pi*0.12, 0.10],
-			[jnp.pi*0.10, 0.10],
-			[jnp.pi*0.08, 0.10],
-			[jnp.pi*0.06, 0.10],
-			[0, 0],
-		])
-	)
+			thresholds = jnp.array([0]),
+			radii = jnp.array([
+				[jnp.pi*0.3, 0.3],
+			])
+		)
 
 	# NOTE - there are no critical regions... just a goal region and then the sides of the arena
 	spheres['MountainCar'] = SphereDef(
