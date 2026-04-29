@@ -12,13 +12,13 @@ def project_action(action, action_lower, action_upper):
 	return result
 
 # plot the magnitude of each action over time for a set of given traces
-def plot_action_magnitudes(fname,traces):
+def plot_action_magnitudes(fname,traces,number=10):
 	plt.clf()
 
 	for trace in list(traces.values()):
 		values = trace['u']
 
-		magnitudes = list(map(np.linalg.norm,values))
+		magnitudes = list(map(np.linalg.norm,values))[:number]
 
 		timesteps = [i for i in range(len(magnitudes))]
 
@@ -34,10 +34,10 @@ def plot_action_magnitudes(fname,traces):
 	plt.clf()
 
 # plot the difference in magnitudes between successive actions
-def plot_action_magnitude_differences(fname,traces):
+def plot_action_magnitude_differences(fname,traces,number=10):
 	plt.clf()
 
-	for trace in list(traces.values()):
+	for trace in list(traces.values())[:number]:
 		values = trace['u']
 		magnitudes = list(map(np.linalg.norm,values))
 		paired_magnitudes = list(zip(magnitudes,magnitudes[1:]))
@@ -63,10 +63,10 @@ def plot_trace(sim, model, args, stamp, partition, sim_values, sim_policy_inputs
 	heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=sim_policy_inputs[:,0], filename="heatmap_inputs", show_plot=show_plot)
 	
 	if evaluation and isinstance(evaluation, RL.Evaluate_Secondary.EnergyEfficiency):
-		plot_action_magnitudes(fname=f'output/{filename}_action_magnitudes')
+		plot_action_magnitudes(fname=f'output/{filename}_action_magnitudes',traces=sim.results['traces'])
 	
 	elif evaluation and isinstance(evaluation, RL.Evaluate_Secondary.ActionSmoothness):
-		plot_action_magnitude_differences(fname=f'output/{filename}_action_deltas')
+		plot_action_magnitude_differences(fname=f'output/{filename}_action_deltas',traces=sim.results['traces'])
 	
 	if args.model == 'Pendulum':
 		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/pendulum_{filename}_{stamp}.gif')
