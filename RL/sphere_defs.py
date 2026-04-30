@@ -17,7 +17,7 @@ def build_sphere_model(model_name: str) -> SphereDef:
 	spheres['Dubins_small'] = SphereDef(
 			thresholds = jnp.array([0]),
 			radii = jnp.array([
-				[jnp.pi*0.3, 0.3],
+				[jnp.pi*0.28, 0.28],
 			])
 		)
 
