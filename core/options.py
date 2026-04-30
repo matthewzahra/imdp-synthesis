@@ -56,6 +56,9 @@ def parse_arguments():
     
     parser.add_argument('--test_spheres', action='store_true', default=False,
                         help='test spheres defined in RL.sphere_defs.py for the satisfaction probabilities that they produce')
+    
+    parser.arr_argument('scale_sphere', type=int, default=1, 
+                        help='scale the sphere radii by some scalar value')
 
     # Parse arguments
     args = parser.parse_args()

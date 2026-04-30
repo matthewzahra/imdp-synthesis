@@ -1,0 +1,9 @@
+python Runfile --model MountainCar --rl --scale_sphere=0
+python Runfile --model MountainCar --rl --scale_sphere=0.25
+python Runfile --model MountainCar --rl --scale_sphere=0.5
+python Runfile --model MountainCar --rl --scale_sphere=0.75
+python Runfile --model MountainCar --rl --scale_sphere=1
+python Runfile --model MountainCar --rl --scale_sphere=1.25
+python Runfile --model MountainCar --rl --scale_sphere=1.5
+python Runfile --model MountainCar --rl --scale_sphere=1.75
+python Runfile --model MountainCar --rl --scale_sphere=2

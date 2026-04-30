@@ -1,0 +1,4 @@
+rm -f output/*
+rm -f RL/agent_envs/*
+rm -f RL/agents/*
+rm -rf sac_logs
