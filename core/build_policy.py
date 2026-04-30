@@ -26,7 +26,7 @@ def build_policy(model, partition, args, stamp, t, thresholds=None, radii_option
 
 		spheres = Spheres(
 			thresholds=thresholds,
-			radii_options=radii_options, # list(map(lambda lst: list(map(lambda x : x * sphere_scaling, lst)), radii_options)),
+			radii_options=jnp.array(list(map(lambda lst: list(map(lambda x : x * sphere_scaling, lst)), radii_options))),
 			vals_to_clip=vals_to_clip,
 			vals_to_wrap=vals_to_wrap,
 			critical_regions=critical_regions, # include the borders and goal region as critical regions
