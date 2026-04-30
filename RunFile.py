@@ -158,7 +158,8 @@ if __name__ == '__main__':
                 t=t,
                 reinforcement_learning=reinforcement_learning,
                 radii_funcs=radii_funcs,
-                continuous=False
+                continuous=False,
+                sphere_scaling=args.scale_sphere
             )
 
             with open(f"{stamp}_results.txt", "a") as f:
