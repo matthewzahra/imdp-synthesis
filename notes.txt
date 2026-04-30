@@ -1,0 +1,37 @@
+for the variable spheres needed consider the below for Dubins_small:
+
+Satisfaction probability for Spheres: [0.3638199]
+
+Satisfaction probability: [0.9990955]
+
+thresholds = [0,]
+radii = [
+[0.87964594 0.28      ],
+]
+Doing simulation for top_opening_double_reward2
+Secondary Score: 95.14019577018372
+Trace Average Secondary Score: 12.465652699667105
+Empirical satisfaction probability: 1.0
+closest = 8.322000867540927
+Times entered tracked region: 0.0
+Average trace length: 8
+
+Secondary Score with RL agent: 99.46421432494093
+Trace Average Secondary Score with RL agent: 11.744708670507775
+Empirical satisfaciton probability with RL agent: 1.0
+closest = 7.018690173361396
+Times RL agent entered tracked region: 0.0
+Average trace length: 9
+
+
+Running Evaluations for the standard NO-RL-NO-SPHERE approach
+Doing simulation for top_opening_double_reward2
+Secondary Score: 78.34584663919254
+Trace Average Secondary Score: 12.180725865587862
+Empirical satisfaction probability: 1.0
+closest = 9.031195934094221
+Times entered tracked region: 0.0
+Average trace length: 7
+
+
+we already have a very small satisfaction and are still failing.
