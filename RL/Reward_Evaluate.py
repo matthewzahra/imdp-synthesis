@@ -90,6 +90,7 @@ def generate_reward_eval(model_name):
 	# MountainCar
 	reward_evals['MountainCar'] = dict()
 	reward_evals['MountainCar']['energy_efficient'] = ActionCosts(action_costs=[1])
+	reward_evals['MountainCar']['action_smoothness'] = ActionSmoothness(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
 
 	# Drone2D
 	reward_evals['Drone2D'] = dict()	
