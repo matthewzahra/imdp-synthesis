@@ -188,7 +188,8 @@ if __name__ == '__main__':
                 stamp=stamp,
                 t=t,
                 reinforcement_learning=True,
-                continuous=False
+                continuous=False,
+                sphere_scaling=args.scale_sphere
             )
         
         # generate the sphere-less policy
