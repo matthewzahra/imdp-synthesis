@@ -1,0 +1,52 @@
+Satisfaction probability for Spheres: [0.99106807]
+
+Satisfaction probability: [0.991067]
+
+thresholds = [0,]
+radii = [
+[0.],
+]
+Doing simulation for energy_efficient
+Secondary Score: 43.076
+Trace Average Secondary Score: 1.8750610804321728
+Empirical satisfaction probability: 1.0
+Average trace length: 49
+
+Secondary Score with RL agent: 43.12
+Trace Average Secondary Score with RL agent: 1.8758548014205683
+Empirical satisfaciton probability with RL agent: 1.0
+Average trace length: 49
+
+
+Doing simulation for action_smoothness
+Secondary Score: 10.473
+Trace Average Secondary Score: 1.2126585579231692
+Empirical satisfaction probability: 1.0
+Average trace length: 49
+
+Secondary Score with RL agent: 10.466
+Trace Average Secondary Score with RL agent: 1.2124617072573711
+Empirical satisfaciton probability with RL agent: 1.0
+Average trace length: 49
+
+##############################
+BELOW IS THE STANDARD approach
+##############################
+
+Running Evaluations for the standard NO-RL-NO-SPHERE approach
+Doing simulation for energy_efficient
+Secondary Score: 43.1285
+Trace Average Secondary Score: 1.876087918646182
+Empirical satisfaction probability: 1.0
+Times entered tracked region: 0.0
+Average trace length: 49
+
+
+Doing simulation for action_smoothness
+Secondary Score: 10.5555
+Trace Average Secondary Score: 1.2144536272643263
+Empirical satisfaction probability: 1.0
+Times entered tracked region: 0.0
+Average trace length: 49
+
+
