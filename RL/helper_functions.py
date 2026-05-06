@@ -12,29 +12,34 @@ def project_action(action, action_lower, action_upper):
 	return result
 
 # plot the magnitude of each action over time for a set of given traces
-def plot_action_magnitudes(fname,traces,number=10):
+def plot_action_magnitudes(fname,traces,number=10,max_y=None):
 	plt.clf()
 
-	for trace in list(traces.values()):
+	for trace in list(traces.values())[:number]:
 		values = trace['u']
 
-		magnitudes = list(map(np.linalg.norm,values))[:number]
+		magnitudes = list(map(np.linalg.norm,values))
 
 		timesteps = [i for i in range(len(magnitudes))]
 
 		plt.plot(timesteps, magnitudes)
 		
 	plt.xlabel("Timesteps")
-	plt.ylabel("Control Input")
-	plt.axhline(0)
+	plt.ylabel("Control Input Magnitude")
+	# plt.axhline(0)
+
+	if max_y:
+		plt.ylim(bottom=0, top=max_y)
+	else:
+		plt.ylim(bottom=0, top=max(1,plt.ylim()[1]))
 
 	# save the figure
-	plt.savefig(f"{fname}.png")
+	plt.savefig(f"{fname}.png",bbox_inches='tight')
 
 	plt.clf()
 
 # plot the difference in magnitudes between successive actions
-def plot_action_magnitude_differences(fname,traces,number=10):
+def plot_action_magnitude_differences(fname,traces,number=10,max_y=None):
 	plt.clf()
 
 	for trace in list(traces.values())[:number]:
@@ -48,11 +53,16 @@ def plot_action_magnitude_differences(fname,traces,number=10):
 		plt.plot(timesteps, magnitude_differences)
 		
 	plt.xlabel("Timesteps")
-	plt.ylabel("Control Input")
-	plt.axhline(0)
+	plt.ylabel("Control Deltas")
+	# plt.axhline(0)
+
+	if max_y:
+		plt.ylim(bottom=0, top=max_y)
+	else:
+		plt.ylim(bottom=0, top=max(1,plt.ylim()[1]))
 
 	# save the figure
-	plt.savefig(f"{fname}.png")
+	plt.savefig(f"{fname}.png",bbox_inches='tight')
 
 	plt.clf()
 
@@ -63,7 +73,7 @@ def plot_trace(sim, model, args, stamp, partition, sim_values, sim_policy_inputs
 	heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=sim_policy_inputs[:,0], filename="heatmap_inputs", show_plot=show_plot)
 	
 	if evaluation and isinstance(evaluation, RL.Evaluate_Secondary.EnergyEfficiency):
-		plot_action_magnitudes(fname=f'output/{filename}_action_magnitudes',traces=sim.results['traces'])
+		plot_action_magnitudes(fname=f'output/{filename}_action_magnitudes',traces=sim.results['traces'],max_y=np.linalg.norm(model.uMax))
 	
 	elif evaluation and isinstance(evaluation, RL.Evaluate_Secondary.ActionSmoothness):
 		plot_action_magnitude_differences(fname=f'output/{filename}_action_deltas',traces=sim.results['traces'])
