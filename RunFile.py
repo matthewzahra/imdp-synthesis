@@ -117,6 +117,11 @@ if __name__ == '__main__':
     else:
         reinforcement_learning = False
 
+    os.makedirs(f"output/{args.model}", exist_ok=True)
+    if reinforcement_learning:
+        os.makedirs(f"RL/agents/{args.model}", exist_ok=True)
+        os.makedirs(f"RL/agent_envs/{args.model}", exist_ok=True)      
+
     t = time.time()
 
     # Parse given model
@@ -129,7 +134,7 @@ if __name__ == '__main__':
     partition = RectangularPartition(model=model)
 
     if args.test_spheres:
-        sphere_defs = build_sphere_defs_test(args.model)
+        sphere_defs = build_sphere_defs_test(args.model,benchmark=args.benchmark)
 
         vals_to_clip,vals_to_wrap = generate_clip_wrap_vals(args.model)
 
@@ -162,7 +167,7 @@ if __name__ == '__main__':
                 sphere_scaling=args.scale_sphere
             )
 
-            with open(f"{stamp}_results.txt", "a") as f:
+            with open(f"output/{args.model}/{stamp}_results.txt", "a") as f:
                 f.write(str(spheres))
 
         exit()
@@ -171,7 +176,7 @@ if __name__ == '__main__':
         # generate the policy that takes spheres into account that the RL agent will make use of
         if reinforcement_learning:
             # extract the saved sphere definition for the model that we are running
-            sphere_def = build_sphere_model(model_name=args.model)
+            sphere_def = build_sphere_model(model_name=args.model,constant_spheres=args.constant_spheres)
             thresholds = sphere_def.thresholds
             radii_options = sphere_def.radii
 
@@ -230,7 +235,7 @@ if __name__ == '__main__':
                 n_envs=1
             )
         
-        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 100_000)
+        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 100_000, args=args, stamp=stamp)
 
         # train all the agents
         agents.train_agents(dont_train=args.no_train)
@@ -271,8 +276,10 @@ if __name__ == '__main__':
 
     # get the evals used (if any)
     if agent_envs is not None:
-        with open(f"{stamp}_results.txt", "a") as f:
+        with open(f"output/{args.model}/{stamp}_results.txt", "a") as f:
+            f.write("#############################################################\n")
             f.write("Running Evaluations for the standard NO-RL-NO-SPHERE approach\n")
+            f.write("#############################################################\n\n")
             for (s,_,_,evaluation) in agent_envs:
                 f.write(f'Doing simulation for {s}\n')
                 sim = MonteCarloSim(model,partition,policy,policy_inputs,model.x0,verbose=False,iterations=1000,tracked_region=tracked_region.get(args.model,None),evaluate_secondary=evaluation)
@@ -288,7 +295,7 @@ if __name__ == '__main__':
                     f.write(f'Times entered tracked region: {sim.results['tracked_region']}\n')
 
 
-                f.write(f'Average trace length: {int(np.mean(list(map(lambda trace: len(trace['u']), list(sim.results['traces'].values())))))}\n')
+                f.write(f'Average trace length: {float(np.mean(list(map(lambda trace: len(trace['u']), list(sim.results['traces'].values())))))}\n')
                 
                 f.write('\n\n')
 

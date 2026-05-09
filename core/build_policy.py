@@ -12,8 +12,6 @@ import jax
 def build_policy(model, partition, args, stamp, t, thresholds=None, radii_options=None, vals_to_clip=None, vals_to_wrap=None, continuous=False, radii_funcs=None, reinforcement_learning=False, sphere_scaling=1):
 	# Create actions based on forward reachable sets
 	if reinforcement_learning:
-		# TODO - think about how better to construct the radii - these should take into account the magnitude of each component on the action space that we expect so that the spheres are of the approrpriate size
-
 		# add 4 critical regions to contain the whole arena
 		# NOTE: we assume that the first 2 values of each point are the physical x and y coordinates
 		# TODO - currently we assume only a 2D space
@@ -42,8 +40,6 @@ def build_policy(model, partition, args, stamp, t, thresholds=None, radii_option
 		actions = RectangularForward(args=args, partition=partition, model=model)
 		actions_inputs = actions.id_to_input
 
-
-	# TODO - edit this function to use the new probability intervals 
 
 	P_full, S_id, A_id, P_absorbing = compute_probability_intervals(args=args, 
 													model=model, 
@@ -87,7 +83,7 @@ def build_policy(model, partition, args, stamp, t, thresholds=None, radii_option
 		print (f'- RVI with JAX (random-batched asynchronous) took: {(time.time() - t):.3f} sec.')
 
 		sat_prob = V[partition.x2state(model.x0)]
-		with open(f"{stamp}_results.txt", "a") as f:
+		with open(f"output/{args.model}/{stamp}_results.txt", "a") as f:
 			if reinforcement_learning:
 				f.write(f"Satisfaction probability for Spheres: {sat_prob}\n\n")
 			else:

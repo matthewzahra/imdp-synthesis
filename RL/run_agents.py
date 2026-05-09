@@ -8,7 +8,7 @@ frame work to train several agents and then simulate them all
 '''
 
 class Agents():
-	def __init__(self,reward_evals: dict[str,RewardEval], init_env, timesteps: int = 10_000):
+	def __init__(self,reward_evals: dict[str,RewardEval], init_env, stamp, timesteps: int = 10_000, args=None):
 		'''
 		Docstring for __init__
 		
@@ -22,6 +22,8 @@ class Agents():
 		self.reward_evals = reward_evals
 		self.init_env = init_env
 		self.timesteps = timesteps
+		self.args = args
+		self.stamp = stamp
 
 		for k,v in self.reward_evals.items():
 			self.reward_evals[k] = v.get_pair()
@@ -62,10 +64,10 @@ class Agents():
 
 				print("Saving Agent")
 				# save the trained agent
-				agent.save(f'RL/agents/sac_agent_{s}_{self.timesteps}')
+				agent.save(f'RL/agents/{self.args.model}/sac_agent_{self.stamp}_{s}_{self.timesteps}')
 
 			print("Saving VecNormalize statistics")
-			env.save(f"RL/agent_envs/vecnormalize_{s}.pkl")
+			env.save(f"RL/agent_envs/{self.args.model}/vecnormalize_{self.stamp}_{s}.pkl")
 
 
 	def get_agents_envs_evals(self):
@@ -73,9 +75,9 @@ class Agents():
 		agent_envs = []
 
 		for s,(reward_structure,evaluation) in self.reward_evals.items():
-			agent = SAC.load(f"RL/agents/sac_agent_{s}_{self.timesteps}")
+			agent = SAC.load(f"RL/agents/{self.args.model}/sac_agent_{self.stamp}_{s}_{self.timesteps}")
 			dummy_env = self.init_env(reward_structure)
-			vecnorm = VecNormalize.load(f"RL/agent_envs/vecnormalize_{s}.pkl", dummy_env)
+			vecnorm = VecNormalize.load(f"RL/agent_envs/{self.args.model}/vecnormalize_{self.stamp}_{s}.pkl", dummy_env)
 			vecnorm.training = False # don't allow the saved statistics to update
 			vecnorm.norm_reward = False # don't normalise the rewards
 		

@@ -122,8 +122,8 @@ def plot_traces(args, stamp, idx_show, partition, model, traces, line=True, num_
         ax.set_title(f"Simulation for {args.model}")
 
     # Save figure
-    plt.savefig(f'output/{filename}_{stamp}.pdf', format='pdf', bbox_inches='tight')
-    plt.savefig(f'output/{filename}_{stamp}.png', format='png', bbox_inches='tight')
+    plt.savefig(f'output/{args.model}/{filename}_{stamp}.pdf', format='pdf', bbox_inches='tight')
+    plt.savefig(f'output/{args.model}/{filename}_{stamp}.png', format='png', bbox_inches='tight')
 
     if show_plot:
         plt.show()

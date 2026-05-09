@@ -59,6 +59,12 @@ def parse_arguments():
     
     parser.add_argument('--scale_sphere', type=float, default=1, 
                         help='scale the sphere radii by some scalar value')
+    
+    parser.add_argument('--benchmark', action='store_true', default=False,
+                        help="part of the benchmark")
+    
+    parser.add_argument('--constant_spheres', action='store_true', default=False,
+                        help="do not use dynamcially shaped spheres")
 
     # Parse arguments
     args = parser.parse_args()

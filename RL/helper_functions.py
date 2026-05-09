@@ -73,16 +73,16 @@ def plot_trace(sim, model, args, stamp, partition, sim_values, sim_policy_inputs
 	heatmap(args, stamp, idx_show=model.plot_dimensions, slice_values=np.zeros(model.n), partition=partition, results=sim_policy_inputs[:,0], filename="heatmap_inputs", show_plot=show_plot)
 	
 	if evaluation and isinstance(evaluation, RL.Evaluate_Secondary.EnergyEfficiency):
-		plot_action_magnitudes(fname=f'output/{filename}_action_magnitudes',traces=sim.results['traces'],max_y=np.linalg.norm(model.uMax))
+		plot_action_magnitudes(fname=f'output/{args.model}/{filename}_{stamp}_action_magnitudes',traces=sim.results['traces'],max_y=np.linalg.norm(model.uMax))
 	
 	elif evaluation and isinstance(evaluation, RL.Evaluate_Secondary.ActionSmoothness):
-		plot_action_magnitude_differences(fname=f'output/{filename}_action_deltas',traces=sim.results['traces'])
+		plot_action_magnitude_differences(fname=f'output/{args.model}/{filename}_{stamp}_action_deltas',traces=sim.results['traces'])
 	
 	if args.model == 'Pendulum':
-		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/pendulum_{filename}_{stamp}.gif')
+		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/{args.model}/pendulum_{filename}_{stamp}.gif')
 
 	if args.model == 'MountainCar':
-		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/mountaincar_{filename}_{stamp}.gif')
+		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/{args.model}/mountaincar_{filename}_{stamp}.gif')
 
 
 def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_inputs, sim_values, spheres, iterations=1000, verbose=False, show_plot=True, tracked_region=None):
@@ -99,7 +99,7 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 	'''
 
 	# TODO - maybe we want to run the sims without the RL agent on the policy that was synthesised without spheres as this is the status quo? 
-	with open(f"{stamp}_results.txt", "a") as f:
+	with open(f"output/{args.model}/{stamp}_results.txt", "a") as f:
 		# write the sphere definition that we are using
 		f.write(str(spheres))
 

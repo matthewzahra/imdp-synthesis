@@ -71,8 +71,8 @@ def heatmap(args, stamp, idx_show, slice_values, partition, results, filename="h
         ax.set_title(f"Heatmap for {args.model} ({filename})")
 
     # Save figure
-    plt.savefig(f'output/{filename}_{stamp}.pdf', format='pdf', bbox_inches='tight')
-    plt.savefig(f'output/{filename}_{stamp}.png', format='png', bbox_inches='tight')
+    plt.savefig(f'output/{args.model}/{filename}_{stamp}.pdf', format='pdf', bbox_inches='tight')
+    plt.savefig(f'output/{args.model}/{filename}_{stamp}.png', format='png', bbox_inches='tight')
 
     if show_plot:
         plt.show()
