@@ -1,0 +1,92 @@
+Satisfaction probability for Spheres: [0.00598484]
+
+Satisfaction probability: [0.9910677]
+
+thresholds = [0,]
+radii = [
+[0.3],
+]
+Doing simulation for energy_efficient
+Secondary Score: 46.8345
+Trace Average Secondary Score: 1.8066094194185225
+Empirical satisfaction probability: 1.0
+Average trace length: 58
+
+Secondary Score with RL agent: 35.45492581929266
+Trace Average Secondary Score with RL agent: 1.6265629733680833
+Empirical satisfaciton probability with RL agent: 1.0
+Average trace length: 56
+
+
+Doing simulation for action_smoothness
+Secondary Score: 19.2805
+Trace Average Secondary Score: 1.3317337874958393
+Empirical satisfaction probability: 1.0
+Average trace length: 58
+
+Secondary Score with RL agent: 7.41197534903884
+Trace Average Secondary Score with RL agent: 1.1328306629294034
+Empirical satisfaciton probability with RL agent: 1.0
+Average trace length: 55
+
+
+Doing simulation for jerky_actions
+Secondary Score: 19.196
+Trace Average Secondary Score: 1.3303682298758555
+Empirical satisfaction probability: 1.0
+Average trace length: 58
+
+Secondary Score with RL agent: 27.353066094338892
+Trace Average Secondary Score with RL agent: 1.4649915573336845
+Empirical satisfaciton probability with RL agent: 1.0
+Average trace length: 58
+
+
+Doing simulation for max_energy
+Secondary Score: 46.7575
+Trace Average Secondary Score: 1.805217773050631
+Empirical satisfaction probability: 1.0
+Average trace length: 58
+
+Secondary Score with RL agent: 52.019819071561095
+Trace Average Secondary Score with RL agent: 1.8895042284286392
+Empirical satisfaciton probability with RL agent: 1.0
+Average trace length: 58
+
+
+#############################################################
+Running Evaluations for the standard NO-RL-NO-SPHERE approach
+#############################################################
+
+Doing simulation for energy_efficient
+Secondary Score: 43.115
+Trace Average Secondary Score: 1.8759604336734694
+Empirical satisfaction probability: 1.0
+Times entered tracked region: 0.0
+Average trace length: 49.223
+
+
+Doing simulation for action_smoothness
+Secondary Score: 10.533730260133744
+Trace Average Secondary Score: 1.2136329152592478
+Empirical satisfaction probability: 1.0
+Times entered tracked region: 0.0
+Average trace length: 49.287
+
+
+Doing simulation for jerky_actions
+Secondary Score: 10.494620571136474
+Trace Average Secondary Score: 1.213236774874227
+Empirical satisfaction probability: 1.0
+Times entered tracked region: 0.0
+Average trace length: 49.207
+
+
+Doing simulation for max_energy
+Secondary Score: 43.168
+Trace Average Secondary Score: 1.8763651836479274
+Empirical satisfaction probability: 1.0
+Times entered tracked region: 0.0
+Average trace length: 49.261
+
+

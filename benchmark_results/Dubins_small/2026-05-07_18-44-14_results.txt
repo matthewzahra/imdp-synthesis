@@ -1,0 +1,284 @@
+Satisfaction probability for Spheres: [0.93725]
+
+Satisfaction probability: [0.9990955]
+
+thresholds = [3.4000000953674316,3.200000047683716,3.0,2.799999952316284,2.5999999046325684,2.4000000953674316,2.0,1.600000023841858,1.2000000476837158,0.800000011920929,0.4000000059604645,0.20000000298023224,0.0,]
+radii = [
+[1.1938052 0.18     ],
+[1.1309733 0.16     ],
+[1.0681415 0.16     ],
+[1.0053097 0.15     ],
+[0.9424778 0.15     ],
+[0.87964594 0.14      ],
+[0.75398225 0.13      ],
+[0.56548667 0.12      ],
+[0.37699112 0.1       ],
+[0.31415927 0.1       ],
+[0.25132743 0.1       ],
+[0.18849556 0.1       ],
+[0. 0.],
+]
+Doing simulation for get_closer_than_base_to_bottom_right
+Secondary Score: 133.66278150871887
+Trace Average Secondary Score: 17.262838012067906
+Empirical satisfaction probability: 1.0
+closest = 4.312535161673517
+Times entered tracked region: 307.0
+Average trace length: 8
+
+Secondary Score with RL agent: 157.17827191773895
+Trace Average Secondary Score with RL agent: 18.163991237703506
+Empirical satisfaciton probability with RL agent: 1.0
+closest = 4.28368163995704
+Times RL agent entered tracked region: 69.0
+Average trace length: 9
+
+
+Doing simulation for get_closer_than_base_to_bottom_opening
+Secondary Score: 71.26844682458993
+Trace Average Secondary Score: 9.760894075469412
+Empirical satisfaction probability: 1.0
+closest = 0.27192591108823433
+Times entered tracked region: 278.0
+Average trace length: 8
+
+Secondary Score with RL agent: 92.08076873941022
+Trace Average Secondary Score with RL agent: 11.456830599738074
+Empirical satisfaciton probability with RL agent: 1.0
+closest = 0.26466220969592746
+Times RL agent entered tracked region: 19.0
+Average trace length: 8
+
+
+Doing simulation for get_to_bottom_right
+Secondary Score: 133.532149103682
+Trace Average Secondary Score: 17.273980105357595
+Empirical satisfaction probability: 1.0
+closest = 4.03595368620974
+Times entered tracked region: 310.0
+Average trace length: 8
+
+Secondary Score with RL agent: 100.51306061710604
+Trace Average Secondary Score with RL agent: 14.816034034290558
+Empirical satisfaciton probability with RL agent: 1.0
+closest = 3.323719790613712
+Times RL agent entered tracked region: 1000.0
+Average trace length: 7
+
+
+Doing simulation for get_close_to_bottom_opening
+Secondary Score: 70.80381028840968
+Trace Average Secondary Score: 9.676275229345768
+Empirical satisfaction probability: 1.0
+closest = 0.23166683334188387
+Times entered tracked region: 303.0
+Average trace length: 8
+
+Secondary Score with RL agent: 41.41924671066451
+Trace Average Secondary Score with RL agent: 6.66144623879169
+Empirical satisfaciton probability with RL agent: 1.0
+closest = 0.2404603799025124
+Times RL agent entered tracked region: 1000.0
+Average trace length: 7
+
+
+Doing simulation for bottom_opening_double_reward
+Secondary Score: 133.49350238133195
+Trace Average Secondary Score: 17.302290946647766
+Empirical satisfaction probability: 1.0
+closest = 3.774490197481548
+Times entered tracked region: 301.0
+Average trace length: 8
+
+Secondary Score with RL agent: 100.75007177563346
+Trace Average Secondary Score with RL agent: 14.852770704086995
+Empirical satisfaciton probability with RL agent: 1.0
+closest = 3.293103793787511
+Times RL agent entered tracked region: 1000.0
+Average trace length: 7
+
+
+Doing simulation for bottom_opening_double_reward2
+Secondary Score: 70.73310997311602
+Trace Average Secondary Score: 9.7225297277867
+Empirical satisfaction probability: 1.0
+closest = 0.24943996589293715
+Times entered tracked region: 290.0
+Average trace length: 8
+
+Secondary Score with RL agent: 44.93254388795358
+Trace Average Secondary Score with RL agent: 6.461408822846218
+Empirical satisfaciton probability with RL agent: 1.0
+closest = 0.1565354544851169
+Times RL agent entered tracked region: 1000.0
+Average trace length: 8
+
+
+Doing simulation for smooth_actions
+Secondary Score: 16.599372547626494
+Trace Average Secondary Score: 2.9570838737311647
+Empirical satisfaction probability: 1.0
+Times entered tracked region: 280.0
+Average trace length: 8
+
+Secondary Score with RL agent: 10.327129854828119
+Trace Average Secondary Score with RL agent: 2.4157254109295114
+Empirical satisfaciton probability with RL agent: 1.0
+Times RL agent entered tracked region: 30.0
+Average trace length: 7
+
+
+Doing simulation for energy_efficient
+Secondary Score: 28.651052725076674
+Trace Average Secondary Score: 4.460117813552281
+Empirical satisfaction probability: 1.0
+Times entered tracked region: 297.0
+Average trace length: 8
+
+Secondary Score with RL agent: 22.603799343049527
+Trace Average Secondary Score with RL agent: 4.190908989451987
+Empirical satisfaciton probability with RL agent: 1.0
+Times RL agent entered tracked region: 0.0
+Average trace length: 7
+
+
+Doing simulation for jerky_actions
+Secondary Score: 16.56209968662262
+Trace Average Secondary Score: 2.9530768912338763
+Empirical satisfaction probability: 1.0
+Times entered tracked region: 290.0
+Average trace length: 8
+
+Secondary Score with RL agent: 27.422858273927122
+Trace Average Secondary Score with RL agent: 4.021045506673053
+Empirical satisfaciton probability with RL agent: 1.0
+Times RL agent entered tracked region: 98.0
+Average trace length: 9
+
+
+Doing simulation for max_energy
+Secondary Score: 28.87650847184658
+Trace Average Secondary Score: 4.485644392840588
+Empirical satisfaction probability: 1.0
+Times entered tracked region: 307.0
+Average trace length: 8
+
+Secondary Score with RL agent: 36.33275917658396
+Trace Average Secondary Score with RL agent: 4.726471365892331
+Empirical satisfaciton probability with RL agent: 1.0
+Times RL agent entered tracked region: 606.0
+Average trace length: 9
+
+
+Doing simulation for energy_efficient_no_angle_tax
+Secondary Score: 22.554
+Trace Average Secondary Score: 3.7396545454545453
+Empirical satisfaction probability: 1.0
+Times entered tracked region: 288.0
+Average trace length: 8
+
+Secondary Score with RL agent: 19.699484886705875
+Trace Average Secondary Score with RL agent: 3.6121271373448423
+Empirical satisfaciton probability with RL agent: 1.0
+Times RL agent entered tracked region: 0.0
+Average trace length: 7
+
+
+#############################################################
+Running Evaluations for the standard NO-RL-NO-SPHERE approach
+#############################################################
+
+Doing simulation for get_closer_than_base_to_bottom_right
+Secondary Score: 129.99920063888317
+Trace Average Secondary Score: 19.563469960962877
+Empirical satisfaction probability: 1.0
+closest = 12.090219186842017
+Times entered tracked region: 0.0
+Average trace length: 7.003
+
+
+Doing simulation for get_closer_than_base_to_bottom_opening
+Secondary Score: 78.28718335186404
+Trace Average Secondary Score: 12.174039326383046
+Empirical satisfaction probability: 1.0
+closest = 8.861703559520274
+Times entered tracked region: 0.0
+Average trace length: 7.006
+
+
+Doing simulation for get_to_bottom_right
+Secondary Score: 129.91330437822063
+Trace Average Secondary Score: 19.54323222734957
+Empirical satisfaction probability: 1.0
+closest = 11.90475604207619
+Times entered tracked region: 0.0
+Average trace length: 7.006
+
+
+Doing simulation for get_close_to_bottom_opening
+Secondary Score: 78.39515010108991
+Trace Average Secondary Score: 12.191108146835875
+Empirical satisfaction probability: 1.0
+closest = 8.850177365754162
+Times entered tracked region: 0.0
+Average trace length: 7.005
+
+
+Doing simulation for bottom_opening_double_reward
+Secondary Score: 129.98538357498057
+Trace Average Secondary Score: 19.5562228420457
+Empirical satisfaction probability: 1.0
+closest = 12.160830412535281
+Times entered tracked region: 0.0
+Average trace length: 7.005
+
+
+Doing simulation for bottom_opening_double_reward2
+Secondary Score: 78.30385698129544
+Trace Average Secondary Score: 12.171485237114219
+Empirical satisfaction probability: 1.0
+closest = 9.029864066048715
+Times entered tracked region: 0.0
+Average trace length: 7.009
+
+
+Doing simulation for smooth_actions
+Secondary Score: 8.142196966171264
+Trace Average Secondary Score: 2.1611771847605707
+Empirical satisfaction probability: 1.0
+Times entered tracked region: 0.0
+Average trace length: 7.007
+
+
+Doing simulation for energy_efficient
+Secondary Score: 24.896927366018296
+Trace Average Secondary Score: 4.553219475226743
+Empirical satisfaction probability: 1.0
+Times entered tracked region: 0.0
+Average trace length: 7.007
+
+
+Doing simulation for jerky_actions
+Secondary Score: 8.150574550151825
+Trace Average Secondary Score: 2.162579681979759
+Empirical satisfaction probability: 1.0
+Times entered tracked region: 0.0
+Average trace length: 7.007
+
+
+Doing simulation for max_energy
+Secondary Score: 24.907796096086503
+Trace Average Secondary Score: 4.552243916713765
+Empirical satisfaction probability: 1.0
+Times entered tracked region: 0.0
+Average trace length: 7.012
+
+
+Doing simulation for energy_efficient_no_angle_tax
+Secondary Score: 20.6415
+Trace Average Secondary Score: 3.9467767857142855
+Empirical satisfaction probability: 1.0
+Times entered tracked region: 0.0
+Average trace length: 7.005
+
+
