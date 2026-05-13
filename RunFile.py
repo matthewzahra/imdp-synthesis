@@ -85,7 +85,7 @@ if __name__ == '__main__':
     args.cwd = os.path.dirname(os.path.abspath(__file__))
     args.root_dir = Path(args.cwd)
 
-    stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    stamp = args.use_stamp
     print(f'Run started at {stamp} using arguments:')
     for key, val in vars(args).items():
         print(' - `' + str(key) + '`: ' + str(val))

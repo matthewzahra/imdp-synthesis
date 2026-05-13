@@ -1,4 +1,5 @@
 import argparse
+import datetime
 
 
 def parse_arguments():
@@ -65,6 +66,8 @@ def parse_arguments():
     
     parser.add_argument('--constant_spheres', action='store_true', default=False,
                         help="do not use dynamcially shaped spheres")
+    
+    parser.add_argument('--use_stamp', type=str, default=datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
 
     # Parse arguments
     args = parser.parse_args()

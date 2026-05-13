@@ -66,8 +66,8 @@ class Agents():
 				# save the trained agent
 				agent.save(f'RL/agents/{self.args.model}/sac_agent_{self.stamp}_{s}_{self.timesteps}')
 
-			print("Saving VecNormalize statistics")
-			env.save(f"RL/agent_envs/{self.args.model}/vecnormalize_{self.stamp}_{s}.pkl")
+				print("Saving VecNormalize statistics")
+				env.save(f"RL/agent_envs/{self.args.model}/vecnormalize_{self.stamp}_{s}.pkl")
 
 
 	def get_agents_envs_evals(self):
