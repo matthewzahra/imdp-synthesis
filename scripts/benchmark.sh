@@ -7,21 +7,21 @@ rm -rf RL/agents/*
 rm -rf sac_logs
 
 # run MountainCar - includes sphere scaling
-python RunFile.py --model MountainCar --rl --scale_sphere 0 --no_train --use_stamp
-python RunFile.py --model MountainCar --rl --scale_sphere 0.25 --no_train --use_stamp
-python RunFile.py --model MountainCar --rl --scale_sphere 0.5 --no_train --use_stamp 
-python RunFile.py --model MountainCar --rl --scale_sphere 0.75 --no_train --use_stamp
-python RunFile.py --model MountainCar --rl --scale_sphere 1 --no_train --use_stamp
-python RunFile.py --model MountainCar --rl --scale_sphere 1.25 --no_train --use_stamp
-python RunFile.py --model MountainCar --rl --scale_sphere 1.5 --no_train --use_stamp
-python RunFile.py --model MountainCar --rl --scale_sphere 1.75 --no_train --use_stamp
-python RunFile.py --model MountainCar --rl --scale_sphere 2 --no_train --use_stamp
+python RunFile.py --model MountainCar --rl --scale_sphere 0
+python RunFile.py --model MountainCar --rl --scale_sphere 0.25
+python RunFile.py --model MountainCar --rl --scale_sphere 0.5 
+python RunFile.py --model MountainCar --rl --scale_sphere 0.75 
+python RunFile.py --model MountainCar --rl --scale_sphere 1 
+python RunFile.py --model MountainCar --rl --scale_sphere 1.25 
+python RunFile.py --model MountainCar --rl --scale_sphere 1.5 
+python RunFile.py --model MountainCar --rl --scale_sphere 1.75 
+python RunFile.py --model MountainCar --rl --scale_sphere 2 
 
 # run Pendulum
-python RunFile.py --model Pendulum --rl --no_train
+python RunFile.py --model Pendulum --rl 
 
 # run Drone2D
-python RunFile.py --model Drone2D --rl --no_train
+python RunFile.py --model Drone2D --rl 
 
 # run Dubins_small
 python RunFile.py --model Dubins_small --rl

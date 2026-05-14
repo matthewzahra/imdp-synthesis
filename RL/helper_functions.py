@@ -61,6 +61,9 @@ def plot_action_magnitude_differences(fname,traces,number=10,max_y=None):
 	else:
 		plt.ylim(bottom=0, top=max(1,plt.ylim()[1]))
 
+	# plt.yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+	# plt.ylim(0, 1)
+
 	# save the figure
 	plt.savefig(f"{fname}.png",bbox_inches='tight')
 
