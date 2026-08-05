@@ -95,7 +95,21 @@ if __name__ == '__main__':
     if args.model == 'Dubins':
         base_model = benchmarks.Dubins(args)
     elif args.model == 'Dubins_small':
-        base_model = benchmarks.Dubins_small(args)
+        if args.finer_partition:
+            partition_granularity = np.array([30, 30, 21])
+        else:
+            partition_granularity = None
+
+        if args.double_slit:
+            base_model = benchmarks.Dubins_small(
+                args=args,
+                partition_granularity=partition_granularity,
+                goal=np.array([[[7, -10, -np.pi], [10, 10, np.pi]]], dtype=float),
+                critical=np.array([[[0, -4.6, -np.pi], [4, 2, np.pi]],], dtype=float),
+                x0=np.array([-10, 0, 0])
+            )
+        else:
+            base_model = benchmarks.Dubins_small(args,partition_granularity=partition_granularity)
     elif args.model == 'Drone2D':
         base_model = benchmarks.Drone2D(args)
     elif args.model == 'Drone3D':
@@ -235,7 +249,7 @@ if __name__ == '__main__':
                 n_envs=1
             )
         
-        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 100_000, args=args, stamp=stamp)
+        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 50_000, args=args, stamp=stamp)
 
         # train all the agents
         agents.train_agents(dont_train=args.no_train)

@@ -69,6 +69,14 @@ def parse_arguments():
     
     parser.add_argument('--use_stamp', type=str, default=datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
 
+    # this is specifically for Dubins_small, where we have 2 arena set ups - this is for the double slit version
+    parser.add_argument('--double_slit', action='store_true', default=False,
+                        help='use double slit arena for Dubins_small model')
+
+    # if there is the option to have more than 1 granularity (for the partition) then use the finer one
+    parser.add_argument('--finer_partition', action='store_true', default=False,
+                        help='use finer partition if available')
+
     # Parse arguments
     args = parser.parse_args()
 
