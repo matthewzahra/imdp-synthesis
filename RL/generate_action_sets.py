@@ -200,6 +200,6 @@ class Spheres:
 			for radii in self.radii_options:
 				s += f'{radii},\n'
 			s += ']'
-			s += '\n'
+			s += '\n\n'
 		
 			return s

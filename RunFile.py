@@ -15,24 +15,19 @@ For all available arguments, please see the function :func:`core.options.parse_a
 # ]
 
 # %%
-import datetime
 import os
 import time
 from pathlib import Path
 import jax
 import numpy as np
-import jax.numpy as jnp
-import sys
 
 import benchmarks
 from core.model import parse_linear_model, parse_nonlinear_model
 from core.options import parse_arguments
 from core.partition import RectangularPartition
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3 import SAC
 from RL.RL_Environment import Env
 from RL.run_agents import Agents
-from core.imdp import IMDP
 from RL.sphere_defs import build_sphere_defs_test, build_sphere_model, generate_clip_wrap_vals
 from core.build_policy import build_policy
 from RL.Reward_Evaluate import generate_reward_eval
@@ -196,6 +191,8 @@ if __name__ == '__main__':
 
             vals_to_clip,vals_to_wrap = generate_clip_wrap_vals(args.model)
 
+            start_time = time.time() 
+
             V_rl, policy_rl, policy_inputs_rl, spheres_rl = build_policy(
                 thresholds=thresholds,
                 radii_options=radii_options,
@@ -220,6 +217,11 @@ if __name__ == '__main__':
             t=t,
             reinforcement_learning=False,
         )
+
+        if reinforcement_learning:
+            time_taken = time.time() - start_time
+            with open(f"output/{args.model}/{stamp}_results.txt", "a") as f:
+                f.write(f"Time taken to generate the abstraction: {time_taken:.3f}\n")
 
     # %% Training of the Reinforcement Learning Agent
     if reinforcement_learning:
@@ -310,7 +312,9 @@ if __name__ == '__main__':
 
 
                 f.write(f'Average trace length: {float(np.mean(list(map(lambda trace: len(trace['u']), list(sim.results['traces'].values())))))}\n')
-                
+
+                f.write(f"Average time per step: {sim.results['average_time_per_step']:.3f}\n")
+
                 f.write('\n\n')
 
                 plot_trace(

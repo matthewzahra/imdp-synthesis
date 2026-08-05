@@ -2,6 +2,7 @@ import numpy as np
 from tqdm import tqdm
 from typing import Optional
 from RL.Evaluate_Secondary import EvaluateSecondary
+import time
 
 
 class MonteCarloSim():
@@ -43,7 +44,8 @@ class MonteCarloSim():
             'secondary_scores_averaged': np.zeros(self.iterations),
             'secondary_score': 0,               # secondary score (if we are using it)
             'secondary_score_average': 0,       # secondary score averaged over each trace (if we are using it)
-            'tracked_region': np.zeros(self.iterations)
+            'tracked_region': np.zeros(self.iterations),
+            'average_time_per_step': 0
         }
 
         self.spheres = spheres
@@ -59,6 +61,7 @@ class MonteCarloSim():
         self.results['secondary_score'] = np.mean(self.results['secondary_scores'])
         self.results['secondary_score_average'] = np.mean(self.results['secondary_scores_averaged'])
         self.results['tracked_region'] = np.sum(self.results['tracked_region'])
+        self.results['average_time_per_step'] = self.results['average_time_per_step'] / self.iterations
 
     def define_noise_values(self):
         '''
@@ -119,6 +122,8 @@ class MonteCarloSim():
         # record the current secondary score - we will only use this if evaluate_secondary was set in the instantiation of this class
         current_secondary_score = 0
 
+        start_time = time.time()
+
         # For each time step in the finite time horizon
         while k <= self.horizon:
 
@@ -135,6 +140,8 @@ class MonteCarloSim():
 
                 if self.verbose:
                     print(f'- Absorbing state reached at k = {k} (x = {x[k]}), so abort')
+
+                self.results['average_time_per_step'] += time.time() - start_time
                 return trace, success, current_secondary_score, current_secondary_score / (k+1), tracked_region
 
             # If current region is the goal state ...
@@ -143,6 +150,8 @@ class MonteCarloSim():
                 success = True
                 if self.verbose:
                     print(f'- Goal state reached (x = {x[k]})')
+
+                self.results['average_time_per_step'] += time.time() - start_time
                 return trace, success, current_secondary_score, current_secondary_score / (k+1), tracked_region
 
             # If current region is in critical states...
@@ -150,10 +159,13 @@ class MonteCarloSim():
                 # Then abort current iteration
                 if self.verbose:
                     print('- Critical state reached, so abort')
+
+                self.results['average_time_per_step'] += time.time() - start_time
                 return trace, success, current_secondary_score, current_secondary_score / (k+1), tracked_region
 
             # Check if we can still perform another action within the horizon
             elif k >= self.horizon:
+                self.results['average_time_per_step'] += time.time() - start_time
                 return trace, success, current_secondary_score, current_secondary_score / (k+1), tracked_region
 
             # Retreive the action from the policy
@@ -230,5 +242,5 @@ class MonteCarloSim():
             k += 1
 
         ######
-
+        self.results['average_time_per_step'] += time.time() - start_time
         return trace, success, current_secondary_score, current_secondary_score / k, tracked_region

@@ -88,7 +88,7 @@ def plot_trace(sim, model, args, stamp, partition, sim_values, sim_policy_inputs
 		model.plot_trajectory_gif(np.array(sim.results['traces'][0]['x'])[:,0], filename=f'output/{args.model}/mountaincar_{filename}_{stamp}.gif')
 
 
-def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_inputs, sim_values, spheres, iterations=1000, verbose=False, show_plot=True, tracked_region=None):
+def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_inputs, sim_values, spheres, iterations=1000, verbose=False, show_plot=True, tracked_region=None, include_no_spheres=False):
 	'''
 	Docstring for run_simulations
 	
@@ -109,21 +109,22 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 		for (s,agent,vecnorm,evaluation) in agent_envs:
 			f.write(f'Doing simulation for {s}\n')
 			# run sims without RL agent
-			sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, project_action, verbose=verbose, iterations=iterations, evaluate_secondary=evaluation, tracked_region=tracked_region)
-			f.write(f'Secondary Score: {sim.results["secondary_score"]}\n')
-			f.write(f'Trace Average Secondary Score: {sim.results["secondary_score_average"]}\n')
-			f.write(f'Empirical satisfaction probability: {sim.results['satprob']}\n')
+			if include_no_spheres:
+				sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, project_action, verbose=verbose, iterations=iterations, evaluate_secondary=evaluation, tracked_region=tracked_region)
+				f.write(f'Secondary Score: {sim.results["secondary_score"]}\n')
+				f.write(f'Trace Average Secondary Score: {sim.results["secondary_score_average"]}\n')
+				f.write(f'Empirical satisfaction probability: {sim.results['satprob']}\n')
 
-			if isinstance(evaluation, RL.Evaluate_Secondary.DistanceToRegion):
-				f.write(f'closest = {evaluation.closest}\n')
-				evaluation.closest = float('inf')
+				if isinstance(evaluation, RL.Evaluate_Secondary.DistanceToRegion):
+					f.write(f'closest = {evaluation.closest}\n')
+					evaluation.closest = float('inf')
 
-			if tracked_region is not None:
-				f.write(f'Times entered tracked region: {sim.results['tracked_region']}\n')
+				if tracked_region is not None:
+					f.write(f'Times entered tracked region: {sim.results['tracked_region']}\n')
 
-			f.write(f'Average trace length: {int(np.mean(list(map(lambda trace: len(trace['u']), list(sim.results['traces'].values())))))}\n')
-			
-			f.write('\n')
+				f.write(f'Average trace length: {int(np.mean(list(map(lambda trace: len(trace['u']), list(sim.results['traces'].values())))))}\n')
+				
+				f.write('\n')
 
 			# run sims with RL agent
 			sim_rl = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, project_action, verbose=verbose, iterations=iterations, evaluate_secondary=evaluation, agent=agent, spheres=spheres, vecnorm=vecnorm, tracked_region=tracked_region)
@@ -140,21 +141,24 @@ def run_simulations(agent_envs, model, args, stamp, partition, policy, policy_in
 
 			f.write(f'Average trace length: {int(np.mean(list(map(lambda trace: len(trace['u']), list(sim_rl.results['traces'].values())))))}\n')
 
+			f.write(f"Average time per step: {sim_rl.results['average_time_per_step']:.3f}\n")
+
 			f.write('\n\n')
 
 			# plot the traces, heatmaps etc...
-			plot_trace(
-				sim=sim,
-				model=model,
-				args=args,
-				stamp=stamp,
-				partition=partition,
-				sim_values=sim_values,
-				sim_policy_inputs=policy_inputs,
-				filename=s+'_NO_RL_WITH_SPHERE',
-				show_plot=show_plot,
-				evaluation=evaluation
-			)
+			if include_no_spheres:
+				plot_trace(
+					sim=sim,
+					model=model,
+					args=args,
+					stamp=stamp,
+					partition=partition,
+					sim_values=sim_values,
+					sim_policy_inputs=policy_inputs,
+					filename=s+'_NO_RL_WITH_SPHERE',
+					show_plot=show_plot,
+					evaluation=evaluation
+				)
 
 			plot_trace(
 				sim=sim_rl,
