@@ -1,6 +1,7 @@
 import RL.Reward
 import RL.Evaluate_Secondary
 import numpy as np
+from core.helper_functions import reference_generator
 
 '''
 data structure to pair up the reward signal and then evaluation model for different optimsiations for the RL agent
@@ -66,12 +67,16 @@ class GetToRegionDoubleReward(RewardEval):
 		self.reward = RL.Reward.GetCloseToRegionAndBeatPolicy(region1_lower,region1_upper, region2_lower, region2_upper, dims)
 		self.evaluation = RL.Evaluate_Secondary.DistanceToRegion(region2_lower,region2_upper,dims)
 
+class Matrix(RewardEval):
+	def __init__(self,Q,R,centers,target_cells):
+		self.reward = RL.Reward.MinMatrixNorm(Q,R,centers,target_cells)
+		self.evaluation = RL.Evaluate_Secondary.MatrixNorm(Q,R,centers,target_cells)
 
 '''
 generate the reward/evaluation pairs
 '''
 
-def generate_reward_eval(model_name):
+def generate_reward_eval(model_name,partition=None,model=None):
 	reward_evals = dict()
 
 	# Dubins_small
@@ -87,27 +92,31 @@ def generate_reward_eval(model_name):
 	# reward_evals['Dubins_small']['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
 	# reward_evals['Dubins_small']['max_energy'] = MaxActionCosts(action_costs=[1,1])
 	# reward_evals['Dubins_small']['energy_efficient_no_angle_tax'] = ActionCosts(action_costs=[0,1])
+	# centers = np.array(partition.regions['centers'])
+	# goal_centers = np.array(partition.goal['centers'])
+	# STATES_NUMBER = model.n
+	# reward_evals['Dubins_small']['matrix'] = Matrix(Q=np.diag([1, 1, 0]),R=np.diag(1,1),target_cells=reference_generator(centers,goal_centers,STATES_NUMBER))
 
 	# MountainCar
 	reward_evals['MountainCar'] = dict()
-	reward_evals['MountainCar']['energy_efficient'] = ActionCosts(action_costs=[1])
-	reward_evals['MountainCar']['action_smoothness'] = ActionSmoothness(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
-	reward_evals['MountainCar']['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
-	reward_evals['MountainCar']['max_energy'] = MaxActionCosts(action_costs=[1])
+	# reward_evals['MountainCar']['energy_efficient'] = ActionCosts(action_costs=[1])
+	# reward_evals['MountainCar']['action_smoothness'] = ActionSmoothness(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
+	# reward_evals['MountainCar']['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
+	# reward_evals['MountainCar']['max_energy'] = MaxActionCosts(action_costs=[1])
 
 	# Drone2D
 	reward_evals['Drone2D'] = dict()	
-	reward_evals['Drone2D']['smooth_actions'] = ActionSmoothness(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
-	reward_evals['Drone2D']['energy_efficient'] = ActionCosts(action_costs=[1,1])
-	reward_evals['Drone2D']['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
-	reward_evals['Drone2D']['max_energy'] = MaxActionCosts(action_costs=[1,1])
+	# reward_evals['Drone2D']['smooth_actions'] = ActionSmoothness(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
+	# reward_evals['Drone2D']['energy_efficient'] = ActionCosts(action_costs=[1,1])
+	# reward_evals['Drone2D']['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
+	# reward_evals['Drone2D']['max_energy'] = MaxActionCosts(action_costs=[1,1])
 
 	# Pendulum
 	reward_evals['Pendulum'] = dict()
-	reward_evals['Pendulum']['smooth_actions'] = ActionSmoothness(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
-	reward_evals['Pendulum']['energy_efficient'] = ActionCosts(action_costs=[1])
-	reward_evals['Pendulum']['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
-	reward_evals['Pendulum']['max_energy'] = MaxActionCosts(action_costs=[1])
+	# reward_evals['Pendulum']['smooth_actions'] = ActionSmoothness(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
+	# reward_evals['Pendulum']['energy_efficient'] = ActionCosts(action_costs=[1])
+	# reward_evals['Pendulum']['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
+	# reward_evals['Pendulum']['max_energy'] = MaxActionCosts(action_costs=[1])
 
 	# DoubleIntegrator
 	reward_evals['DoubleIntegrator'] = dict()

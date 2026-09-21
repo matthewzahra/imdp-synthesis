@@ -1,4 +1,5 @@
 import numpy as np
+from core.helper_functions import get_cell_index
 
 '''
 Define a way to evaluate secondary constraints so that we can test if the RL approach does better
@@ -77,3 +78,20 @@ class ActionSmoothness(EvaluateSecondary):
 		score = np.dot(self.action_scaling, np.abs(action - self.prev_action))
 		self.prev_action = action
 		return score
+
+class MatrixNorm(EvaluateSecondary):
+	'''
+	Use the energy norm (squared)
+	'''
+	def __init__(self,Q,R,centers,target_cells):
+		self.Q = Q
+		self.R = R
+		self.centers = centers
+		self.target_cells = target_cells
+
+	# TODO - also be able to return state_cost and action_cost as well as their sum
+	def get_score(self,state,action):
+		target_cell = self.target_cells[get_cell_index(self.centers,state)]
+		state_cost = (target_cell - state)@self.Q@(target_cell - state)
+		action_cost = action@self.R@action
+		return state_cost + action_cost 

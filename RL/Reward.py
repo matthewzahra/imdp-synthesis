@@ -1,6 +1,7 @@
 import numpy as np
 from typing import Optional
 import jax.numpy as jnp
+from core.helper_functions import get_cell_index
 
 '''
 Define the different reward structures
@@ -161,3 +162,19 @@ class GetCloseToRegionAndBeatPolicy(RewardStructure):
 
 	def getReward(self, old_state, new_base_state, new_rl_state, policy_action, rl_action):
 		return self.beat_policy.getReward(old_state, new_base_state, new_rl_state, policy_action, rl_action) + self.get_to_region.getReward(old_state, new_base_state, new_rl_state, policy_action, rl_action)
+
+class MinMatrixNorm(RewardStructure):
+	'''
+	Use the energy norm (squared)
+	'''
+	def __init__(self,Q,R,centers,target_cells):
+		self.Q = Q
+		self.R = R
+		self.centers = centers
+		self.target_cells = target_cells
+
+	def get_score(self,state,action):
+		target_cell = self.target_cells[get_cell_index(self.centers,state)]
+		state_cost = (target_cell - state)@self.Q@(target_cell - state)
+		action_cost = action@self.R@action
+		return -1*(state_cost + action_cost)

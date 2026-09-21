@@ -228,8 +228,8 @@ if __name__ == '__main__':
         '''
         define the reward/evaluation pairs we want to use
         '''
-
-        reward_evals = generate_reward_eval(args.model)
+        reward_evals = generate_reward_eval(model_name=args.model)
+        # reward_evals = generate_reward_eval(model_name=args.model,partition=partition,model=model)
 
         print("Constructing RL Environment")
         # vectorize the environment
