@@ -84,6 +84,7 @@ class MatrixNorm(EvaluateSecondary):
 	Use the energy norm (squared)
 	'''
 	def __init__(self,Q,R,centers,target_cells):
+		super().__init__()
 		self.Q = Q
 		self.R = R
 		self.centers = centers

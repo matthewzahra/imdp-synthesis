@@ -168,13 +168,14 @@ class MinMatrixNorm(RewardStructure):
 	Use the energy norm (squared)
 	'''
 	def __init__(self,Q,R,centers,target_cells):
+		super().__init__()
 		self.Q = Q
 		self.R = R
 		self.centers = centers
 		self.target_cells = target_cells
 
-	def get_score(self,state,action):
-		target_cell = self.target_cells[get_cell_index(self.centers,state)]
-		state_cost = (target_cell - state)@self.Q@(target_cell - state)
-		action_cost = action@self.R@action
+	def getReward(self, old_state, new_base_state, new_rl_state, policy_action, rl_action):
+		target_cell = self.target_cells[get_cell_index(self.centers,new_rl_state)]
+		state_cost = (target_cell - new_rl_state)@self.Q@(target_cell - new_rl_state)
+		action_cost = rl_action@self.R@rl_action
 		return -1*(state_cost + action_cost)
