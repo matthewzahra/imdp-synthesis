@@ -79,6 +79,10 @@ generate the reward/evaluation pairs
 def generate_reward_eval(model_name,partition=None,model=None):
 	reward_evals = dict()
 
+	centers = np.array(partition.regions['centers'])
+	goal_centers = np.array(partition.goal['centers'])
+	STATES_NUMBER = model.n
+
 	# Dubins_small
 	reward_evals['Dubins_small'] = dict()
 	# reward_evals['Dubins_small']['get_closer_than_base_to_bottom_right'] = RL.Reward_Evaluate.GetCloserThanBaseToArea(region_lower=np.array([10,-10]), region_upper=np.array([10,-10]), dims=[0,1])
@@ -92,9 +96,6 @@ def generate_reward_eval(model_name,partition=None,model=None):
 	# reward_evals['Dubins_small']['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1,1]),action_scaling_evaluate=np.array([1,1]))
 	# reward_evals['Dubins_small']['max_energy'] = MaxActionCosts(action_costs=[1,1])
 	# reward_evals['Dubins_small']['energy_efficient_no_angle_tax'] = ActionCosts(action_costs=[0,1])
-	centers = np.array(partition.regions['centers'])
-	goal_centers = np.array(partition.goal['centers'])
-	STATES_NUMBER = model.n
 	reward_evals['Dubins_small']['matrix'] = Matrix(Q=np.diag([1, 1, 0]),R=np.diag([1,1]),centers=centers,target_cells=reference_generator(centers,goal_centers,STATES_NUMBER))
 
 	# MountainCar
@@ -103,6 +104,7 @@ def generate_reward_eval(model_name,partition=None,model=None):
 	# reward_evals['MountainCar']['action_smoothness'] = ActionSmoothness(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
 	# reward_evals['MountainCar']['jerky_actions'] = JerkyMovements(action_scaling_reward=np.array([1]),action_scaling_evaluate=np.array([1]))
 	# reward_evals['MountainCar']['max_energy'] = MaxActionCosts(action_costs=[1])
+	reward_evals['MountainCar']['matrix'] = Matrix(Q=np.diag([1,0]),R=np.diag([1]),centers=centers,target_cells=reference_generator(centers,goal_centers,STATES_NUMBER))
 
 	# Drone2D
 	reward_evals['Drone2D'] = dict()	

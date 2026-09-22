@@ -250,7 +250,7 @@ if __name__ == '__main__':
                 n_envs=1
             )
         
-        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 50_000, args=args, stamp=stamp)
+        agents = Agents(reward_evals=reward_evals, init_env=init_env, timesteps = 70_000, args=args, stamp=stamp)
 
         # train all the agents
         agents.train_agents(dont_train=args.no_train)
