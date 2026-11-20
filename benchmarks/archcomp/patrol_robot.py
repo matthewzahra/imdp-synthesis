@@ -19,28 +19,25 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from benchmarks.archcomp.common import boxes, set_grid, stack
+from benchmarks.archcomp.common import stack
+from benchmarks.base import Benchmark
 from benchmarks.dynamics import setmath
-from benchmarks.dynamics.distributions import GaussianDistr
+from core.box import Box
 from core.rl.config import RLConfig
 
 
-class _PatrolRobot:
+class _PatrolRobot(Benchmark):
     def __init__(self, args, number_per_dim, num_actions, noise_cells):
-        self.n, self.p = 2, 2
         self.tau = 1
         self.state_variables = ['x', 'y']
-        self.wrap = jnp.array([False, False])
         self.plot_dimensions = [0, 1]
         self.step_size = 10.0
 
-        if args.noise_distr != 'gaussian':
-            raise ValueError(f'{type(self).__name__} defines Gaussian noise; --noise_distr {args.noise_distr} is not supported.')
-        self.noise = GaussianDistr(np.array([0.75, 0.75]))
-        self.noise.set_partition_probs(num_cells=noise_cells)
+        self.set_noise(args, gaussian=dict(variance=np.array([0.75, 0.75]), cells=noise_cells))
 
-        self.uMin, self.uMax, self.num_actions = [-1.0, -1.0], [1.0, 1.0], list(num_actions)
-        set_grid(self, [[-10, -10], [10, 10]], number_per_dim)
+        self.input_space, self.input_grid = Box([-1.0, -1.0], [1.0, 1.0]), list(num_actions)
+        self.state_space = Box([-10, -10], [10, 10], names=self.state_variables)
+        self.state_grid = number_per_dim
         self.x0 = np.array([-7.25, -7.25])
 
     def step(self, state, action, noise):
@@ -49,8 +46,8 @@ class _PatrolRobot:
 
     @partial(jax.jit, static_argnums=(0))
     def step_set(self, state_min, state_max, action_min, action_max):
-        action_min = jnp.maximum(action_min, self.uMin)
-        action_max = jnp.minimum(action_max, self.uMax)
+        action_min = jnp.maximum(action_min, self.input_space.lower)
+        action_max = jnp.minimum(action_max, self.input_space.upper)
         speed = (self.step_size * action_min[0], self.step_size * action_max[0])
         dx_min, dx_max = setmath.mult(speed, setmath.cos(action_min[1], action_max[1]))
         dy_min, dy_max = setmath.mult(speed, setmath.sin(action_min[1], action_max[1]))
@@ -65,8 +62,8 @@ class PatrolRobot_reachavoid(_PatrolRobot):
 
     def __init__(self, args):
         super().__init__(args, number_per_dim=[40, 40], num_actions=[21, 21], noise_cells=[15, 15])
-        self.goal = boxes([[5, 5], [7, 7]])
-        self.critical = boxes([[-2, -2], [2, 2]])
+        self.goal = [Box([5, 5], [7, 7])]
+        self.critical = [Box([-2, -2], [2, 2])]
         self.spec, self.horizon = 'reach_avoid', None
         self.rl_config = RLConfig(inflation_rate=[(-2, 2), (-2, 2)])
 
@@ -79,7 +76,7 @@ class PatrolRobot_reach(_PatrolRobot):
 
     def __init__(self, args):
         super().__init__(args, number_per_dim=[20, 20], num_actions=[11, 11], noise_cells=[21, 21])
-        self.goal = boxes([[5, 5], [7, 7]])
-        self.critical = boxes()
+        self.goal = [Box([5, 5], [7, 7])]
+        self.critical = []
         self.spec, self.horizon = 'reach_avoid', None
         self.rl_config = RLConfig(inflation_rate=[(-2, 2), (-2, 2)])

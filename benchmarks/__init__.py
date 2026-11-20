@@ -38,7 +38,6 @@ def _fit_grid_budget(default_counts, budget):
 
 
 def create_model(args):
-	from core.abstraction.model import parse_nonlinear_model
 	from core.specification import resolve_specification
 
 	model_map = {
@@ -63,29 +62,21 @@ def create_model(args):
 	if model_cls is None:
 		raise ValueError(f"The passed model '{args.model}' could not be found")
 
-	base_model = model_cls(args)
-	state_counts = base_model.partition['number_per_dim']
+	model = model_cls(args)
 
 	states_budget = getattr(args, 'fix_num_states', None)
 	actions_budget = getattr(args, 'fix_num_actions', None)
 	choices_budget = getattr(args, 'fix_num_choices', None)
 
 	if actions_budget is not None:
-		base_model.num_actions = np.array(
-			_fit_grid_budget(base_model.num_actions, actions_budget), dtype=int
-		)
+		model.input_grid = _fit_grid_budget(model.input_grid, actions_budget)
 
 	if choices_budget is not None:
-		num_actions = np.prod(base_model.num_actions)
-		base_model.partition['number_per_dim'] = np.array(
-			_fit_grid_budget(state_counts, choices_budget / num_actions), dtype=int
-		)
-
+		model.state_grid = _fit_grid_budget(model.state_grid, choices_budget / np.prod(model.input_grid))
 	elif states_budget is not None:
-		base_model.partition['number_per_dim'] = np.array(
-			_fit_grid_budget(state_counts, states_budget), dtype=int
-		)
+		model.state_grid = _fit_grid_budget(model.state_grid, states_budget)
 
-	resolve_specification(base_model, args)
+	model.check()
+	resolve_specification(model, args)
 
-	return parse_nonlinear_model(base_model)
+	return model

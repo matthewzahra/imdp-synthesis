@@ -74,7 +74,7 @@ def resolve_rl_config(model, args) -> RLConfig:
 
     raw_inf = overrides.get("inflation_rate")
     if raw_inf is not None and not (isinstance(raw_inf, (list, tuple)) and raw_inf and isinstance(raw_inf[0], tuple)):
-        dim = len(model.partition["number_per_dim"])
+        dim = model.n
         if len(raw_inf) == dim:
             overrides["inflation_rate"] = tuple((-abs(int(v)), abs(int(v))) for v in raw_inf)
         elif len(raw_inf) == 2 * dim:

@@ -1,6 +1,34 @@
-from benchmarks.models import DroneDynamics, DroneDynamics_battery
 import numpy as np
+
+from benchmarks.models import DroneDynamics, DroneDynamics_battery
+from core.box import Box
 from core.rl.config import RLConfig
+
+
+# Obstacles of Drone6D and Drone6D_battery, as position bounds
+DRONE6D_OBSTACLES = [
+    # Hole 1
+    dict(x_pos=(-11, -5), y_pos=(-1, 9), z_pos=(-7, -5)),
+    dict(x_pos=(-11, -5), y_pos=(5, 9), z_pos=(-5, 5)),
+    dict(x_pos=(-11, -5), y_pos=(-1, 3), z_pos=(-5, 3)),
+    # Hole 2
+    dict(x_pos=(-1, 3), y_pos=(1, 9), z_pos=(-7, -1)),
+    dict(x_pos=(-1, 3), y_pos=(1, 9), z_pos=(3, 5)),
+    dict(x_pos=(-1, 3), y_pos=(1, 3), z_pos=(-1, 3)),
+    dict(x_pos=(-1, 3), y_pos=(7, 9), z_pos=(-1, 3)),
+    # Tower
+    dict(x_pos=(-1, 3), y_pos=(-3, 1), z_pos=(-7, 7)),
+    # Wall between routes
+    dict(x_pos=(3, 9), y_pos=(-3, 1), z_pos=(-7, -1)),
+    # Long route obstacles
+    dict(x_pos=(-1, 3), y_pos=(-9, -3), z_pos=(-7, -5)),
+    # Overhanging
+    dict(x_pos=(-1, 3), y_pos=(-9, -3), z_pos=(3, 7)),
+    # Small last obstacle
+    dict(x_pos=(11, 15), y_pos=(-9, -5), z_pos=(-7, -5)),
+    # Obstacle next to goal
+    dict(x_pos=(9, 15), y_pos=(5, 9), z_pos=(-7, 1)),
+]
 
 
 class Drone6D(DroneDynamics):
@@ -13,62 +41,16 @@ class Drone6D(DroneDynamics):
 
         self.plot_dimensions = [0, 2]
 
-        self.set_spec()
+        v_min, v_max = self.v_min, self.v_max
+        self.state_space = Box([-17, v_min, -9, v_min, -7, v_min], [17, v_max, 9, v_max, 7, v_max],
+                               names=self.state_variables)
+        self.state_grid = [68, 8, 36, 8, 28, 8]
+        self.input_space = Box([-1, -1, -1], [1, 1, 1])
+        self.input_grid = [5, 5, 5]
 
-    def set_spec(self):
-        '''
-        Set the abstraction parameters and the reach-avoid specification.
-        '''
-
-        self.partition = {}
-
-        # Authority limit for the control u, both positive and negative
-        self.uMin = [-1, -1, -1]
-        self.uMax = [1, 1, 1]
-        self.num_actions = [5, 5, 5]
-
-        v_min = self.v_min
-        v_max = self.v_max
-
-        self.partition['boundary'] = np.array([[-17, v_min, -9, v_min, -7, v_min], 
-                                               [17, v_max, 9, v_max, 7, v_max]])
-        self.partition['number_per_dim'] = np.array([68, 8, 36, 8, 28, 8])
-
-        self.goal = np.array([
-            [[11, v_min, 1, v_min, -7, v_min], [15, v_max, 5, v_max, -3, v_max]]
-        ], dtype=float)
-
-        self.critical = np.array([
-            # Hole 1
-            [[-11, v_min, -1, v_min, -7, v_min], [-5, v_max, 9, v_max, -5, v_max]],
-            [[-11, v_min, 5, v_min, -5, v_min], [-5, v_max, 9, v_max, 5, v_max]],
-            [[-11, v_min, -1, v_min, -5, v_min], [-5, v_max, 3, v_max, 3, v_max]],
-
-            # # Hole 2
-            [[-1, v_min, 1, v_min, -7, v_min], [3, v_max, 9, v_max, -1, v_max]],
-            [[-1, v_min, 1, v_min, 3, v_min], [3, v_max, 9, v_max, 5, v_max]],
-            [[-1, v_min, 1, v_min, -1, v_min], [3, v_max, 3, v_max, 3, v_max]],
-            [[-1, v_min, 7, v_min, -1, v_min], [3, v_max, 9, v_max, 3, v_max]],
-
-            # # Tower
-            [[-1, v_min, -3, v_min, -7, v_min], [3, v_max, 1, v_max, 7, v_max]],
-
-            # # Wall between routes
-            [[3, v_min, -3, v_min, -7, v_min], [9, v_max, 1, v_max, -1, v_max]],
-
-            # # Long route obstacles
-            # [[-11, v_min, -5, v_min, -7, v_min], [-7, v_max, -1, v_max, 1, v_max]],
-            [[-1, v_min, -9, v_min, -7, v_min], [3, v_max, -3, v_max, -5, v_max]],
-
-            # Overhanging
-            [[-1, v_min, -9, v_min, 3, v_min], [3, v_max, -3, v_max, 7, v_max]],
-
-            # Small last obstacle
-            [[11, v_min, -9, v_min, -7, v_min], [15, v_max, -5, v_max, -5, v_max]],
-
-            # Obstacle next to goal
-            [[9, v_min, 5, v_min, -7, v_min], [15, v_max, 9, v_max, 1, v_max]],
-        ], dtype=float)
+        region = self.state_space.restrict
+        self.goal = [region(x_pos=(11, 15), y_pos=(1, 5), z_pos=(-7, -3))]
+        self.critical = [region(**obstacle) for obstacle in DRONE6D_OBSTACLES]
 
         self.x0 = np.array([-14.5, 0.01, 6, 0.01, 2, 0.01])
 
@@ -83,11 +65,11 @@ class Drone6D(DroneDynamics):
             per_step_cost=0.05,
             inflation_rate=[(-3, 3), (-2, 2), (-3, 3), (-2, 2), (-3, 3), (-2, 2)],
         )
-        return
+
 
 class Drone6D_small(DroneDynamics):
     '''
-    Drone benchmark, with a 6D state space and a 3D control input space.
+    Reduced Drone6D configuration for faster debugging, with a 6D state space and a 3D control input space.
     '''
 
     def __init__(self, args):
@@ -95,34 +77,19 @@ class Drone6D_small(DroneDynamics):
 
         self.plot_dimensions = [0, 2]
 
-        self.set_spec()
+        v_min, v_max = self.v_min, self.v_max
+        self.state_space = Box([-7, v_min, -7, v_min, -7, v_min], [7, v_max, 7, v_max, 7, v_max],
+                               names=self.state_variables)
+        self.state_grid = [28, 10, 28, 10, 28, 10]
+        self.input_space = Box([-1, -1, -1], [1, 1, 1])
+        self.input_grid = [5, 5, 5]
 
-    def set_spec(self):
-        '''
-        Set the abstraction parameters and the reach-avoid specification.
-        '''
-
-        self.partition = {}
-
-        # Authority limit for the control u, both positive and negative
-        self.uMin = [-1, -1, -1]
-        self.uMax = [1, 1, 1]
-        self.num_actions = [5, 5, 5]
-
-        v_min = self.v_min
-        v_max = self.v_max
-
-        self.partition['boundary'] = np.array([[-7, v_min, -7, v_min, -7, v_min], [7, v_max, 7, v_max, 7, v_max]])
-        self.partition['number_per_dim'] = np.array([28, 10, 28, 10, 28, 10])
-
-        self.goal = np.array([
-            [[3, v_min, 3, v_min, -7, v_min], [7, v_max, 7, v_max, 7, v_max]]
-        ], dtype=float)
-
-        self.critical = np.array([
-            [[-7, v_min, 1, v_min, -7, v_min], [-1, v_max, 3, v_max, 7, v_max]],
-            [[3, v_min, -7, v_min, -7, v_min], [7, v_max, -3, v_max, 7, v_max]],
-        ], dtype=float)
+        region = self.state_space.restrict
+        self.goal = [region(x_pos=(3, 7), y_pos=(3, 7))]
+        self.critical = [
+            region(x_pos=(-7, -1), y_pos=(1, 3)),
+            region(x_pos=(3, 7), y_pos=(-7, -3)),
+        ]
 
         self.x0 = np.array([-5.5, 0.01, -5.5, 0.01, 0.01, 0.01])
 
@@ -142,8 +109,6 @@ class Drone6D_small(DroneDynamics):
             inflation_rate=[(-2, 2), (-1, 1), (-2, 2), (-1, 1), (-2, 2), (-1, 1)],
         )
 
-        return
-
 
 class Drone6D_battery(DroneDynamics_battery):
     '''
@@ -155,69 +120,20 @@ class Drone6D_battery(DroneDynamics_battery):
 
         self.plot_dimensions = [0, 2]
 
-        self.set_spec()
-
-    def set_spec(self):
-        '''
-        Set the abstraction parameters and the reach-avoid specification.
-        '''
-
-        self.partition = {}
-
-        # Authority limit for the control u, both positive and negative
-        self.uMin = [-1, -1, -1]
-        self.uMax = [1, 1, 1]
-        self.num_actions = [5, 5, 5]
-
-        v_min = self.v_min
-        v_max = self.v_max
-
-        self.max_charge = 100
-
         # Same layout as Drone6D (bounds, obstacles, goal, and initial state), plus the battery dimension
-        self.partition['boundary'] = np.array([[-17, v_min, -9, v_min, -7, v_min, 0],
-                                               [17, v_max, 9, v_max, 7, v_max, self.max_charge]])
-        self.partition['number_per_dim'] = np.array([68, 8, 36, 8, 28, 8, 20])
+        v_min, v_max = self.v_min, self.v_max
+        self.state_space = Box([-17, v_min, -9, v_min, -7, v_min, 0], [17, v_max, 9, v_max, 7, v_max, self.max_charge],
+                               names=self.state_variables)
+        self.state_grid = [68, 8, 36, 8, 28, 8, 20]
+        self.input_space = Box([-1, -1, -1], [1, 1, 1])
+        self.input_grid = [5, 5, 5]
 
-        self.goal = np.array([
-            [[11, v_min, 1, v_min, -7, v_min, 20], [15, v_max, 5, v_max, -3, v_max, self.max_charge]]
-        ], dtype=float)
-
-        self.critical = np.array([
-            # Hole 1
-            [[-11, v_min, -1, v_min, -7, v_min, 0], [-5, v_max, 9, v_max, -5, v_max, self.max_charge]],
-            [[-11, v_min, 5, v_min, -5, v_min, 0], [-5, v_max, 9, v_max, 5, v_max, self.max_charge]],
-            [[-11, v_min, -1, v_min, -5, v_min, 0], [-5, v_max, 3, v_max, 3, v_max, self.max_charge]],
-
-            # Hole 2
-            [[-1, v_min, 1, v_min, -7, v_min, 0], [3, v_max, 9, v_max, -1, v_max, self.max_charge]],
-            [[-1, v_min, 1, v_min, 3, v_min, 0], [3, v_max, 9, v_max, 5, v_max, self.max_charge]],
-            [[-1, v_min, 1, v_min, -1, v_min, 0], [3, v_max, 3, v_max, 3, v_max, self.max_charge]],
-            [[-1, v_min, 7, v_min, -1, v_min, 0], [3, v_max, 9, v_max, 3, v_max, self.max_charge]],
-
-            # Tower
-            [[-1, v_min, -3, v_min, -7, v_min, 0], [3, v_max, 1, v_max, 7, v_max, self.max_charge]],
-
-            # Wall between routes
-            [[3, v_min, -3, v_min, -7, v_min, 0], [9, v_max, 1, v_max, -1, v_max, self.max_charge]],
-
-            # Long route obstacles
-            [[-1, v_min, -9, v_min, -7, v_min, 0], [3, v_max, -3, v_max, -5, v_max, self.max_charge]],
-
-            # Overhanging
-            [[-1, v_min, -9, v_min, 3, v_min, 0], [3, v_max, -3, v_max, 7, v_max, self.max_charge]],
-
-            # Small last obstacle
-            [[11, v_min, -9, v_min, -7, v_min, 0], [15, v_max, -5, v_max, -5, v_max, self.max_charge]],
-
-            # Obstacle next to goal
-            [[9, v_min, 5, v_min, -7, v_min, 0], [15, v_max, 9, v_max, 1, v_max, self.max_charge]],
-        ], dtype=float)
+        region = self.state_space.restrict
+        self.goal = [region(x_pos=(11, 15), y_pos=(1, 5), z_pos=(-7, -3), battery=(20, self.max_charge))]
+        self.critical = [region(**obstacle) for obstacle in DRONE6D_OBSTACLES]
 
         # Charging pad in the minimal (x, y, z) corner of the state space
-        self.charging_station = np.array([
-            [[-15, v_min, -9, v_min, -7, v_min, 0], [-7, v_max, -4, v_max, 0, v_max, self.max_charge]]
-        ], dtype=float)
+        self.charging_station = [region(x_pos=(-15, -7), y_pos=(-9, -4), z_pos=(-7, 0))]
 
         self.x0 = np.array([-14.5, 0.01, 6, 0.01, 2, 0.01, 50])
 
@@ -234,5 +150,3 @@ class Drone6D_battery(DroneDynamics_battery):
             out_of_bounds_penalty=-10,
             inflation_rate=[(-3, 3), (-2, 2), (-3, 3), (-2, 2), (-3, 3), (-2, 2), (-2, 2)],
         )
-
-        return

@@ -110,8 +110,8 @@ def plot_rl_trajectories(args, base_model, eval_env, trajectories, dims, output_
             ax.add_collection(PatchCollection(rects, facecolor=col(c), edgecolor=col(ec), lw=0, hatch=hatch, alpha=0.4, rasterized=True))
             legend_handles.append(mpatches.Patch(facecolor=col(c), edgecolor=col(ec), lw=0, hatch=hatch, alpha=0.4, label=lbl))
     for s in getattr(base_model, 'charging_station', []):
-        ax.add_patch(mpatches.Rectangle(s[0][[d0, d1]], *(s[1] - s[0])[[d0, d1]], facecolor=col('limegreen'), alpha=0.4, lw=1))
-        ax.text(*(s[0] + s[1])[[d0, d1]] / 2, '⚡', fontsize=40, ha='center', va='center', color=col('darkgreen'))
+        ax.add_patch(mpatches.Rectangle(s.lower[[d0, d1]], *s.width[[d0, d1]], facecolor=col('limegreen'), alpha=0.4, lw=1))
+        ax.text(*s.center[[d0, d1]], '⚡', fontsize=40, ha='center', va='center', color=col('darkgreen'))
         legend_handles.append(mpatches.Patch(facecolor=col('limegreen'), alpha=0.4, label='Charging'))
 
     # RL trajectories
@@ -275,8 +275,8 @@ def plot_rl_trajectories_with_active_states(
     for station in getattr(base_model, "charging_station", []):
         ax.add_patch(
             mpatches.Rectangle(
-                station[0][[d0, d1]],
-                *(station[1] - station[0])[[d0, d1]],
+                station.lower[[d0, d1]],
+                *station.width[[d0, d1]],
                 facecolor=col("limegreen"),
                 alpha=0.4,
                 lw=1,
@@ -284,7 +284,7 @@ def plot_rl_trajectories_with_active_states(
             )
         )
         ax.text(
-            *(station[0] + station[1])[[d0, d1]] / 2,
+            *station.center[[d0, d1]],
             "⚡",
             fontsize=40,
             ha="center",

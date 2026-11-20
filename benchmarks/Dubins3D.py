@@ -1,7 +1,7 @@
-
-from benchmarks.models import DubinsDynamics3D
 import numpy as np
 
+from benchmarks.models import DubinsDynamics3D
+from core.box import Box
 from core.rl.config import RLConfig
 
 
@@ -12,34 +12,20 @@ class Dubins3D(DubinsDynamics3D):
 
     def __init__(self, args):
         DubinsDynamics3D.__init__(self, args)
-        
+
         self.plot_dimensions = [0, 1]
 
-        self.set_spec()
+        self.state_space = Box([-10, -10, -np.pi], [10, 10, np.pi], names=self.state_variables)
+        self.state_grid = [100, 100, 100]
+        self.input_space = Box([-0.5, -0.5], [0.5, 0.5])
+        self.input_grid = [5, 5]
 
-    def set_spec(self):
-        '''
-        Set the abstraction parameters and the reach-avoid specification.
-        '''
-
-        self.partition = {}
-
-        # Authority limit for the control u, both positive and negative
-        self.uMin = [-0.5, -0.5]
-        self.uMax = [0.5, 0.5]
-        self.num_actions = [5, 5]
-
-        self.partition['boundary'] = np.array([[-10, -10, -np.pi], [10, 10, np.pi]])
-        self.partition['number_per_dim'] = np.array([100, 100, 100])
-
-        self.goal = np.array([
-            [[-10, 5, -np.pi], [-5, 10, np.pi]]
-        ], dtype=float)
-
-        self.critical = np.array([
-            [[-10, -1, -np.pi], [-1, 1, np.pi]],
-            [[-1, -5, -np.pi], [1, 5, np.pi]]
-        ], dtype=float)
+        region = self.state_space.restrict
+        self.goal = [region(x=(-10, -5), y=(5, 10))]
+        self.critical = [
+            region(x=(-10, -1), y=(-1, 1)),
+            region(x=(-1, 1), y=(-5, 5)),
+        ]
 
         self.x0 = np.array([-7.5, -7.5, 0])
 
@@ -54,5 +40,3 @@ class Dubins3D(DubinsDynamics3D):
             RL_actions_per_state=9,
             inflation_rate=[(-5, 5), (-5, 5), (-5, 5)],
         )
-
-        return

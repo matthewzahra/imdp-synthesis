@@ -77,7 +77,8 @@ def plot_drone_3d_pyvista(args, stamp, idx_show, partition, model, traces, num_t
                               model=args.model, plot_title=getattr(args, 'plot_title', False))
     domain = SimpleNamespace(boundary_lb=np.asarray(partition.boundary_lb),
                              boundary_ub=np.asarray(partition.boundary_ub))
-    regions = SimpleNamespace(**{name: [np.asarray(box) for box in getattr(model, name, [])]
+    # Regions as [lower, upper] arrays, for the worker process
+    regions = SimpleNamespace(**{name: [np.array([box.lower, box.upper]) for box in getattr(model, name, [])]
                                  for name in ('goal', 'critical', 'charging_station')})
     state_variables = list(getattr(model, 'state_variables', []))
     regions.battery_idx = state_variables.index('battery') if 'battery' in state_variables else None
@@ -165,7 +166,7 @@ def _scene(partition, model, idx_show, traces, num_traces):
     boxes = []
     for name, color, opacity in REGION_STYLES:
         for box in getattr(model, name, []):
-            boxes.append((np.asarray(box, dtype=float)[:, dims], color, opacity))
+            boxes.append((np.array([box.lower, box.upper])[:, dims], color, opacity))
     paths = []
     for i, trace in enumerate(islice(traces.values(), max(0, num_traces))):
         states = np.asarray(trace['x'], dtype=float)

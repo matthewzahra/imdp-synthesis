@@ -1,5 +1,7 @@
 import numpy as np
+
 from benchmarks.models import AffineDynamics
+from core.box import Box
 from core.rl.config import RLConfig
 
 
@@ -14,36 +16,21 @@ class DoubleIntegrator(AffineDynamics):
                       [0, 1]])
         B = np.array([[tau**2 / 2],
                       [tau]])
-        
+
         AffineDynamics.__init__(self, args, A=A, B=B, q=[0, 0],
-                                noise_var=np.array([0.15, 0.15])**2, noise_halfwidth=[0.15, 0.15], noise_cells=[10, 10],
-                                state_variables=['position', 'velocity'], wrap=[False, False])
+                                gaussian=dict(variance=np.array([0.15, 0.15])**2, cells=[10, 10]),
+                                triangular=dict(halfwidth=[0.15, 0.15], cells=[10, 10]),
+                                state_variables=['position', 'velocity'])
 
         self.plot_dimensions = [0, 1]
 
-        self.set_spec()
+        self.state_space = Box([-21, -10.5], [21, 10.5], names=self.state_variables)
+        self.state_grid = [21, 21]
+        self.input_space = Box([-5], [5])
+        self.input_grid = [21]
 
-    def set_spec(self):
-        '''
-        Set the abstraction parameters and the reach-avoid specification.
-        '''
-        
-        self.partition = {}
-
-        # Authority limit for the control u, both positive and negative
-        self.uMin = [-5]
-        self.uMax = [5]
-        self.num_actions = [21]
-
-        self.partition['boundary'] = np.array([[-21, -10.5], [21, 10.5]])
-        self.partition['number_per_dim'] = np.array([21, 21])
-
-        self.goal = np.array([
-            [[-4, -2], [4, 2]]
-        ], dtype=float)
-
-        self.critical = np.array([
-        ], dtype=float)
+        self.goal = [self.state_space.restrict(position=(-4, 4), velocity=(-2, 2))]
+        self.critical = []
 
         self.x0 = np.array([0, -8])
 
@@ -59,5 +46,3 @@ class DoubleIntegrator(AffineDynamics):
             distance_cost=0.0,
             inflation_rate=[(-2, 2), (-1, 1)],
         )
-
-        return

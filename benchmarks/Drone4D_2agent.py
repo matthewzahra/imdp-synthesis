@@ -1,11 +1,12 @@
-from benchmarks.models import DroneDynamics_2agent
-import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from matplotlib.patches import Rectangle
+import numpy as np
+
+from benchmarks.models import DroneDynamics_2agent
+from core.box import Box
 from core.plotting.utils import save_fig
 from core.rl.config import RLConfig
-
 
 
 class Drone4D_2agent(DroneDynamics_2agent):
@@ -22,42 +23,30 @@ class Drone4D_2agent(DroneDynamics_2agent):
 
         self.plot_dimensions = [0, 2]
 
-        self.set_spec()
+        v_min, v_max = self.v_min, self.v_max
+        self.state_space = Box([-2.5, v_min, -2.5, v_min, -2.5, v_min, -2.5, v_min],
+                               [2.5, v_max, 2.5, v_max, 2.5, v_max, 2.5, v_max], names=self.state_variables)
+        self.state_grid = [20, 8, 20, 8, 20, 8, 20, 8]
+        self.input_space = Box([-1, -1, -1, -1], [1, 1, 1, 1])
+        self.input_grid = [5, 5, 5, 5]
 
-    def set_spec(self):
-        '''
-        Set the abstraction parameters and the reach-avoid specification.
-        '''
+        # Goal: the drones swap sides
+        region = self.state_space.restrict
+        self.goal = [
+            region(drone_1_x_pos=(-2.5, -1.25), drone_1_y_pos=(-1, 1),
+                   drone_2_x_pos=(1.25, 2.5), drone_2_y_pos=(-1, 1)),
+            region(drone_1_x_pos=(1.25, 2.5), drone_1_y_pos=(-1, 1),
+                   drone_2_x_pos=(-2.5, -1.25), drone_2_y_pos=(-1, 1)),
+        ]
 
-        self.partition = {}
-
-        # Authority limit for the control u, both positive and negative
-        self.uMin = [-1, -1, -1, -1]
-        self.uMax = [1 ,1, 1, 1]
-        self.num_actions = [5, 5, 5, 5]
-
-        v_min = self.v_min
-        v_max = self.v_max
-
-        self.partition['boundary'] = np.array([[-2.5, v_min, -2.5, v_min, -2.5, v_min, -2.5, v_min],
-                                               [2.5, v_max, 2.5, v_max, 2.5, v_max, 2.5, v_max]])
-        self.partition['number_per_dim'] = np.array([20, 8, 20, 8, 20, 8, 20, 8])
-
-        self.goal = np.array([
-            [[-2.5, v_min, -1, v_min, 1.25, v_min, -1, v_min],
-             [-1.25, v_max, 1, v_max, 2.5, v_max, 1, v_max]],
-            [[1.25, v_min, -1, v_min, -2.5, v_min, -1, v_min],
-             [2.5, v_max, 1, v_max, -1.25, v_max, 1, v_max]]
-        ], dtype=float)
-
-        # Obstacles in the position plane, as [[x_lo, y_lo], [x_hi, y_hi]]; both drones must avoid them
-        self.obstacles = np.array([
-            [[-0.5, -0.5], [0.5, 0.5]],
-            [[-2.5, 1], [-0.5, 1.5]]
-        ], dtype=float)
+        # Obstacles in the (x, y) position plane; both drones must avoid them
+        self.obstacles = [
+            Box([-0.5, -0.5], [0.5, 0.5]),
+            Box([-2.5, 1], [-0.5, 1.5]),
+        ]
 
         # Critical: either drone in an obstacle, or both drones in the same position cell (a collision)
-        self.critical = np.concatenate([self.obstacle_boxes(self.obstacles), self.collision_boxes()])
+        self.critical = self.obstacle_boxes(self.obstacles) + self.collision_boxes()
 
         self.x0 = np.array([-1.5, 0, 2.25, -0.01, 1.5, 0, -2.25, 0.01])
 
@@ -82,8 +71,6 @@ class Drone4D_2agent(DroneDynamics_2agent):
             vf_arch=[256, 256],
         )
 
-        return
-
     def obstacle_boxes(self, obstacles):
         '''
         Lift obstacles in the position plane to boxes in the state space, one per obstacle and drone.
@@ -92,19 +79,12 @@ class Drone4D_2agent(DroneDynamics_2agent):
         free, so it covers the states where that drone is in the obstacle, wherever the other drone is.
 
         Args:
-            obstacles: np.ndarray of shape (N, 2, 2), the lower and upper (x, y) corners of every obstacle
+            obstacles: list of Boxes in the (x, y) position plane
         '''
 
-        lower, upper = self.partition['boundary']
-
-        boxes = []
-        for obstacle in obstacles:
-            for dims in self.POSITION_DIMS:
-                box = np.array([lower, upper], dtype=float)
-                box[:, list(dims)] = obstacle
-                boxes.append(box)
-
-        return np.array(boxes).reshape(-1, 2, len(lower))
+        return [self.state_space.restrict({ix: (obstacle.lower[0], obstacle.upper[0]),
+                                           iy: (obstacle.lower[1], obstacle.upper[1])})
+                for obstacle in obstacles for ix, iy in self.POSITION_DIMS]
 
     def collision_boxes(self):
         '''
@@ -116,8 +96,7 @@ class Drone4D_2agent(DroneDynamics_2agent):
         same position cell, as boxes that only touch a cell do not count as overlapping it.
         '''
 
-        lower, upper = self.partition['boundary']
-        number = self.partition['number_per_dim']
+        lower, upper, number = self.state_space.lower, self.state_space.upper, self.state_grid
         for d1, d2 in [(0, 4), (2, 6)]:
             assert lower[d1] == lower[d2] and upper[d1] == upper[d2] and number[d1] == number[d2], \
                 f"Both drones need the same position grid in dimensions {d1} and {d2}"
@@ -125,15 +104,9 @@ class Drone4D_2agent(DroneDynamics_2agent):
         x_edges = np.linspace(lower[0], upper[0], number[0] + 1)
         y_edges = np.linspace(lower[2], upper[2], number[2] + 1)
 
-        boxes = []
-        for x_lo, x_hi in zip(x_edges[:-1], x_edges[1:]):
-            for y_lo, y_hi in zip(y_edges[:-1], y_edges[1:]):
-                box = np.array([lower, upper], dtype=float)
-                box[:, [0, 4]] = [[x_lo], [x_hi]]
-                box[:, [2, 6]] = [[y_lo], [y_hi]]
-                boxes.append(box)
-
-        return np.array(boxes)
+        return [self.state_space.restrict({0: (x_lo, x_hi), 4: (x_lo, x_hi), 2: (y_lo, y_hi), 6: (y_lo, y_hi)})
+                for x_lo, x_hi in zip(x_edges[:-1], x_edges[1:])
+                for y_lo, y_hi in zip(y_edges[:-1], y_edges[1:])]
 
     def _plot_position_plane(self, ax):
         '''
@@ -141,9 +114,7 @@ class Drone4D_2agent(DroneDynamics_2agent):
         the obstacles.
         '''
 
-        # The model parser turns the boundary into a JAX array
-        lower, upper = np.asarray(self.partition['boundary'])
-        number = np.asarray(self.partition['number_per_dim'])
+        lower, upper, number = self.state_space.lower, self.state_space.upper, self.state_grid
 
         ax.set_xlim(lower[0], upper[0])
         ax.set_ylim(lower[2], upper[2])
@@ -156,13 +127,19 @@ class Drone4D_2agent(DroneDynamics_2agent):
 
         for goal in self.goal:
             for agent, ((ix, iy), color) in enumerate(zip(self.POSITION_DIMS, self.DRONE_COLORS)):
-                ax.add_patch(Rectangle((goal[0, ix], goal[0, iy]), goal[1, ix] - goal[0, ix], goal[1, iy] - goal[0, iy],
+                ax.add_patch(Rectangle((goal.lower[ix], goal.lower[iy]), goal.width[ix], goal.width[iy],
                                        facecolor=color, edgecolor=color, alpha=0.2, hatch='//', lw=0,
                                        label=f'Goal drone {agent + 1}'))
 
-        for (x_lo, y_lo), (x_hi, y_hi) in self.obstacles:
-            ax.add_patch(Rectangle((x_lo, y_lo), x_hi - x_lo, y_hi - y_lo, facecolor='dimgray', alpha=0.6, lw=0,
+        for obstacle in self.obstacles:
+            ax.add_patch(Rectangle(obstacle.lower, *obstacle.width, facecolor='dimgray', alpha=0.6, lw=0,
                                    label='Obstacle'))
+
+    def plot_simulation(self, args, stamp, partition, traces):
+        print('Plot Drone4D_2agent trace and gif...')
+        trajectory = np.array(traces[0]['x'])
+        self.plot_trace(trajectory, filename=args.output_dir / f'drone4d_2agent_trace_{stamp}')
+        self.plot_trajectory_gif(trajectory, filename=str(args.output_dir / f'drone4d_2agent_{stamp}.gif'))
 
     def plot_trace(self, trajectory, filename):
         '''
@@ -210,8 +187,8 @@ class Drone4D_2agent(DroneDynamics_2agent):
         '''
 
         trajectory = np.asarray(trajectory, dtype=float)
-        lower, upper = np.asarray(self.partition['boundary'])
-        width = (upper - lower) / np.asarray(self.partition['number_per_dim'])
+        lower, upper = self.state_space.lower, self.state_space.upper
+        width = (upper - lower) / np.asarray(self.state_grid)
 
         fig, ax = plt.subplots(figsize=(6, 6))
         self._plot_position_plane(ax)

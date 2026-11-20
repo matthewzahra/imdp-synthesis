@@ -1,6 +1,8 @@
-from benchmarks.models import PendulumDynamics
 import numpy as np
 from matplotlib import animation
+
+from benchmarks.models import PendulumDynamics
+from core.box import Box
 from core.rl.config import RLConfig
 
 
@@ -14,29 +16,13 @@ class Pendulum(PendulumDynamics):
 
         self.plot_dimensions = [0, 1]
 
-        self.set_spec()
+        self.state_space = Box([-np.pi, -8], [np.pi, 8], names=self.state_variables)
+        self.state_grid = [300, 300]
+        self.input_space = Box([-2], [2])
+        self.input_grid = [11]
 
-    def set_spec(self):
-        '''
-        Set the abstraction parameters and the reach-avoid specification.
-        '''
-
-        self.partition = {}
-
-        # Authority limit for the control u, both positive and negative
-        self.uMin = [-2]
-        self.uMax = [2]
-        self.num_actions = [11]
-
-        self.partition['boundary'] = np.array([[-np.pi, -8], [np.pi, 8]])
-        self.partition['number_per_dim'] = np.array([300, 300])
-
-        self.goal = np.array([
-            [[-0.1*np.pi, -1], [0.1*np.pi, 1]]
-        ], dtype=float)
-
-        self.critical = np.array([
-        ], dtype=float)
+        self.goal = [self.state_space.restrict(angle=(-0.1*np.pi, 0.1*np.pi), velocity=(-1, 1))]
+        self.critical = []
 
         self.x0 = np.array([0.99*np.pi, 0])
 
@@ -50,8 +36,10 @@ class Pendulum(PendulumDynamics):
             RL_actions_per_state=5,
         )
 
-        return
-
+    def plot_simulation(self, args, stamp, partition, traces):
+        print('Plot Pendulum gif...')
+        self.plot_trajectory_gif(np.array(traces[0]['x'])[:, 0],
+                                 filename=str(args.output_dir / f'pendulum_{stamp}.gif'))
 
     def plot_trajectory_gif(self, trajectory, filename="pendulum_trajectory.gif"):
         """

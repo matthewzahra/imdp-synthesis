@@ -13,8 +13,9 @@ from math import factorial
 
 import numpy as np
 
-from benchmarks.archcomp.common import boxes, no_control, set_grid
+from benchmarks.archcomp.common import no_control
 from benchmarks.models import AffineDynamics
+from core.box import Box
 from core.rl.config import RLConfig
 
 
@@ -39,14 +40,15 @@ class IntegratorChain2D(AffineDynamics):
 
     def __init__(self, args):
         A, B = integrator_chain_matrices(2)
-        AffineDynamics.__init__(self, args, A=A, B=B, q=[0, 0], noise_var=[0.01, 0.01], noise_cells=[31, 31],
+        AffineDynamics.__init__(self, args, A=A, B=B, q=[0, 0], gaussian=dict(variance=[0.01, 0.01], cells=[31, 31]),
                                 state_variables=['x1', 'x2'])
         self.plot_dimensions = [0, 1]
 
-        self.uMin, self.uMax, self.num_actions = [-1.0], [1.0], [5]
-        set_grid(self, [[-10, -10], [10, 10]], [40, 40])
-        self.goal = boxes([[-8, -8], [8, 8]])
-        self.critical = boxes()
+        self.input_space, self.input_grid = Box([-1.0], [1.0]), [5]
+        self.state_space = Box([-10, -10], [10, 10], names=self.state_variables)
+        self.state_grid = [40, 40]
+        self.goal = [Box([-8, -8], [8, 8])]
+        self.critical = []
         self.spec, self.horizon = 'reach_avoid', 5
         self.x0 = np.array([9.25, -5.75])
 
@@ -67,14 +69,16 @@ class IntegratorChain3D(AffineDynamics):
 
     def __init__(self, args):
         A, B = integrator_chain_matrices(3)
-        AffineDynamics.__init__(self, args, A=A, B=B, q=[0, 0, 0], noise_var=[0.01, 0.01, 0.01],
-                                noise_cells=[9, 9, 9], state_variables=['x1', 'x2', 'x3'])
+        AffineDynamics.__init__(self, args, A=A, B=B, q=[0, 0, 0],
+                                gaussian=dict(variance=[0.01, 0.01, 0.01], cells=[9, 9, 9]),
+                                state_variables=['x1', 'x2', 'x3'])
         self.plot_dimensions = [0, 1]
 
-        self.uMin, self.uMax, self.num_actions = [-1.0], [1.0], [5]
-        set_grid(self, [[-10, -10, -10], [10, 10, 10]], [80, 80, 40])
-        self.goal = boxes([[-8, -8, -8], [8, 8, 8]])
-        self.critical = boxes()
+        self.input_space, self.input_grid = Box([-1.0], [1.0]), [5]
+        self.state_space = Box([-10, -10, -10], [10, 10, 10], names=self.state_variables)
+        self.state_grid = [80, 80, 40]
+        self.goal = [Box([-8, -8, -8], [8, 8, 8])]
+        self.critical = []
         self.spec, self.horizon = 'reach_avoid', 5
         self.x0 = np.array([9.25, -5.75, -0.25])
 
@@ -95,12 +99,14 @@ class IntegratorChain3D_safety(AffineDynamics):
     def __init__(self, args):
         A, B_u = integrator_chain_matrices(3)
         B = no_control(self, 3)
-        AffineDynamics.__init__(self, args, A=A, B=B, q=B_u[:, 0], noise_var=[0.01, 0.01, 0.01],
-                                noise_cells=[9, 9, 9], state_variables=['x1', 'x2', 'x3'])
+        AffineDynamics.__init__(self, args, A=A, B=B, q=B_u[:, 0],
+                                gaussian=dict(variance=[0.01, 0.01, 0.01], cells=[9, 9, 9]),
+                                state_variables=['x1', 'x2', 'x3'])
         self.plot_dimensions = [0, 1]
 
-        set_grid(self, [[-10.1, -10.1, -10.1], [10.1, 10.1, 10.1]], [41, 41, 41])
-        self.goal = boxes()
-        self.critical = boxes()
+        self.state_space = Box([-10.1, -10.1, -10.1], [10.1, 10.1, 10.1], names=self.state_variables)
+        self.state_grid = [41, 41, 41]
+        self.goal = []
+        self.critical = []
         self.spec, self.horizon = 'safety', 5
         self.x0 = np.array([0.0, 0.0, 0.0])

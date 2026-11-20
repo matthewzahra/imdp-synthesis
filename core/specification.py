@@ -71,7 +71,7 @@ def resolve_specification(model, args):
             raise ValueError(
                 'Safety specifications need a finite horizon: set `horizon` in the benchmark or pass --horizon N. '
                 '(Over an unbounded horizon, the truncated noise tail drives the bound to zero.)')
-        if len(np.asarray(model.goal)) > 0:
+        if len(model.goal) > 0:
             raise ValueError('Safety specifications have no goal set; the benchmark defines a nonempty `goal`.')
         if not getattr(args, 'dense', False):
             raise ValueError(

@@ -1,16 +1,19 @@
-from benchmarks.models import MountainCarDynamics
-import numpy as np
-from matplotlib import animation
-import numpy as onp
-from matplotlib.patches import Polygon, Circle
 import math
+
+from matplotlib import animation
 from matplotlib import pyplot as plt
+from matplotlib.patches import Polygon, Circle
+import numpy as np
+import numpy as onp
+
+from benchmarks.models import MountainCarDynamics
+from core.box import Box
 from core.rl.config import RLConfig
 
 
 class MountainCar(MountainCarDynamics):
     '''
-    Pendulum benchmark.
+    Mountain car benchmark: reach the top of the right hill.
     '''
 
     def __init__(self, args):
@@ -18,29 +21,13 @@ class MountainCar(MountainCarDynamics):
 
         self.plot_dimensions = [0, 1]
 
-        self.set_spec()
+        self.state_space = Box([-1.2, -0.07], [0.6, 0.07], names=self.state_variables)
+        self.state_grid = [180, 280]
+        self.input_space = Box([-1], [1])
+        self.input_grid = [3]
 
-    def set_spec(self):
-        '''
-        Set the abstraction parameters and the reach-avoid specification.
-        '''
-
-        self.partition = {}
-        
-        # Authority limit for the control u, both positive and negative
-        self.uMin = [-1]
-        self.uMax = [1]
-        self.num_actions = [3]
-
-        self.partition['boundary'] = np.array([[-1.2, -0.07], [0.6, 0.07]])
-        self.partition['number_per_dim'] = np.array([180, 280])
-
-        self.goal = np.array([
-            [[0.45, 0], [0.6, 0.07]]
-        ], dtype=float)
-
-        self.critical = np.array([
-        ], dtype=float)
+        self.goal = [self.state_space.restrict(position=(0.45, 0.6), velocity=(0, 0.07))]
+        self.critical = []
 
         self.x0 = np.array([-0.6, 0])
 
@@ -54,8 +41,11 @@ class MountainCar(MountainCarDynamics):
             inflation_rate=[(-50, 50), (-50, 50)],
         )
 
-        return
-    
+    def plot_simulation(self, args, stamp, partition, traces):
+        print('Plot MountainCar gif...')
+        self.plot_trajectory_gif(np.array(traces[0]['x'])[:, 0],
+                                 filename=str(args.output_dir / f'mountaincar_{stamp}.gif'))
+
     def plot_trajectory_gif(self, positions, filename="mountaincar.gif", fps=30, dpi=300):
         """
         Create and export a MountainCar-like GIF given a 1D array of positions.

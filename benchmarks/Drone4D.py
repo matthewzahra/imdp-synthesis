@@ -1,5 +1,7 @@
-from benchmarks.models import DroneDynamics, DroneDynamics_battery
 import numpy as np
+
+from benchmarks.models import DroneDynamics, DroneDynamics_battery
+from core.box import Box
 from core.rl.config import RLConfig
 
 
@@ -9,44 +11,24 @@ class Drone4D(DroneDynamics):
     '''
 
     def __init__(self, args):
-        DroneDynamics.__init__(self, args)
+        DroneDynamics.__init__(self, args, dim=2)
 
         self.plot_dimensions = [0, 2]
 
-        self.set_spec()
+        v_min, v_max = self.v_min, self.v_max
+        self.state_space = Box([-20.0, v_min, -20.0, v_min], [20.0, v_max, 20.0, v_max], names=self.state_variables)
+        self.state_grid = [80, 10, 80, 10]
+        self.input_space = Box([-1, -1], [1, 1])
+        self.input_grid = [5, 5]
 
-    def set_spec(self):
-        '''
-        Set the abstraction parameters and the reach-avoid specification.
-        '''
-
-        self.partition = {}
-
-        # Authority limit for the control u, both positive and negative
-        self.uMin = [-1, -1]
-        self.uMax = [1 ,1]
-        self.num_actions = [5, 5]
-
-        v_min = self.v_min
-        v_max = self.v_max
-
-        self.partition['boundary'] = np.array([[-20.0, v_min, -20.0, v_min], [20.0, v_max, 20.0, v_max]])
-        self.partition['number_per_dim'] = np.array([80, 10, 80, 10])
-
-        self.goal = np.array([
-            [[12.0, v_min, 12.0, v_min], [18.0, v_max, 18.0, v_max]]
-        ], dtype=float)
-
-        self.critical = np.array([
-            # Lower wall with right-side opening
-            [[-20.0, v_min, -7.0, v_min], [8.0, v_max, -4.0, v_max]],
-            # Upper wall with left-side opening
-            [[-8.0, v_min, 4.0, v_min], [20.0, v_max, 7.0, v_max]],
-            # Lower lane obstacle
-            [[-4.0, v_min, -14.0, v_min], [4.0, v_max, -10.0, v_max]],
-            # Upper lane obstacle 
-            [[-4.0, v_min, 10.0, v_min], [4.0, v_max, 14.0, v_max]],
-        ], dtype=float)
+        region = self.state_space.restrict
+        self.goal = [region(x_pos=(12.0, 18.0), y_pos=(12.0, 18.0))]
+        self.critical = [
+            region(x_pos=(-20.0, 8.0), y_pos=(-7.0, -4.0)),     # Lower wall with right-side opening
+            region(x_pos=(-8.0, 20.0), y_pos=(4.0, 7.0)),       # Upper wall with left-side opening
+            region(x_pos=(-4.0, 4.0), y_pos=(-14.0, -10.0)),    # Lower lane obstacle
+            region(x_pos=(-4.0, 4.0), y_pos=(10.0, 14.0)),      # Upper lane obstacle
+        ]
 
         self.x0 = np.array([-15.0, 0.01, -15.0, 0.01])
 
@@ -63,11 +45,10 @@ class Drone4D(DroneDynamics):
             per_step_cost=0.05,
         )
 
-        return
 
 class Drone4D_battery(DroneDynamics_battery):
     '''
-    Drone benchmark, with a 4D state space and a 2D control input space.
+    Drone benchmark, with a 4D state space and a 2D control input space, plus a battery state.
     '''
 
     def __init__(self, args):
@@ -75,41 +56,21 @@ class Drone4D_battery(DroneDynamics_battery):
 
         self.plot_dimensions = [0, 2]
 
-        self.set_spec()
+        v_min, v_max = self.v_min, self.v_max
+        self.state_space = Box([-10, v_min, -10, v_min, 0], [10, v_max, 10, v_max, self.max_charge],
+                               names=self.state_variables)
+        self.state_grid = [40, 10, 40, 10, 20]
+        self.input_space = Box([-1, -1], [1, 1])
+        self.input_grid = [5, 5]
 
-    def set_spec(self):
-        '''
-        Set the abstraction parameters and the reach-avoid specification.
-        '''
-
-        self.partition = {}
-
-        # Authority limit for the control u, both positive and negative
-        self.uMin = [-1, -1]
-        self.uMax = [1 ,1]
-        self.num_actions = [5, 5]
-
-        v_min = self.v_min
-        v_max = self.v_max
-
-        self.max_charge = 100
-
-        self.partition['boundary'] = np.array([[-10, v_min, -10, v_min, 0], [10, v_max, 10, v_max, self.max_charge]])
-        self.partition['number_per_dim'] = np.array([40, 10, 40, 10, 20])
-        
-        self.goal = np.array([
-            [[6, v_min, 6, v_min, 50], [10, v_max, 10, v_max, self.max_charge]]
-        ], dtype=float)
-
-        self.critical = np.array([
+        region = self.state_space.restrict
+        self.goal = [region(x_pos=(6, 10), y_pos=(6, 10), battery=(50, self.max_charge))]
+        self.critical = [
             # Obstacle in the center
-            [[-5, v_min, -1, v_min, 0], [5, v_max, 1, v_max, self.max_charge]],
-            [[-1, v_min, -5, v_min, 0], [1, v_max, 5, v_max, self.max_charge]],
-        ], dtype=float)
-
-        self.charging_station = np.array([
-            [[-9, v_min, -5, v_min, 0], [-6, v_max, 5, v_max, self.max_charge]]
-        ], dtype=float)
+            region(x_pos=(-5, 5), y_pos=(-1, 1)),
+            region(x_pos=(-1, 1), y_pos=(-5, 5)),
+        ]
+        self.charging_station = [region(x_pos=(-9, -6), y_pos=(-5, 5))]
 
         self.x0 = np.array([0.01, 0.01, -9, 0.01, 50])
 
@@ -124,6 +85,3 @@ class Drone4D_battery(DroneDynamics_battery):
             inflation_rate=[(-4, 4), (-2, 2), (-4, 4), (-2, 2), (-2, 2)],
             RL_actions_per_state=25,
         )
-
-        return
-

@@ -1,6 +1,8 @@
-from benchmarks.models import CartPoleDynamics
 import numpy as np
 from matplotlib import animation
+
+from benchmarks.models import CartPoleDynamics
+from core.box import Box
 from core.rl.config import RLConfig
 
 
@@ -15,33 +17,18 @@ class CartPole(CartPoleDynamics):
         # Plot the cart position against the pole angle
         self.plot_dimensions = [0, 2]
 
-        self.set_spec()
+        self.state_space = Box([-2.4, -3.0, -0.25, -3.0], [2.4, 3.0, 0.25, 3.0], names=self.state_variables)
+        self.state_grid = [200, 200, 200, 200]
+        # Force on the cart
+        self.input_space = Box([-10], [10])
+        self.input_grid = [41]
 
-    def set_spec(self):
-        '''
-        Set the abstraction parameters and the reach-avoid specification.
-        '''
+        # Goal: balance the pole upright on the right side of the track
+        self.goal = [self.state_space.restrict(position=(1, 2.4), velocity=(-1.5, 1.5), angle=(-0.05, 0.05),
+                                               angular_velocity=(-1.0, 1.0))]
+        self.critical = []
 
-        self.partition = {}
-
-        # Authority limit for the control u (force on the cart), both positive and negative
-        self.uMin = [-10]
-        self.uMax = [10]
-        self.num_actions = [41]
-
-        self.partition['boundary'] = np.array([[-2.4, -3.0, -0.25, -3.0],
-                                               [2.4, 3.0, 0.25, 3.0]])
-        self.partition['number_per_dim'] = np.array([200, 200, 200, 200])
-
-        # Goal: balance the pole upright, close to the center of the track
-        self.goal = np.array([
-            [[1, -1.5, -0.05, -1.0], [2.4, 1.5, 0.05, 1.0]]
-        ], dtype=float)
-
-        self.critical = np.array([
-        ], dtype=float)
-
-        # Start with the pole tilted away from upright
+        # Start upright on the left side of the track
         self.x0 = np.array([-1, 0.0, 0, 0.0])
 
         # RL configuration: networks, PPO training, reward function, and the tube
@@ -58,7 +45,10 @@ class CartPole(CartPoleDynamics):
             RL_actions_per_state=5,
         )
 
-        return
+    def plot_simulation(self, args, stamp, partition, traces):
+        print('Plot CartPole gif...')
+        self.plot_trajectory_gif(np.array(traces[0]['x'])[:, [0, 2]],
+                                 filename=str(args.output_dir / f'cartpole_{stamp}.gif'))
 
     def plot_trajectory_gif(self, trajectory, filename="cartpole_trajectory.gif"):
         """

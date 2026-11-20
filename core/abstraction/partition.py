@@ -6,9 +6,22 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+from core.box import Box
+
 EPS = 1e-3
 
 logger = logging.getLogger(__name__)
+
+
+def input_grid_points(model):
+    '''
+    Discrete inputs per input dimension: model.input_grid[i] evenly spaced points over the input space in dimension i.
+
+    The points are computed in float32 from float32 bounds, as the abstraction computes in float32.
+    '''
+    lower = np.asarray(model.input_space.lower, dtype=np.float32)
+    upper = np.asarray(model.input_space.upper, dtype=np.float32)
+    return [np.linspace(lower[i], upper[i], num=model.input_grid[i]) for i in range(model.p)]
 
 
 @jax.jit
@@ -181,9 +194,9 @@ class _HyperrectangularPartition(object):
 
         self.dimension = model.n
 
-        # Retrieve necessary data from the model object
-        self.number_per_dim = model.partition['number_per_dim']
-        partition_boundary = model.partition['boundary']
+        # Grid over the state space, in float32 (as the abstraction computes in float32)
+        self.number_per_dim = jnp.array(model.state_grid).astype(int)
+        partition_boundary = jnp.array(np.stack([model.state_space.lower, model.state_space.upper])).astype(float)
         self.boundary_lb = partition_boundary[0]
         self.boundary_ub = partition_boundary[1]
 
@@ -256,10 +269,12 @@ class _HyperrectangularPartition(object):
         }
 
         self.goal = _compute_goal_regions(
-            model.goal, self.regions['lower_bounds'], self.regions['upper_bounds'], region_idxs, self.size
+            Box.stack(model.goal, model.n), self.regions['lower_bounds'], self.regions['upper_bounds'], region_idxs,
+            self.size
         )
         self.critical = _compute_critical_regions(
-            model.critical, self.regions['lower_bounds'], self.regions['upper_bounds'], region_idxs, self.size
+            Box.stack(model.critical, model.n), self.regions['lower_bounds'], self.regions['upper_bounds'],
+            region_idxs, self.size
         )
 
         logger.debug(f'Partitioning took {(time.time() - t_total):.3f} sec.')
@@ -315,11 +330,8 @@ class DensePartition(_HyperrectangularPartition):
         ub_unit = jnp.array(self.number_per_dim - 1, dtype=int)
         centers_unit = define_grid_jax(lb_unit, ub_unit, self.number_per_dim)
 
-        # Discrete action grid: Cartesian product of the per-dimension action grids.
-        discrete_actions_per_dimension = [
-            np.linspace(model.uMin[i], model.uMax[i], num=model.num_actions[i])
-            for i in range(len(model.num_actions))
-        ]
+        # Discrete action grid: Cartesian product of the per-dimension action grids (in float32).
+        discrete_actions_per_dimension = input_grid_points(model)
         action_array = jnp.array(list(itertools.product(*discrete_actions_per_dimension)))
         # Store as (1, num_actions, action_dim) — broadcast in forward_reachability to avoid
         # materializing a (num_states, num_actions, action_dim) array for large rectangular partitions.

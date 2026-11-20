@@ -13,8 +13,8 @@ import pytest
 from scipy.optimize import linprog
 
 from benchmarks.models import AffineDynamics
-from core.abstraction.model import parse_nonlinear_model
 from core.abstraction.partition import DensePartition
+from core.box import Box
 from core.jax_config import configure_jax
 from core.options import parse_arguments
 from core.specification import (REACH_AVOID, SAFETY, check_solver_support, initial_values,
@@ -31,12 +31,13 @@ class SmallModel(AffineDynamics):
     def __init__(self, args, spec, horizon=None):
         AffineDynamics.__init__(self, args,
                                 A=[[1, 0.5], [0, 0.9]], B=[[0.125], [0.5]], q=[0, 0],
-                                noise_var=[0.05, 0.05], noise_cells=[15, 15])
+                                gaussian=dict(variance=[0.05, 0.05], cells=[15, 15]))
         self.plot_dimensions = [0, 1]
-        self.partition = {'boundary': np.array([[-4.0, -2.0], [4.0, 2.0]]), 'number_per_dim': np.array([8, 6])}
-        self.uMin, self.uMax, self.num_actions = [-1.0], [1.0], [3]
-        self.goal = np.array([[[2.0, -2.0], [4.0, 2.0]]]) if spec == REACH_AVOID else np.array([], dtype=float)
-        self.critical = np.array([[[-1.0, -2.0], [0.0, -0.5]]])
+        self.state_space = Box([-4.0, -2.0], [4.0, 2.0], names=self.state_variables)
+        self.state_grid = [8, 6]
+        self.input_space, self.input_grid = Box([-1.0], [1.0]), [3]
+        self.goal = [Box([2.0, -2.0], [4.0, 2.0])] if spec == REACH_AVOID else []
+        self.critical = [Box([-1.0, -2.0], [0.0, -0.5])]
         self.x0 = np.array([-2.5, 0.0])
         self.spec = spec
         self.horizon = horizon
@@ -51,8 +52,9 @@ def make_args(*argv):
 def build_model(spec, horizon, *argv):
     args = make_args(*argv)
     model = SmallModel(args, spec, horizon)
+    model.check()
     resolve_specification(model, args)
-    return args, parse_nonlinear_model(model)
+    return args, model
 
 
 def cell_value(V, partition, grid_idx, wrap):
@@ -296,7 +298,7 @@ def test_horizon_option_overrides_benchmark():
 def test_safety_rejects_goal_and_sparse_mode():
     args = make_args('--horizon', '4')
     model = SmallModel(args, SAFETY, 4)
-    model.goal = np.array([[[2.0, -2.0], [4.0, 2.0]]])
+    model.goal = [Box([2.0, -2.0], [4.0, 2.0])]
     with pytest.raises(ValueError, match='no goal set'):
         resolve_specification(model, args)
 

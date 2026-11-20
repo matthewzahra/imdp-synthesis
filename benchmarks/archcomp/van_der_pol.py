@@ -23,29 +23,26 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from benchmarks.archcomp.common import boxes, set_grid, stack
+from benchmarks.archcomp.common import stack
+from benchmarks.base import Benchmark
 from benchmarks.dynamics import setmath
-from benchmarks.dynamics.distributions import GaussianDistr
+from core.box import Box
 from core.rl.config import RLConfig
 
 
-class _VanDerPol:
+class _VanDerPol(Benchmark):
     def __init__(self, args, safe_set, number_per_dim, target):
-        self.n, self.p = 2, 1
         self.tau = 0.1
         self.state_variables = ['x1', 'x2']
-        self.wrap = jnp.array([False, False])
         self.plot_dimensions = [0, 1]
 
-        if args.noise_distr != 'gaussian':
-            raise ValueError(f'{type(self).__name__} defines Gaussian noise; --noise_distr {args.noise_distr} is not supported.')
-        self.noise = GaussianDistr(np.array([0.2, 0.2]))
-        self.noise.set_partition_probs(num_cells=[41, 41])
+        self.set_noise(args, gaussian=dict(variance=np.array([0.2, 0.2]), cells=[41, 41]))
 
-        self.uMin, self.uMax, self.num_actions = [-1.0], [1.0], [10]
-        set_grid(self, safe_set, number_per_dim)
-        self.goal = boxes(target)
-        self.critical = boxes()
+        self.input_space, self.input_grid = Box([-1.0], [1.0]), [10]
+        self.state_space = Box(*safe_set, names=self.state_variables)
+        self.state_grid = number_per_dim
+        self.goal = [Box(*target)]
+        self.critical = []
         self.spec, self.horizon = 'reach_avoid', None
         self.x0 = np.array([2.05, 0.05])
 
@@ -58,8 +55,8 @@ class _VanDerPol:
 
     @partial(jax.jit, static_argnums=(0))
     def step_set(self, state_min, state_max, action_min, action_max):
-        action_min = jnp.maximum(action_min, self.uMin)
-        action_max = jnp.minimum(action_max, self.uMax)
+        action_min = jnp.maximum(action_min, self.input_space.lower)
+        action_max = jnp.minimum(action_max, self.input_space.upper)
         x1_min, x2_min = state_min[0], state_min[1]
         x1_max, x2_max = state_max[0], state_max[1]
 

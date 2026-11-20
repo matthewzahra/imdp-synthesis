@@ -1,5 +1,7 @@
 import numpy as np
+
 from benchmarks.models import AffineDynamics
+from core.box import Box
 from core.rl.config import RLConfig
 
 
@@ -10,34 +12,19 @@ class Test1D(AffineDynamics):
 
     def __init__(self, args):
         AffineDynamics.__init__(self, args, A=[[1]], B=[[1]], q=[0],
-                                noise_var=np.array([0.2])**2, noise_halfwidth=[0.2], noise_cells=[10],
-                                state_variables=['position'], wrap=[False])
+                                gaussian=dict(variance=np.array([0.2])**2, cells=[10]),
+                                triangular=dict(halfwidth=[0.2], cells=[10]),
+                                state_variables=['position'])
 
         self.plot_dimensions = [0]
 
-        self.set_spec()
+        self.state_space = Box([-5], [5], names=self.state_variables)
+        self.state_grid = [10]
+        self.input_space = Box([-1], [1])
+        self.input_grid = [3]
 
-    def set_spec(self):
-        '''
-        Set the abstraction parameters and the reach-avoid specification.
-        '''
-        
-        self.partition = {}
-
-        # Authority limit for the control u, both positive and negative
-        self.uMin = [-1]
-        self.uMax = [1]
-        self.num_actions = [3]
-
-        self.partition['boundary'] = np.array([[-5], [5]])
-        self.partition['number_per_dim'] = np.array([10])
-
-        self.goal = np.array([
-            [[-1], [1]]
-        ], dtype=float)
-
-        self.critical = np.array([
-        ], dtype=float)
+        self.goal = [self.state_space.restrict(position=(-1, 1))]
+        self.critical = []
 
         self.x0 = np.array([-2.5])
 
@@ -53,5 +40,3 @@ class Test1D(AffineDynamics):
             distance_cost=0.0,
             inflation_rate=[(-1, 1)],
         )
-
-        return

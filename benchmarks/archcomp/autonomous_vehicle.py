@@ -29,30 +29,27 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from benchmarks.archcomp.common import boxes, set_grid, stack
+from benchmarks.archcomp.common import stack
+from benchmarks.base import Benchmark
 from benchmarks.dynamics import setmath
-from benchmarks.dynamics.distributions import GaussianDistr
+from core.box import Box
 from core.rl.config import RLConfig
 
 
-class _AutonomousVehicle3D:
+class _AutonomousVehicle3D(Benchmark):
     def __init__(self, args, number_per_dim, num_actions, noise_cells):
-        self.n, self.p = 3, 2
         self.tau = 1
         self.Ts = 0.1
         self.state_variables = ['x', 'y', 'angle']
-        self.wrap = jnp.array([False, False, False])
         self.plot_dimensions = [0, 1]
 
-        if args.noise_distr != 'gaussian':
-            raise ValueError(f'{type(self).__name__} defines Gaussian noise; --noise_distr {args.noise_distr} is not supported.')
-        self.noise = GaussianDistr(np.array([2 / 3, 2 / 3, 2 / 3]))
-        self.noise.set_partition_probs(num_cells=noise_cells)
+        self.set_noise(args, gaussian=dict(variance=np.array([2 / 3, 2 / 3, 2 / 3]), cells=noise_cells))
 
-        self.uMin, self.uMax, self.num_actions = [-1.0, -0.4], [4.0, 0.4], list(num_actions)
-        set_grid(self, [[-5, -5, -3.4], [5, 5, 3.4]], number_per_dim)
-        self.goal = boxes([[-5.75, -0.25, -3.45], [0.25, 5.75, 3.45]])
-        self.critical = boxes([[-5.75, -0.75, -3.45], [0.25, -0.25, 3.45]])
+        self.input_space, self.input_grid = Box([-1.0, -0.4], [4.0, 0.4]), list(num_actions)
+        self.state_space = Box([-5, -5, -3.4], [5, 5, 3.4], names=self.state_variables)
+        self.state_grid = number_per_dim
+        self.goal = [Box([-5.75, -0.25, -3.45], [0.25, 5.75, 3.45])]
+        self.critical = [Box([-5.75, -0.75, -3.45], [0.25, -0.25, 3.45])]
         self.spec, self.horizon = 'reach_avoid', None
         self.x0 = np.array([0.75, 2.75, 0.1])
 
@@ -68,8 +65,8 @@ class _AutonomousVehicle3D:
 
     @partial(jax.jit, static_argnums=(0))
     def step_set(self, state_min, state_max, action_min, action_max):
-        action_min = jnp.maximum(action_min, self.uMin)
-        action_max = jnp.minimum(action_max, self.uMax)
+        action_min = jnp.maximum(action_min, self.input_space.lower)
+        action_max = jnp.minimum(action_max, self.input_space.upper)
         u1 = (action_min[0], action_max[0])
 
         # |u2| <= 0.4 < pi/2, so tan(u2) and alpha increase with u2, and cos(alpha) > 0

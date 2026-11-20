@@ -20,8 +20,9 @@ supported.
 
 import numpy as np
 
-from benchmarks.archcomp.common import boxes, no_control, set_grid
+from benchmarks.archcomp.common import no_control
 from benchmarks.models import AffineDynamics
+from core.box import Box
 from core.rl.config import RLConfig
 
 AS_A = [[0.8192, 0.03412, 0.01265],
@@ -43,14 +44,16 @@ class Anaesthesia_safety(AffineDynamics):
     '''
 
     def __init__(self, args):
-        AffineDynamics.__init__(self, args, A=AS_A, B=AS_B, q=[0, 0, 0], noise_var=AS_NOISE_VAR,
-                                noise_cells=[5, 5, 5], state_variables=AS_STATE_VARIABLES)
+        AffineDynamics.__init__(self, args, A=AS_A, B=AS_B, q=[0, 0, 0],
+                                gaussian=dict(variance=AS_NOISE_VAR, cells=[5, 5, 5]),
+                                state_variables=AS_STATE_VARIABLES)
         self.plot_dimensions = [1, 2]
 
-        self.uMin, self.uMax, self.num_actions = [0.0], [7.0], [3]
-        set_grid(self, AS_SAFE_SET, [12, 100, 100])
-        self.goal = boxes()
-        self.critical = boxes()
+        self.input_space, self.input_grid = Box([0.0], [7.0]), [3]
+        self.state_space = Box(*AS_SAFE_SET, names=self.state_variables)
+        self.state_grid = [12, 100, 100]
+        self.goal = []
+        self.critical = []
         self.spec, self.horizon = 'safety', 10
         self.x0 = np.array([5.0, 9.0, 9.0])
 
@@ -67,14 +70,16 @@ class Anaesthesia_reach(AffineDynamics):
 
     def __init__(self, args):
         B = np.hstack([AS_B, AS_B])
-        AffineDynamics.__init__(self, args, A=AS_A, B=B, q=[0, 0, 0], noise_var=AS_NOISE_VAR,
-                                noise_cells=[5, 5, 5], state_variables=AS_STATE_VARIABLES)
+        AffineDynamics.__init__(self, args, A=AS_A, B=B, q=[0, 0, 0],
+                                gaussian=dict(variance=AS_NOISE_VAR, cells=[5, 5, 5]),
+                                state_variables=AS_STATE_VARIABLES)
         self.plot_dimensions = [0, 1]
 
-        self.uMin, self.uMax, self.num_actions = [0.0, 0.0], [7.0, 30.0], [8, 2]
-        set_grid(self, AS_SAFE_SET, [20, 100, 100])
-        self.goal = boxes([[4, 8, 8], [6, 10, 10]])
-        self.critical = boxes()
+        self.input_space, self.input_grid = Box([0.0, 0.0], [7.0, 30.0]), [8, 2]
+        self.state_space = Box(*AS_SAFE_SET, names=self.state_variables)
+        self.state_grid = [20, 100, 100]
+        self.goal = [Box([4, 8, 8], [6, 10, 10])]
+        self.critical = []
         self.spec, self.horizon = 'reach_avoid', 10
         self.x0 = np.array([2.125, 9.5, 9.5])
 
@@ -91,12 +96,14 @@ class Anaesthesia_verification(AffineDynamics):
 
     def __init__(self, args):
         B = no_control(self, 3)
-        AffineDynamics.__init__(self, args, A=AS_A, B=B, q=[0, 0, 0], noise_var=AS_NOISE_VAR,
-                                noise_cells=[5, 5, 5], state_variables=AS_STATE_VARIABLES)
+        AffineDynamics.__init__(self, args, A=AS_A, B=B, q=[0, 0, 0],
+                                gaussian=dict(variance=AS_NOISE_VAR, cells=[5, 5, 5]),
+                                state_variables=AS_STATE_VARIABLES)
         self.plot_dimensions = [1, 2]
 
-        set_grid(self, AS_SAFE_SET, [20, 100, 100])
-        self.goal = boxes()
-        self.critical = boxes()
+        self.state_space = Box(*AS_SAFE_SET, names=self.state_variables)
+        self.state_grid = [20, 100, 100]
+        self.goal = []
+        self.critical = []
         self.spec, self.horizon = 'safety', 10
         self.x0 = np.array([5.0, 9.0, 9.0])

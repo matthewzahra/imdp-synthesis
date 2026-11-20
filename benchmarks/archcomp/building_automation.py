@@ -18,8 +18,8 @@ report and in PRoTECT's code.
 
 import numpy as np
 
-from benchmarks.archcomp.common import boxes, set_grid
 from benchmarks.models import AffineDynamics
+from core.box import Box
 
 CS1_A = [[0.6682, 0.0,    0.02632,   0.0],
          [0.0,    0.6830, 0.0,       0.02096],
@@ -34,14 +34,16 @@ class _BuildingAutomation4D(AffineDynamics):
     '''CS1 dynamics with a safety specification over 6 steps on the partition boundary.'''
 
     def __init__(self, args, boundary, number_per_dim, u_bounds, num_actions, noise_cells):
-        AffineDynamics.__init__(self, args, A=CS1_A, B=CS1_B, q=CS1_Q, noise_var=CS1_NOISE_VAR,
-                                noise_cells=noise_cells, state_variables=['T_zone1', 'T_zone2', 'T_rad1', 'T_rad2'])
+        AffineDynamics.__init__(self, args, A=CS1_A, B=CS1_B, q=CS1_Q,
+                                gaussian=dict(variance=CS1_NOISE_VAR, cells=noise_cells),
+                                state_variables=['T_zone1', 'T_zone2', 'T_rad1', 'T_rad2'])
         self.plot_dimensions = [0, 1]
 
-        self.uMin, self.uMax, self.num_actions = [u_bounds[0]], [u_bounds[1]], [num_actions]
-        set_grid(self, boundary, number_per_dim)
-        self.goal = boxes()
-        self.critical = boxes()
+        self.input_space, self.input_grid = Box([u_bounds[0]], [u_bounds[1]]), [num_actions]
+        self.state_space = Box(*boundary, names=self.state_variables)
+        self.state_grid = number_per_dim
+        self.goal = []
+        self.critical = []
         self.spec, self.horizon = 'safety', 6
         self.x0 = np.array([20.0, 20.0, 33.0, 33.0])
         # No rl_config: safety specifications run with --dense

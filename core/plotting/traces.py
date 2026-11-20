@@ -71,16 +71,16 @@ def plot_traces_3d(args, stamp, idx_show, partition, model, traces, num_traces=1
 
     # Target & unsafe regions
     for s in model.goal:
-        _plot_cuboid(ax, np.array(s[0])[[i1, i2, i3]], np.array(s[1])[[i1, i2, i3]], GOAL_COLOR, alpha=0.4)
+        _plot_cuboid(ax, s.lower[[i1, i2, i3]], s.upper[[i1, i2, i3]], GOAL_COLOR, alpha=0.4)
     for s in model.critical:
-        _plot_cuboid(ax, np.array(s[0])[[i1, i2, i3]], np.array(s[1])[[i1, i2, i3]], CRITICAL_COLOR, alpha=0.4)
+        _plot_cuboid(ax, s.lower[[i1, i2, i3]], s.upper[[i1, i2, i3]], CRITICAL_COLOR, alpha=0.4)
     for s in getattr(model, 'charging_station', []):
-        _plot_cuboid(ax, np.array(s[0])[[i1, i2, i3]], np.array(s[1])[[i1, i2, i3]], 'royalblue', alpha=0.4)
+        _plot_cuboid(ax, s.lower[[i1, i2, i3]], s.upper[[i1, i2, i3]], 'royalblue', alpha=0.4)
         if args.paper_figures:
             fs = 100
         else:
             fs = 40
-        ax.text(*((np.array(s[0]) + np.array(s[1]))[[i1, i2, i3]] / 2), '⚡', fontsize=fs, ha='center', va='center')
+        ax.text(*s.center[[i1, i2, i3]], '⚡', fontsize=fs, ha='center', va='center')
 
     # Simulation traces
     for trace in traces.values():

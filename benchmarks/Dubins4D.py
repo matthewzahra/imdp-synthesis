@@ -1,5 +1,7 @@
-from benchmarks.models import DubinsDynamics4D
 import numpy as np
+
+from benchmarks.models import DubinsDynamics4D
+from core.box import Box
 from core.rl.config import RLConfig
 
 
@@ -13,35 +15,18 @@ class Dubins4D(DubinsDynamics4D):
 
         self.plot_dimensions = [0, 1]
 
-        self.set_spec()
+        self.state_space = Box([-10, 0, -np.pi, self.v_min], [10, 10, np.pi, self.v_max], names=self.state_variables)
+        self.state_grid = [100, 50, 100, 100]
+        self.input_space = Box([-0.5, -0.5], [0.5, 0.5])
+        self.input_grid = [5, 5]
 
-    def set_spec(self):
-        '''
-        Set the abstraction parameters and the reach-avoid specification.
-        '''
-
-        self.partition = {}
-
-        # Authority limit for the control u, both positive and negative
-        self.uMin = [-0.5, -0.5]
-        self.uMax = [0.5, 0.5]
-        self.num_actions = [5, 5]
-
-        v_min = self.v_min
-        v_max = self.v_max
-
-        self.partition['boundary'] = np.array([[-10, 0, -np.pi, v_min], [10, 10, np.pi, v_max]])
-        self.partition['number_per_dim'] = np.array([100, 50, 100, 100])
-
-        self.goal = np.array([
-            [[6, 6, -np.pi, v_min], [9, 9, np.pi, v_max]]
-        ], dtype=float)
-
-        self.critical = np.array([
-            [[4, 5, -2 * np.pi, v_min], [5, 10, 2 * np.pi, v_max]],
-            [[-1, 0, -2 * np.pi, v_min], [0, 5, 2 * np.pi, v_max]],
-            [[-5, 4, -2 * np.pi, v_min], [-1, 5, 2 * np.pi, v_max]],
-        ], dtype=float)
+        region = self.state_space.restrict
+        self.goal = [region(x=(6, 9), y=(6, 9))]
+        self.critical = [
+            region(x=(4, 5), y=(5, 10), angle=(-2 * np.pi, 2 * np.pi)),
+            region(x=(-1, 0), y=(0, 5), angle=(-2 * np.pi, 2 * np.pi)),
+            region(x=(-5, -1), y=(4, 5), angle=(-2 * np.pi, 2 * np.pi)),
+        ]
 
         self.x0 = np.array([-3, 2, np.pi/2, 0.0])
 
@@ -56,5 +41,3 @@ class Dubins4D(DubinsDynamics4D):
             RL_actions_per_state=9,
             inflation_rate=[(-5, 5), (-5, 5), (-5, 5), (-5, 5)],
         )
-
-        return

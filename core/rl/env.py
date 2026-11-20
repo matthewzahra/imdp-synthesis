@@ -3,6 +3,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+from core.box import Box
+
 from .config import RLConfig
 
 
@@ -27,21 +29,20 @@ class BenchmarkEnv:
         self.model = model
         self.cfg = cfg
         self.obs_dim = model.n
-        self.action_dim = len(model.uMin)
+        self.action_dim = model.p
 
         # Domain bounds and grid setup
-        boundary = np.asarray(model.partition["boundary"], dtype=np.float32)
-        self.obs_low = boundary[0]
-        self.obs_high = boundary[1]
-        self.u_min = np.asarray(model.uMin, dtype=np.float32)
-        self.u_max = np.asarray(model.uMax, dtype=np.float32)
+        self.obs_low = np.asarray(model.state_space.lower, dtype=np.float32)
+        self.obs_high = np.asarray(model.state_space.upper, dtype=np.float32)
+        self.u_min = np.asarray(model.input_space.lower, dtype=np.float32)
+        self.u_max = np.asarray(model.input_space.upper, dtype=np.float32)
 
-        self.number_per_dim = np.asarray(model.partition["number_per_dim"], dtype=np.int64)
+        self.number_per_dim = np.asarray(model.state_grid, dtype=np.int64)
         self.bin_widths = (self.obs_high - self.obs_low) / self.number_per_dim
 
-        # Specifications
-        self.goal = np.asarray(getattr(model, "goal", []), dtype=np.float32).reshape(-1, 2, self.obs_dim)
-        self.critical = np.asarray(getattr(model, "critical", []), dtype=np.float32).reshape(-1, 2, self.obs_dim)
+        # Specifications, as arrays of shape [num_boxes, 2, n]
+        self.goal = Box.stack(model.goal, self.obs_dim).astype(np.float32)
+        self.critical = Box.stack(model.critical, self.obs_dim).astype(np.float32)
 
         # Distance normalization span
         goal_lo = self.goal[0, 0] if len(self.goal) else np.zeros(self.obs_dim, dtype=np.float32)

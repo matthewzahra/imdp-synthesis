@@ -1,31 +1,34 @@
 import numpy as np
+
 from benchmarks.CartPole import CartPole
+from benchmarks.models import CartPoleDynamics
+from core.box import Box
 from core.rl.config import RLConfig
 
 
-class CartPole_hard(CartPole):
+class CartPole_hard(CartPoleDynamics):
     '''
     CartPole with an obstacle hanging above the middle of the track. The upright pole does not fit
     under the obstacle, so the pole must be tilted far enough while the cart passes underneath.
     '''
 
-    def set_spec(self):
-        '''
-        Set the abstraction parameters and the reach-avoid specification.
-        '''
+    # Same animation as CartPole (it draws the obstacles)
+    plot_simulation = CartPole.plot_simulation
+    plot_trajectory_gif = CartPole.plot_trajectory_gif
 
-        self.partition = {}
+    def __init__(self, args):
+        CartPoleDynamics.__init__(self, args)
 
-        # Authority limit for the control u (force on the cart), both positive and negative
-        self.uMin = [-10]
-        self.uMax = [10]
-        self.num_actions = [41]
+        # Plot the cart position against the pole angle
+        self.plot_dimensions = [0, 2]
 
         # The pole has to tilt beyond the obstacle's clearance angle (~0.14 rad), so the angle range
         # is wider than for CartPole.
-        self.partition['boundary'] = np.array([[-2.4, -3.0, -0.5, -3.0],
-                                               [2.4, 3.0, 0.5, 3.0]])
-        self.partition['number_per_dim'] = np.array([200, 200, 400, 200])
+        self.state_space = Box([-2.4, -3.0, -0.5, -3.0], [2.4, 3.0, 0.5, 3.0], names=self.state_variables)
+        self.state_grid = [200, 200, 400, 200]
+        # Force on the cart
+        self.input_space = Box([-10], [10])
+        self.input_grid = [41]
 
         # Obstacles hanging from the ceiling, as (x_min, x_max, bottom), where [x_min, x_max] is the
         # horizontal extent and bottom is the height of the lower edge above the pole's pivot.
@@ -35,9 +38,8 @@ class CartPole_hard(CartPole):
         self.obstacles = [(-0.05, 0.05, 0.99)]
 
         # Goal: balance the pole upright on the right side of the track, past the obstacle
-        self.goal = np.array([
-            [[1, -1.5, -0.05, -1.0], [2.4, 1.5, 0.05, 1.0]]
-        ], dtype=float)
+        self.goal = [self.state_space.restrict(position=(1, 2.4), velocity=(-1.5, 1.5), angle=(-0.05, 0.05),
+                                               angular_velocity=(-1.0, 1.0))]
 
         # Cart position and pole angle for which the pole hits an obstacle, covered by boxes
         self.critical = self.obstacle_boxes(num_bands=16)
@@ -61,8 +63,6 @@ class CartPole_hard(CartPole):
             RL_actions_per_state=21,
         )
 
-        return
-
     def obstacle_boxes(self, num_bands):
         '''
         Cover the states where the pole intersects an obstacle with boxes in (position, angle).
@@ -78,7 +78,7 @@ class CartPole_hard(CartPole):
         that covers the unsafe set exactly within that band.
         '''
 
-        lower, upper = self.partition['boundary']
+        lower, upper = self.state_space.lower, self.state_space.upper
         boxes = []
         for x_min, x_max, bottom in self.obstacles:
             if bottom >= self.pole_length:
@@ -88,10 +88,7 @@ class CartPole_hard(CartPole):
             for a_lo, a_hi in zip(edges[:-1], edges[1:]):
                 offset_hi = max(self.pole_length * np.sin(a_hi), bottom * np.tan(a_hi))
                 offset_lo = min(self.pole_length * np.sin(a_lo), bottom * np.tan(a_lo))
-                box_lb = lower.copy()
-                box_ub = upper.copy()
-                box_lb[[0, 2]] = [max(x_min - offset_hi, lower[0]), a_lo]
-                box_ub[[0, 2]] = [min(x_max - offset_lo, upper[0]), a_hi]
-                boxes.append([box_lb, box_ub])
+                position = (max(x_min - offset_hi, lower[0]), min(x_max - offset_lo, upper[0]))
+                boxes.append(self.state_space.restrict(position=position, angle=(a_lo, a_hi)))
 
-        return np.array(boxes, dtype=float).reshape(-1, 2, self.n)
+        return boxes

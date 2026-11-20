@@ -9,7 +9,7 @@ import pytest
 
 from benchmarks import create_model
 from benchmarks.archcomp import ARCHCOMP_BENCHMARKS
-from core.abstraction.partition import DensePartition
+from core.abstraction.partition import DensePartition, input_grid_points
 from core.jax_config import configure_jax
 from core.options import parse_arguments
 
@@ -44,10 +44,9 @@ def test_step_set_contains_successors(benchmark):
     '''The bounds of every sampled cell-sized box and action contain the noise-free successors of its points.'''
     name, model, _ = benchmark
     rng = np.random.default_rng(0)
-    lower, upper = np.asarray(model.partition['boundary'][0]), np.asarray(model.partition['boundary'][1])
-    width = (upper - lower) / np.asarray(model.partition['number_per_dim'])
-    u_grid = [np.linspace(lo, hi, k) for lo, hi, k in zip(np.asarray(model.uMin), np.asarray(model.uMax),
-                                                          model.num_actions)]
+    lower, upper = model.state_space.lower, model.state_space.upper
+    width = (upper - lower) / np.asarray(model.state_grid)
+    u_grid = input_grid_points(model)
     for _ in range(40):
         box_lb = lower + rng.random(model.n) * (upper - lower - width)
         box_ub = box_lb + width
@@ -73,6 +72,6 @@ def test_step_set_contains_successors(benchmark):
 def test_grids_as_documented(name, num_actions, goal_cells, critical_cells):
     model = build(name)
     partition = DensePartition(model=model)
-    assert int(np.prod(model.num_actions)) == num_actions
+    assert int(np.prod(model.input_grid)) == num_actions
     assert int(np.sum(partition.goal['bools'])) == goal_cells
     assert int(np.sum(partition.critical['bools'])) == critical_cells

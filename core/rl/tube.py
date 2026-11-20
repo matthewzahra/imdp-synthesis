@@ -331,7 +331,7 @@ def _smart_inflate_cells(
 
 def build_tube(visited, cfg: RLConfig, model, env, agent=None, discrete_actions=None):
     """Build active state space tube around RL rollouts using inflation or smart reachability."""
-    number_per_dim = np.asarray(model.partition["number_per_dim"], dtype=np.int64)
+    number_per_dim = np.asarray(model.state_grid, dtype=np.int64)
     logger.info("Growing the tube around the RL rollouts (method: %s)...", cfg.tube_method)
     if cfg.tube_method == "smart":
         return _smart_inflate_cells(

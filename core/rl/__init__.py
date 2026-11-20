@@ -4,6 +4,8 @@ from pathlib import Path
 import time
 import numpy as np
 
+from core.abstraction.partition import input_grid_points
+
 from .base import BaseRL
 from .config import RLConfig, resolve_rl_config
 from .env import BenchmarkEnv
@@ -44,11 +46,7 @@ def find_active(model, args, return_sweep_priority=False):
         agent.save(out_dir / "rl_policy.pkl")
 
     # Discretize continuous control space
-    discrete_actions_per_dim = [
-        np.linspace(model.uMin[i], model.uMax[i], num=model.num_actions[i])
-        for i in range(len(model.num_actions))
-    ]
-    discrete_actions = np.array(list(itertools.product(*discrete_actions_per_dim)), dtype=np.float32)
+    discrete_actions = np.array(list(itertools.product(*input_grid_points(model))), dtype=np.float32)
 
     # Rollouts and visited cell extraction
     goal_reached, newly_visited, trajectories = agent.evaluate(

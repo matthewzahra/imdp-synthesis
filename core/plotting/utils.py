@@ -34,18 +34,18 @@ def plot_boxes(ax, args, model, plot_dimensions=[0, 1], labels=False, latex=Fals
             (model.critical, CRITICAL_COLOR, 'darkred', CRITICAL_HATCH, r'$\mathcal{X}_U$' if latex else 'X_U')]
     for boxes, fc, ec, hatch, lbl in sets:
         for s in boxes:
-            w, h = (s[1] - s[0])[d]
-            ax.add_patch(Rectangle(s[0][d], w, h, facecolor=col(fc), alpha=0.4, edgecolor=col(ec), lw=0, hatch=hatch))
+            w, h = s.width[d]
+            ax.add_patch(Rectangle(s.lower[d], w, h, facecolor=col(fc), alpha=0.4, edgecolor=col(ec), lw=0, hatch=hatch))
             if labels:
-                ax.annotate(lbl, (s[0] + s[1])[d] / 2, color=col(ec), fontsize=size + 2, ha='center', va='center')
+                ax.annotate(lbl, s.center[d], color=col(ec), fontsize=size + 2, ha='center', va='center')
     for s in getattr(model, 'charging_station', []):
         if args.paper_figures:
             fs = 120
         else:
             fs = 40
-        ax.add_patch(Rectangle(s[0][d], *(s[1] - s[0])[d], facecolor=col('gold'), alpha=0.4, lw=1, zorder=10))
-        ax.text(*(s[0] + s[1])[d] / 2, '⚡', fontsize=fs , ha='center', va='center', color=col('darkgoldenrod'), zorder=11)
-        ax.annotate('charging\npad', (s[0] + s[1])[d] / 2,
+        ax.add_patch(Rectangle(s.lower[d], *s.width[d], facecolor=col('gold'), alpha=0.4, lw=1, zorder=10))
+        ax.text(*s.center[d], '⚡', fontsize=fs , ha='center', va='center', color=col('darkgoldenrod'), zorder=11)
+        ax.annotate('charging\npad', s.center[d],
                     xytext=(0, -0.5 * fs), textcoords='offset points',
                     fontsize=0.3 * fs, ha='center', va='top',
                     color=col('darkgoldenrod'), zorder=11)
