@@ -1,8 +1,17 @@
 import logging
+from functools import partial
+from typing import NamedTuple
+
+import jax
+import jax.numpy as jnp
 import numpy as np
-from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
+
+# Why a run ended, in the order the checks are made at each step
+ABSORBING, GOAL, CRITICAL, HORIZON, NO_ACTION = range(5)
+OUTCOMES = ('absorbing state reached', 'goal reached', 'critical state reached', 'horizon completed',
+            'no enabled action')
 
 
 class MonteCarloSim():
@@ -13,6 +22,9 @@ class MonteCarloSim():
     critical or absorbing state before. A run of a safety specification succeeds if it completes sim_horizon
     steps without a critical or absorbing state. A policy of shape [N, nr_states] is time-dependent (finite
     horizon); one of shape [nr_states] is stationary.
+
+    All runs are simulated together: one jitted JAX loop advances every unfinished run by one step, until all
+    runs have ended.
     '''
 
     def __init__(self, model, partition, policy, policy_inputs, x0, iterations=1000, sim_horizon=1000, random_initial_state=False, verbose=True, spec='reach_avoid', **kwargs):
@@ -24,8 +36,8 @@ class MonteCarloSim():
         self.model = model
         self.partition = partition
 
-        self.policy = policy
-        self.policy_inputs = policy_inputs
+        self.policy = np.asarray(policy)
+        self.policy_inputs = np.asarray(policy_inputs)
         self.horizon = sim_horizon
         self.spec = spec
         self.iterations = iterations
@@ -34,10 +46,9 @@ class MonteCarloSim():
         # Predefine noise to speed up computations
         self.define_noise_values()
 
-        # Goal and critical membership per state ID, as NumPy masks for O(1) lookups at every step.
-        # (goal['idxs'] and critical['idxs'] are Python lists; `s in list` scans the whole list each step.)
-        self.is_goal = np.asarray(partition.goal['bools'], dtype=bool)
-        self.is_critical = np.asarray(partition.critical['bools'], dtype=bool)
+        # Goal and critical membership per state ID, with a last (False) entry for the absorbing state
+        self.is_goal = np.append(np.asarray(partition.goal['bools'], dtype=bool)[:partition.size], False)
+        self.is_critical = np.append(np.asarray(partition.critical['bools'], dtype=bool)[:partition.size], False)
 
         self.results = {
             'satprob': -1,
@@ -45,11 +56,17 @@ class MonteCarloSim():
             'traces': {}
         }
 
-        # For each of the monte carlo iterations
-        for m in tqdm(range(self.iterations)):
-            self.results['traces'][m], self.results['goal_reached'][m] = self._runIteration(x0, m)
+        # Simulate all runs at once
+        outcome, length, x, u = self._runIterations(*self.initial_states(x0))
 
+        self.results['goal_reached'] = (outcome == GOAL) | ((outcome == HORIZON) & (self.spec == 'safety'))
         self.results['satprob'] = np.mean(self.results['goal_reached'])
+
+        # Trace of run m: the states x_0, ..., x_L and inputs u_0, ..., u_{L-1}, where L is the step at which it ended
+        for m, L in enumerate(length.tolist()):
+            self.results['traces'][m] = {'k': np.arange(L + 1), 'x': x[m, :L + 1], 'u': u[m, :L]}
+
+        self.log_outcomes(outcome, length, x)
 
     def define_noise_values(self):
         '''
@@ -65,117 +82,169 @@ class MonteCarloSim():
             self.model.noise['mean'], self.model.noise['cov'],
             (self.iterations, self.horizon))
 
-    def _runIteration(self, x0, m):
+    def initial_states(self, x0):
         '''
-        Run a Monte Carlo simulation from x0.
+        Initial continuous state of each run: x0, or a uniform sample from the partition cell that contains x0.
 
-        :param x0: Initial continuous state.
-        :param m: Simulation number.
         :return:
-            - trace: Dictionary containing the state and input at each time step.
-            - success: Boolean indicating whether the specification was satisfied.
+            - x0: Initial continuous state per run, shape [iterations, n].
+            - s0: The state ID of the partition cell containing x0 (the cell's ID is also used for random initial
+              states, which are sampled inside it).
         '''
 
-        # Initialize variables at start of iteration
-        success = False
-        trace = {'k': [], 'x': [], 'u': []}
-        k = 0
+        # Determine the initial region on the host with partition.x2state, as for the value in x0 that is reported.
+        # x0 often lies on a cell boundary, where the rounding of the batched lookup could pick a neighboring cell.
+        s0, _ = self.partition.x2state(x0)
 
-        # Initialize the current simulation
-        x = np.zeros((self.horizon + 1, self.model.n))
-        x_tuple = np.zeros((self.horizon + 1, self.model.n)).astype(int)
-        s = np.zeros(self.horizon + 1).astype(int)
-        u = np.zeros((self.horizon, self.model.p))
-        a = np.zeros(self.horizon).astype(int)
-
-        # Determine initial state
         if self.random_initial_state:
-            s0, _ = self.partition.x2state(x0)
-            x[0] = np.random.uniform(
-                low=self.partition.regions['lower_bounds'][s0],
-                high=self.partition.regions['lower_bounds'][s0])
-
+            x0 = np.random.uniform(
+                low=np.asarray(self.partition.regions['lower_bounds'][s0]),
+                high=np.asarray(self.partition.regions['upper_bounds'][s0]),
+                size=(self.iterations, self.model.n))
         else:
-            x[0] = x0
+            x0 = np.tile(np.asarray(x0, dtype=float), (self.iterations, 1))
 
-        # Add current state, belief, etc. to trace
-        trace['k'] += [0]
-        trace['x'] += [x[0]]
+        return x0, s0
 
-        ######
+    def _runIterations(self, x0, s0):
+        '''
+        Run all Monte Carlo simulations from the initial states x0.
 
-        # For each time step in the finite time horizon
-        while k <= self.horizon:
+        :param x0: Initial continuous state per run, shape [iterations, n].
+        :param s0: State ID of the initial region (nr_states if x0 is outside the partition).
+        :return:
+            - outcome: Why each run ended (index into OUTCOMES).
+            - length: Step L at which each run ended.
+            - x: States per run and step, shape [iterations, sim_horizon + 1, n]; entries after step L are unused.
+            - u: Inputs per run and step, shape [iterations, sim_horizon, p]; entries from step L are unused.
+        '''
 
-            # Determine to which region the state belongs
-            s[k], in_partition = self.partition.x2state(x[k])
+        tables = _SimTables(
+            boundary_lb=jnp.asarray(self.partition.boundary_lb, dtype=jnp.float32),
+            boundary_ub=jnp.asarray(self.partition.boundary_ub, dtype=jnp.float32),
+            number_per_dim=jnp.asarray(self.partition.number_per_dim, dtype=jnp.int32),
+            region_linear_idx=self.partition.region_linear_idx,
+            region_linear_state=self.partition.region_linear_state,
+            region_linear_strides=self.partition.region_linear_strides,
+            is_goal=jnp.asarray(self.is_goal),
+            is_critical=jnp.asarray(self.is_critical),
+            policy=jnp.asarray(self.policy),
+            policy_inputs=jnp.asarray(self.policy_inputs, dtype=jnp.float32),
+        )
 
-            if in_partition:
-                # Save that state is currently in state s_current
-                x_tuple[k] = self.partition.region_idx_inv[s[k]]
+        outcome, length, x, u = _simulate(self.model.step, self.horizon, tables, jnp.asarray(x0, dtype=jnp.float32),
+                                          jnp.int32(s0), jnp.asarray(self.noise, dtype=jnp.float32))
 
-            else:
-                # Absorbing region reached
-                x_tuple[k] = -1
+        return np.asarray(outcome), np.asarray(length), np.asarray(x), np.asarray(u)
 
-                if self.verbose or True:
-                    logger.info(f'- Absorbing state reached at k = {k} (x_k = {x[k]}; s_(k-1) = {s[max(0,k-1)]}; a_(k-1) = {max(0,a[k-1])}), so abort')
-                return trace, success
+    def log_outcomes(self, outcome, length, x):
+        '''
+        Log how many runs ended for each reason, and (if verbose, or at debug level) how each run ended.
+        '''
 
-            # If current region is the goal state ...
-            if self.is_goal[s[k]]:
-                # Then abort the current iteration, as we have achieved the goal
-                success = True
-                if self.verbose:
-                    logger.info(f'- Goal state reached (x = {x[k]})')
-                return trace, success
+        level = logging.INFO if self.verbose else logging.DEBUG
+        if logger.isEnabledFor(level):
+            for m, (o, L) in enumerate(zip(outcome.tolist(), length.tolist())):
+                logger.log(level, f'- Run {m}: {OUTCOMES[o]} at k = {L} (x_k = {x[m, L]})')
 
-            # If current region is in critical states...
-            elif self.is_critical[s[k]]:
-                # Then abort current iteration
-                if self.verbose or True:
-                    logger.info('- Critical state reached, so abort')
-                return trace, success
+        counts = np.bincount(outcome, minlength=len(OUTCOMES))
+        logger.info('Monte Carlo runs: ' + ', '.join(f'{c} {name}' for name, c in zip(OUTCOMES, counts) if c > 0))
 
-            # Check if we can still perform another action within the horizon. A safety specification is
-            # satisfied once the horizon is completed without reaching a critical or absorbing state.
-            elif k >= self.horizon:
-                success = self.spec == 'safety'
-                return trace, success
 
-            # Retreive the action from the policy.
-            if len(self.policy.shape) == 1:
-                # If infinite horizon, policy does not have a time index.
-                action_idx = self.policy[s[k]]
-            else:
-                # If finite horizon, use action for the current time step k.
-                action_idx = self.policy[k, s[k]]
+class _SimTables(NamedTuple):
+    '''Arrays the jitted simulation loop reads (passed as arguments, so they are not compiled in as constants).'''
+    boundary_lb: jax.Array
+    boundary_ub: jax.Array
+    number_per_dim: jax.Array
+    region_linear_idx: jax.Array
+    region_linear_state: jax.Array
+    region_linear_strides: jax.Array
+    is_goal: jax.Array
+    is_critical: jax.Array
+    policy: jax.Array
+    policy_inputs: jax.Array
 
-            if action_idx < 0:
-                if self.verbose or True:
-                    logger.info('- No enabled action in the current state (x = %s, k = %d), so abort', x[k], k)
-                return trace, success
 
-            a[k] = action_idx
-            u[k] = self.policy_inputs[s[k]] if len(self.policy.shape) == 1 else self.policy_inputs[k, s[k]]
+def _x2state(x, tables):
+    '''
+    Batched version of partition.x2state: the state ID for each point in x [M, n]. Missing states (outside the
+    partition boundary, or a cell absent from a sparse partition) get the ID nr_states.
 
-            ###
+    Float32 division on the CPU backend of XLA is not always correctly rounded, so a point exactly on a cell boundary
+    may be assigned to the neighboring cell from the one partition.x2state picks; both cells contain the point.
+    '''
+    num_states = tables.is_goal.shape[0] - 1
+    lb, ub, keys = tables.boundary_lb, tables.boundary_ub, tables.region_linear_idx
 
-            # If loop was not aborted, we have a valid action
-            if self.verbose:
-                logger.info(f'In state {s[k]} (x = {x[k]}), take action {a[k]} (u = {u[k]})')
-                logger.info(f'- w = {self.noise[m, k]}')
+    in_boundary = jnp.all((x >= lb) & (x <= ub), axis=1)
+    grid_idx = jnp.floor((x - lb) / (ub - lb) * tables.number_per_dim).astype(tables.region_linear_strides.dtype)
+    # A point on the upper boundary has grid index number_per_dim, which is not a cell
+    in_grid = jnp.all((grid_idx >= 0) & (grid_idx < tables.number_per_dim), axis=1)
 
-            x[k + 1] = self.model.step(x[k], u[k], self.noise[m, k])
+    key = jnp.sum(grid_idx * tables.region_linear_strides, axis=1)
+    pos = jnp.minimum(jnp.searchsorted(keys, key), keys.shape[0] - 1)
+    exists = in_boundary & in_grid & (keys[pos] == key)
 
-            # Add current state, belief, etc. to trace
-            trace['k'] += [k + 1]
-            trace['u'] += [u[k]]
-            trace['x'] += [x[k + 1]]
+    return jnp.where(exists, tables.region_linear_state[pos], num_states)
 
-            # Increase iterator variable by one
-            k += 1
 
-        ######
+@partial(jax.jit, static_argnums=(0, 1))
+def _simulate(step, horizon, tables, x0, s0, noise):
+    '''
+    Simulate all runs, each until it ends, with the same checks per step as a single run would make.
 
-        return trace, success
+    :param step: The model's step function for one state, step(x, u, w).
+    :param horizon: Number of simulation steps.
+    :param tables: The partition, goal, critical and policy arrays (_SimTables).
+    :param x0: Initial state per run, shape [M, n].
+    :param s0: State ID of the initial region (all runs start in it).
+    :param noise: Noise per run and step, shape [M, horizon, n].
+    :return: outcome [M], length [M], x [M, horizon + 1, n], u [M, horizon, p] (see MonteCarloSim._runIterations).
+    '''
+    step = jax.vmap(step)
+    num_states = tables.is_goal.shape[0] - 1
+    stationary = tables.policy.ndim == 1
+    M = x0.shape[0]
+
+    def cond(carry):
+        k, _, outcome, *_ = carry
+        return (k <= horizon) & jnp.any(outcome < 0)
+
+    def body(carry):
+        k, x, outcome, length, xs, us = carry
+
+        # Determine to which region the state belongs
+        s = jnp.where(k == 0, s0, _x2state(x, tables))
+        exists = s < num_states
+        s_valid = jnp.minimum(s, num_states - 1)
+
+        # Retrieve the action from the policy (with a time index for a finite-horizon policy)
+        if stationary:
+            action, u = tables.policy[s_valid], tables.policy_inputs[s_valid]
+        else:
+            t = jnp.minimum(k, tables.policy.shape[0] - 1)
+            action, u = tables.policy[t, s_valid], tables.policy_inputs[t, s_valid]
+
+        # The first check that holds decides why a run ends; -1 means it continues
+        reason = jnp.select(
+            [~exists, tables.is_goal[s], tables.is_critical[s], k >= horizon, action < 0],
+            [ABSORBING, GOAL, CRITICAL, HORIZON, NO_ACTION], default=-1)
+        ends = (outcome < 0) & (reason >= 0)
+        outcome = jnp.where(ends, reason, outcome)
+        length = jnp.where(ends, k, length)
+
+        # Advance the unfinished runs; finished runs keep their last state
+        w = jax.lax.dynamic_index_in_dim(noise, jnp.minimum(k, horizon - 1), axis=1, keepdims=False)
+        x = jnp.where((outcome < 0)[:, None], step(x, u, w), x)
+
+        xs = xs.at[:, k + 1].set(x, mode='drop')
+        us = us.at[:, k].set(u, mode='drop')
+
+        return k + 1, x, outcome, length, xs, us
+
+    xs = jnp.zeros((M, horizon + 1, x0.shape[1]), dtype=x0.dtype).at[:, 0].set(x0)
+    us = jnp.zeros((M, horizon, tables.policy_inputs.shape[-1]), dtype=tables.policy_inputs.dtype)
+    init = (0, x0, jnp.full(M, -1, dtype=jnp.int32), jnp.zeros(M, dtype=jnp.int32), xs, us)
+
+    _, _, outcome, length, xs, us = jax.lax.while_loop(cond, body, init)
+    return outcome, length, xs, us
