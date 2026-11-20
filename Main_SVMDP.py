@@ -193,7 +193,6 @@ if __name__ == '__main__':
     from core.validate.simulate import MonteCarloSim
     from core.plotting.traces import plot_traces
     from core.plotting.heatmap import heatmap
-    from core.plotting.traces import plot_traces_3d
 
     if args.load_checkpoint:
         sim_results = ckpt['sim_results']
@@ -247,40 +246,5 @@ if __name__ == '__main__':
             args, stamp, model.plot_dimensions, partition, model,
             sim_results['traces'], line=False, num_traces=100, add_unsafe_box=False,
         )
-
-        if args.model.startswith('Drone6D'):
-            print('Plot Drone6D traces in 3D...')
-            plot_traces_3d(
-                args, stamp, [0, 2, 4], partition, model,
-                sim_results['traces'], num_traces=100, filename="traces_3d",
-            )
-            from core.plotting.drone3d import plot_drone_3d_pyvista
-            plot_drone_3d_pyvista(args, stamp, [0, 2, 4], partition, model,
-                                  sim_results['traces'], num_traces=10)
-
-        if args.model == 'Pendulum':
-            print('Plot Pendulum gif...')
-            model.plot_trajectory_gif(
-                np.array(sim_results['traces'][0]['x'])[:, 0],
-                filename=str(args.output_dir / f'pendulum_{stamp}.gif'),
-            )
-
-        if args.model == 'MountainCar':
-            print('Plot MountainCar gif...')
-            model.plot_trajectory_gif(
-                np.array(sim_results['traces'][0]['x'])[:, 0],
-                filename=str(args.output_dir / f'mountaincar_{stamp}.gif'),
-            )
-
-        if args.model.startswith('CartPole'):
-            print('Plot CartPole gif...')
-            model.plot_trajectory_gif(
-                np.array(sim_results['traces'][0]['x'])[:, [0, 2]],
-                filename=str(args.output_dir / f'cartpole_{stamp}.gif'),
-            )
-
-        if args.model == 'Drone4D_2agent':
-            print('Plot Drone4D_2agent trace and gif...')
-            trajectory = np.array(sim_results['traces'][0]['x'])
-            model.plot_trace(trajectory, filename=args.output_dir / f'drone4d_2agent_trace_{stamp}')
-            model.plot_trajectory_gif(trajectory, filename=str(args.output_dir / f'drone4d_2agent_{stamp}.gif'))
+        # Plots of the benchmark's own, such as an animation of the first trace
+        model.plot_simulation(args, stamp, partition, sim_results['traces'])
