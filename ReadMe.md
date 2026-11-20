@@ -163,7 +163,31 @@ python Main_IMDP.py --model DoubleIntegrator --dense --horizon 10         # the 
 | `Drone6D_battery` | 7 | 3 | Drone6D with a battery state. |
 | `Drone4D_2agent` | 8 | 4 | Two independent Drone4D agents. |
 
-Each benchmark defines its default partition, action grid, noise model, specification, and RL settings (`rl_config`, an instance of `core.rl.config.RLConfig`). The RL options on the command line override the benchmark's `rl_config`.
+## Defining a benchmark
+
+A benchmark class combines dynamics and a specification. The dynamics classes in `benchmarks/models.py` subclass `Benchmark` (`benchmarks/base.py`) and define the state variables, the noise (with `set_noise`), `step(x, u, w)`, and `step_set(x_min, x_max, u_min, u_max)`, which bounds the noise-free successors of a box of states and inputs. The benchmark then specifies its sets as boxes (`core.box.Box`), for example:
+
+```python
+class Drone4D(DroneDynamics):
+    def __init__(self, args):
+        DroneDynamics.__init__(self, args, dim=2)
+        self.plot_dimensions = [0, 2]
+
+        self.state_space = Box([-20, -2, -20, -2], [20, 2, 20, 2], names=self.state_variables)
+        self.state_grid = [80, 10, 80, 10]   # partition cells per state dimension
+        self.input_space = Box([-1, -1], [1, 1])
+        self.input_grid = [5, 5]             # discrete inputs per input dimension
+
+        region = self.state_space.restrict    # copy of the state space, narrowed in the named dimensions
+        self.goal = [region(x_pos=(12, 18), y_pos=(12, 18))]
+        self.critical = [region(x_pos=(-20, 8), y_pos=(-7, -4)), region(x_pos=(-8, 20), y_pos=(4, 7))]
+        self.x0 = np.array([-15.0, 0.01, -15.0, 0.01])
+```
+
+- **State space.** Leaving it counts as a failure; under a safety specification, it is the safe set.
+- **Goal and critical sets.** The partition takes as goal the cells fully contained in a goal box, and as critical the cells that overlap a critical box.
+- **Optional attributes.** `spec` and `horizon` (see [Specifications](#specifications)), `wrapped` (the names of state dimensions that wrap around, such as angles), and `rl_config` (an instance of `core.rl.config.RLConfig`; the RL options on the command line override it). A benchmark can also override `plot_simulation` to add plots of the simulated traces, such as an animation.
+- **Registration and checks.** Add the class to `create_model` in `benchmarks/__init__.py`. `create_model` checks the finished benchmark: the dimensions of its boxes and grids, and that `x0` lies in the state space.
 
 # Command-line options
 
@@ -267,11 +291,12 @@ The `ICLR_*.py` launchers run batches of `Main_SVMDP.py` with fixed arguments:
 # Repository structure
 
 - `Main_IMDP.py`, `Main_SVMDP.py`: entrypoints for the two abstraction paths.
-- `benchmarks/`: benchmark definitions (`models.py` holds the dynamics; `dynamics/` holds the noise distributions and interval arithmetic).
+- `benchmarks/`: benchmark definitions (`base.py` holds the `Benchmark` base class, `models.py` the dynamics, and `dynamics/` the noise distributions and interval arithmetic).
+- `core/box.py`: the `Box` class for state spaces, input spaces, and regions.
 - `core/options.py`: command-line options shared by both entrypoints.
 - `core/specification.py`: specification types and horizon, their validation, and the initial values of the finite-horizon dynamic programs.
 - `core/rl/`: RL front-end (PPO, SAC, environment wrapper, tube construction).
-- `core/abstraction/`: model parsing, partitions (`partition.py`), and the two abstractions:
+- `core/abstraction/`: partitions (`partition.py`) and the two abstractions:
   - `imdp/`: forward reachability, probability intervals, and the JAX and Storm solvers.
   - `svmdp/`: forward reachability, the tiled value grid, and the dynamic programming solver.
 - `core/validate/`: Monte Carlo simulation.
