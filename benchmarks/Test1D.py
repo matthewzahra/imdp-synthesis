@@ -1,19 +1,18 @@
-from functools import partial
-from benchmarks.models import Test1DDynamics
-import jax
 import jax.numpy as jnp
 import numpy as np
-from benchmarks.dynamics import setmath
+from benchmarks.models import AffineDynamics
 from core.rl.config import RLConfig
 
 
-class Test1D(Test1DDynamics):
+class Test1D(AffineDynamics):
     '''
-    Dubin's vehicle benchmark, with a 4D state space and a 2D control input space.
+    Simple 1D test benchmark (x' = x + u + w), with a 1D state space and a 1D control input space.
     '''
 
     def __init__(self, args):
-        Test1DDynamics.__init__(self, args)
+        AffineDynamics.__init__(self, args, A=[[1]], B=[[1]], q=[0],
+                                noise_var=np.array([0.2])**2, noise_halfwidth=[0.2], noise_cells=[10],
+                                state_variables=['position'], wrap=[False])
 
         self.plot_dimensions = [0]
 

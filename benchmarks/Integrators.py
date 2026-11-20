@@ -1,19 +1,24 @@
-from functools import partial
-from benchmarks.models import DoubleIntegratorDynamics
-import jax
 import jax.numpy as jnp
 import numpy as np
-from benchmarks.dynamics import setmath
+from benchmarks.models import AffineDynamics
 from core.rl.config import RLConfig
 
 
-class DoubleIntegrator(DoubleIntegratorDynamics):
+class DoubleIntegrator(AffineDynamics):
     '''
-    Dubin's vehicle benchmark, with a 4D state space and a 2D control input space.
+    Double integrator benchmark, with a 2D state space (position, velocity) and a 1D control input space.
     '''
 
     def __init__(self, args):
-        DoubleIntegratorDynamics.__init__(self, args)
+        tau = 1.0
+        A = np.array([[1, tau],
+                      [0, 1]])
+        B = np.array([[tau**2 / 2],
+                      [tau]])
+        
+        AffineDynamics.__init__(self, args, A=A, B=B, q=[0, 0],
+                                noise_var=np.array([0.15, 0.15])**2, noise_halfwidth=[0.15, 0.15], noise_cells=[10, 10],
+                                state_variables=['position', 'velocity'], wrap=[False, False])
 
         self.plot_dimensions = [0, 1]
 

@@ -581,6 +581,7 @@ class MountainCarDynamics:
             self.noise.set_partition_probs(num_cells=[10, 10])
         else:
             raise ValueError(f'Unsupported noise distribution: {args.noise_distr}. Expected "gaussian" or "triangular".')
+    
     def step(self, state, action, noise):
 
         position, velocity = state[0], state[1]
@@ -744,114 +745,65 @@ class CartPoleDynamics:
 
         return state_next_min, state_next_max
 
-class DoubleIntegratorDynamics:
-    def __init__(self, args):
+class AffineDynamics:
+    '''
+    Affine dynamics with additive noise: x' = A x + B u + q + w, with w ~ N(0, diag(noise_var)), or, with
+    --noise_distr triangular, w triangular with halfwidth noise_halfwidth per dimension.
+
+    Benchmarks call AffineDynamics.__init__ with their matrices and then set their specification (uMin, uMax,
+    partition, goal, critical, x0, ...). Gaussian noise is always supported; triangular noise only if the
+    benchmark passes noise_halfwidth, because the benchmarks built on these dynamics define their noise distribution.
+    '''
+
+    def __init__(self, args, A, B, q, noise_var, noise_cells, state_variables=None, noise_halfwidth=None, wrap=None):
+        '''
+        :param args: Argument namespace (provides noise_distr)
+        :param A: State matrix, shape [n, n]
+        :param B: Input matrix, shape [n, p]
+        :param q: Constant drift, shape [n]
+        :param noise_var: Variance of the Gaussian noise per state dimension, shape [n]
+        :param noise_cells: Number of cells per dimension of the noise partition, shape [n]
+        :param state_variables: Names of the state variables (for plots)
+        :param noise_halfwidth: Halfwidth of the triangular noise per state dimension, shape [n]; None if the
+            benchmark does not support triangular noise
+        :param wrap: Per state dimension, whether the partition wraps around in that dimension, shape [n]; None for
+            no wrapping
+        '''
+        # Parsed as a nonlinear model: step_set bounds the image of a box directly
         self.linear = False
         self.independent_state_dims = None
         self.independent_input_dims = None
 
-        self.n = 2
-        self.p = 1
-        self.state_variables = ['position', 'velocity']
-        self.wrap = jnp.array([True, False], dtype=bool)
+        self.A = np.asarray(A, dtype=float)
+        self.B = np.asarray(B, dtype=float)
+        self.q = np.asarray(q, dtype=float).reshape(-1)
+        self.n, self.p = self.B.shape
+        self.tau = 1
+        self.state_variables = state_variables if state_variables is not None else [f'x{i + 1}' for i in range(self.n)]
+        self.wrap = jnp.zeros(self.n, dtype=bool) if wrap is None else jnp.asarray(wrap, dtype=bool)
 
-        # Discretization step size
-        self.tau = 1.0
-
-        # State transition matrix
-        self.A  = np.array([[1, self.tau],
-                          [0, 1]])
-        
-        # Input matrix
-        self.B  = np.array([[self.tau**2/2],
-                           [self.tau]])
-    
-        # Disturbance matrix
-        self.Q  = np.array([[0],[0],])
-
-        # Covariance of the process noise
         if args.noise_distr == 'gaussian':
-            self.noise = GaussianDistr(np.array([0.15, 0.15])**2) # From stdev to covariance
-            self.noise.set_partition_probs(num_cells=[10, 10])
-        elif args.noise_distr == 'triangular':
-            self.noise = TriangularDistr(np.array([0.15, 0.15])) # Halfwidth
-            self.noise.set_partition_probs(num_cells=[10, 10])
+            self.noise = GaussianDistr(np.asarray(noise_var, dtype=float))
+        elif args.noise_distr == 'triangular' and noise_halfwidth is not None:
+            self.noise = TriangularDistr(np.asarray(noise_halfwidth, dtype=float))
         else:
-            raise ValueError(f'Unsupported noise distribution: {args.noise_distr}. Expected "gaussian" or "triangular".')
+            supported = 'Gaussian' if noise_halfwidth is None else 'Gaussian or triangular'
+            raise ValueError(f'{type(self).__name__} defines {supported} noise; --noise_distr {args.noise_distr} is not supported.')
+        self.noise.set_partition_probs(num_cells=noise_cells)
 
     def step(self, state, action, noise):
-        state_next = jnp.dot(self.A, state) + jnp.dot(self.B, action) + noise
-
-        return state_next
+        return jnp.dot(self.A, state) + jnp.dot(self.B, action) + self.q + noise
 
     @partial(jax.jit, static_argnums=(0))
     def step_set(self, state_min, state_max, action_min, action_max):
-
         action_min = jnp.maximum(action_min, self.uMin)
         action_max = jnp.minimum(action_max, self.uMax)
 
-        # Get vertices of the state and action boxes
-        state_vertices = setmath.box2vertices(state_min, state_max)
-        action_vertices = setmath.box2vertices(action_min, action_max)
-        
-        # Propogate dynamics for all vertices
-        Ax = jnp.dot(self.A, state_vertices.T).T  # Shape (2^n, n)
-        Bu = jnp.dot(self.B, action_vertices.T).T  # Shape (2^p, n)
+        # The image of a box under an affine map is bounded exactly by its center +- |M| times its radius
+        state_center, state_radius = (state_min + state_max) / 2, (state_max - state_min) / 2
+        action_center, action_radius = (action_min + action_max) / 2, (action_max - action_min) / 2
 
-        # Combine min/max to get the reachable set
-        state_next_min = jnp.min(Ax, axis=0) + jnp.min(Bu, axis=0)
-        state_next_max = jnp.max(Ax, axis=0) + jnp.max(Bu, axis=0)
+        center = jnp.dot(self.A, state_center) + jnp.dot(self.B, action_center) + self.q
+        radius = jnp.dot(np.abs(self.A), state_radius) + jnp.dot(np.abs(self.B), action_radius)
 
-        return state_next_min, state_next_max
-    
-class Test1DDynamics:
-    def __init__(self, args):
-        self.linear = False
-        self.independent_state_dims = None
-        self.independent_input_dims = None
-
-        self.n = 1
-        self.p = 1
-        self.state_variables = ['position']
-        self.wrap = jnp.array([True], dtype=bool)
-
-        # State transition matrix
-        self.A  = np.array([[1]])
-        
-        # Input matrix
-        self.B  = np.array([[1]])
-
-        # Covariance of the process noise
-        if args.noise_distr == 'gaussian':
-            self.noise = GaussianDistr(np.array([0.2])**2) # From stdev to covariance
-            self.noise.set_partition_probs(num_cells=[10])
-        elif args.noise_distr == 'triangular':
-            self.noise = TriangularDistr(np.array([0.2])) # Halfwidth
-            self.noise.set_partition_probs(num_cells=[10])
-        else:
-            raise ValueError(f'Unsupported noise distribution: {args.noise_distr}. Expected "gaussian" or "triangular".')
-
-    def step(self, state, action, noise):
-        state_next = jnp.dot(self.A, state) + jnp.dot(self.B, action) + noise
-
-        return state_next
-
-    @partial(jax.jit, static_argnums=(0))
-    def step_set(self, state_min, state_max, action_min, action_max):
-
-        action_min = jnp.maximum(action_min, self.uMin)
-        action_max = jnp.minimum(action_max, self.uMax)
-
-        # Get vertices of the state and action boxes
-        state_vertices = setmath.box2vertices(state_min, state_max)
-        action_vertices = setmath.box2vertices(action_min, action_max)
-        
-        # Propogate dynamics for all vertices
-        Ax = jnp.dot(self.A, state_vertices.T).T  # Shape (2^n, n)
-        Bu = jnp.dot(self.B, action_vertices.T).T  # Shape (2^p, n)
-
-        # Combine min/max to get the reachable set
-        state_next_min = jnp.min(Ax, axis=0) + jnp.min(Bu, axis=0)
-        state_next_max = jnp.max(Ax, axis=0) + jnp.max(Bu, axis=0)
-
-        return state_next_min, state_next_max
+        return center - radius, center + radius
