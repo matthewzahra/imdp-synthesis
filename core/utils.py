@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 import numpy as np
 
@@ -53,6 +54,50 @@ def create_batches(data_length, batch_size):
     ends = (np.minimum(starts + batch_size, data_length)).astype(int)
 
     return starts, ends
+
+
+def policy_to_inputs(partition, policy, dtype=np.float32):
+    '''
+    Control inputs of a policy over the abstract states.
+
+    :param partition: Partition whose regions['actions'] holds the discrete actions, shape
+        (1, num_actions, input_dim) for a dense partition or (num_states, num_actions, input_dim) for a sparse one
+    :param policy: Action ID per state, with the absorbing state last and -1 where no action is chosen; shape
+        [nr_states] (stationary) or [N, nr_states] (one row per time step of a finite horizon)
+    :param dtype: Float type of the inputs
+    :return: Inputs of shape policy.shape[:-1] + (num_states, input_dim), excluding the absorbing state; NaN
+        where no action is chosen
+    '''
+    policy = np.asarray(policy)
+    actions = np.asarray(partition.regions['actions'])
+    num_states = policy.shape[-1] - 1
+
+    # A dense partition stores (1, num_actions, input_dim); broadcast to all states.
+    if actions.shape[0] == 1:
+        actions = np.broadcast_to(actions, (num_states, *actions.shape[1:]))
+
+    state_policy = policy[..., :num_states]
+    inputs = np.full(state_policy.shape + (actions.shape[2],), fill_value=np.nan, dtype=dtype)
+    mask = state_policy >= 0
+    states = np.broadcast_to(np.arange(num_states), state_policy.shape)
+    inputs[mask] = actions[states[mask], state_policy[mask]]
+
+    return inputs
+
+
+def save_values_per_step(output_dir, values_s0):
+    '''
+    Write the value in the initial state per number of remaining steps, V_k(s0) for k = 0, ..., N, to
+    values_per_step.csv (finite horizon only).
+    '''
+    import csv
+
+    path = Path(output_dir) / 'values_per_step.csv'
+    with path.open('w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(['steps_remaining', 'value_s0'])
+        writer.writerows((k, float(v)) for k, v in enumerate(values_s0))
+    logging.getLogger(__name__).info('Values per step saved to %s', path)
 
 
 def lexsort4d(array):

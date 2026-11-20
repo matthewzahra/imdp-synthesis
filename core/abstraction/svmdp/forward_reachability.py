@@ -7,6 +7,7 @@ import jax.numpy as jnp
 import numpy as np
 from tqdm import tqdm
 
+from core.specification import get_spec, initial_values
 from core.utils import create_batches
 
 logger = logging.getLogger(__name__)
@@ -50,10 +51,10 @@ def count_successor_intervals(state_min, state_max, input, step_set, cell_width,
 
     The arguments are those of _successor_index_bounds.
 
-    :return: Tuple of three int arrays of shape [state_dim]: (number of merged intervals, largest interval
-        span, span of the union of the intervals)
+    :return: Tuple of five int arrays of shape [state_dim]: (number of merged intervals, largest interval
+        span, span of the union of the intervals, lowest and highest grid index of the union)
     """
-    num, span, union = [], [], []
+    num, span, union, low, high = [], [], [], [], []
     for lb, ub in _successor_index_bounds(state_min, state_max, input, step_set, cell_width, boundary_lb,
                                           shrink_frs, noise_lb, noise_ub):
         # The merged intervals are the runs of equal (lb, ub) pairs, so they have the same spans; lb and ub
@@ -61,7 +62,9 @@ def count_successor_intervals(state_min, state_max, input, step_set, cell_width,
         num.append(1 + jnp.sum((lb[1:] != lb[:-1]) | (ub[1:] != ub[:-1]))) # Number of different (lb, ub) pairs after merging
         span.append(jnp.max(ub - lb + 1)) # Largest span of a single interval
         union.append(ub[-1] - lb[0] + 1) # Span of the union of all intervals
-    return jnp.stack(num), jnp.stack(span), jnp.stack(union)
+        low.append(lb[0])
+        high.append(ub[-1])
+    return jnp.stack(num), jnp.stack(span), jnp.stack(union), jnp.stack(low), jnp.stack(high)
 
 
 def successor_intervals(state_min, state_max, input, step_set, cell_width, boundary_lb, shrink_frs,
@@ -148,6 +151,9 @@ class RectangularForward(object):
         slots (tuple): Number of stored intervals per dimension (the most merged intervals of any pair)
         max_slice (tuple): Largest span of a successor interval per dimension
         union_span (tuple): Largest span of the union of a pair's successor intervals per dimension
+
+    The sizes (slots, spans) are maxima over the states whose value the dynamic program updates. The states with
+    a fixed value (goal states under reach-avoid, critical states) store their own cell as their only successor.
         id (np.ndarray): Indices of all actions, shape [num_actions]
     """
 
@@ -184,22 +190,28 @@ class RectangularForward(object):
 
         count_fn = over_states_and_actions(partial(count_successor_intervals, **bound))
 
+        # States whose value the dynamic program keeps fixed (goal states under reach-avoid, critical states)
+        # never have their successors read. They do not size the stored arrays: their successor sets can be
+        # far wider than any other (e.g., goal states at high speed), and the DP reads a union box of the
+        # largest span for every pair. Their stored successor is their own cell.
+        spec, _ = get_spec(model)
+        _, fixed = initial_values(np.asarray(partition.goal['bools']), np.asarray(partition.critical['bools']), spec)
+        fixed_dev = jax.device_put(fixed)
+
         @jax.jit
-        def batch_count(state_min, state_max, inputs):
-            num, span, union = count_fn(state_min, state_max, inputs)
-            return jnp.max(num, axis=(0, 1)), jnp.max(span, axis=(0, 1)), jnp.max(union, axis=(0, 1))
+        def batch_count(state_min, state_max, inputs, fixed):
+            num, span, union, low, high = count_fn(state_min, state_max, inputs)
+            free = ~fixed[:, None, None]
+            num, span, union = (jnp.where(free, x, 1) for x in (num, span, union))
+            low, high = jnp.where(free, low, 0), jnp.where(free, high, 0)
+            return (jnp.max(num, axis=(0, 1)), jnp.max(span, axis=(0, 1)), jnp.max(union, axis=(0, 1)),
+                    jnp.min(low), jnp.max(high))
 
         t = time.time()
 
         self.num_regions = len(partition.regions['lower_bounds'])
         self.num_actions = partition.regions['actions'].shape[1]
         S, A, D = self.num_regions, self.num_actions, partition.dimension
-        # Choose the grid-index dtype up front (no after-the-fact conversion of these multi-GB arrays): int8
-        # when every dimension has <= 127 cells, else int16. It must be signed: indices are stored *unclipped*
-        # and can be negative (out-of-grid successors map to the absorbing state downstream).
-        idx_dtype = np.int8 if int(np.max(partition.number_per_dim)) <= INT8_MAX else np.int16
-        idx_info = np.iinfo(idx_dtype)
-
         # Process state regions in batches: each call handles a [batch, num_actions] computation
         # instead of one [num_actions] computation, reducing Python–JAX round trips by frs_batch_size.
         starts, ends = create_batches(self.num_regions, args.frs_batch_size)
@@ -221,11 +233,23 @@ class RectangularForward(object):
         # final arrays can be allocated at their exact size up front. Pass 2 then writes every batch straight
         # into them, so no second copy of the (multi-GB) reachability data is ever resident.
         slots, max_span, union_span = np.ones(D, dtype=int), np.ones(D, dtype=int), np.ones(D, dtype=int)
+        idx_low, idx_high = 0, 0
         for batch_start, batch_end in tqdm(zip(starts, ends), total=len(starts), desc='FRS pass 1/2'):
-            num, span, union = jax.device_get(batch_count(*batch_inputs(batch_start, batch_end)))
+            num, span, union, low, high = jax.device_get(
+                batch_count(*batch_inputs(batch_start, batch_end), fixed_dev[batch_start:batch_end]))
             np.maximum(slots, num, out=slots)
             np.maximum(max_span, span, out=max_span)
             np.maximum(union_span, union, out=union_span)
+            idx_low, idx_high = min(idx_low, int(low)), max(idx_high, int(high))
+
+        # Choose the grid-index dtype before allocating (no after-the-fact conversion of these multi-GB arrays):
+        # int8 when every dimension has <= 127 cells and all successor indices fit, else int16. It must be
+        # signed: indices are stored *unclipped* and can lie outside the grid, also beyond its number of cells
+        # (out-of-grid successors map to the absorbing state downstream).
+        int8_info = np.iinfo(np.int8)
+        fits_int8 = int8_info.min <= idx_low and idx_high <= int8_info.max
+        idx_dtype = np.int8 if int(np.max(partition.number_per_dim)) <= INT8_MAX and fits_int8 else np.int16
+        idx_info = np.iinfo(idx_dtype)
 
         self.slots = tuple(int(x) for x in slots)
         self.max_slice = tuple(int(x) for x in max_span)
@@ -242,8 +266,18 @@ class RectangularForward(object):
         self.interval_lb = np.zeros((S, A, int(slots.sum())), dtype=idx_dtype)
         self.interval_ub = np.zeros((S, A, int(slots.sum())), dtype=idx_dtype)
         self.box_probs = np.zeros((S, A, num_boxes), dtype=args.floatprecision)
+        boundary_lb, cell_width = np.asarray(partition.boundary_lb), np.asarray(partition.cell_width)
         for batch_start, batch_end in tqdm(zip(starts, ends), total=len(starts), desc='FRS pass 2/2'):
             lb, ub, probs = jax.device_get(batch_intervals(*batch_inputs(batch_start, batch_end)))
+            rows = fixed[batch_start:batch_end]
+            if rows.any():
+                # Fixed states: their own cell, with the whole noise mass (their successors may not fit the slots)
+                lower = np.asarray(partition.regions['lower_bounds'][batch_start:batch_end])[rows]
+                own = np.repeat(np.rint((lower - boundary_lb) / cell_width).astype(lb.dtype), self.slots, axis=1)
+                lb, ub, probs = np.array(lb), np.array(ub), np.array(probs)
+                lb[rows] = ub[rows] = own[:, None, :]
+                probs[rows] = 0
+                probs[rows, :, 0] = noise_mass
             # Indices may run slightly outside [0, number_per_dim) (OOB successors). Cheap per-batch
             # guard so an unexpected out-of-range index fails loudly instead of silently wrapping.
             if int(lb.min()) < idx_info.min or int(ub.max()) > idx_info.max:

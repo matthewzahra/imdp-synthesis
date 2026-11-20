@@ -15,10 +15,11 @@ from core.abstraction.imdp.forward_reachability import RectangularForward
 from core.options import parse_arguments
 from core.abstraction.partition import DensePartition, SparsePartition
 from core.abstraction.imdp.imdp import IMDP
-from core.abstraction.imdp.rvi_jax import RVI_JAX
+from core.abstraction.imdp.rvi_jax import RVI_JAX, RVI_JAX_finite
 from core.abstraction.imdp.rvi_storm import RVI_STORM
 from core.jax_config import configure_jax
-from core.utils import configure_logging, add_file_handler
+from core.specification import get_spec, check_solver_support
+from core.utils import configure_logging, add_file_handler, policy_to_inputs, save_values_per_step
 from core.rl import find_active
 
 if __name__ == '__main__':
@@ -73,6 +74,8 @@ if __name__ == '__main__':
 
         # Define and parse model
         model = benchmarks.create_model(args)
+        # Fail before building the abstraction if the solver backend does not support the specification
+        check_solver_support(model, args)
 
         if args.dense:
             logger.info('Using DensePartition (RL exploration skipped).')
@@ -175,13 +178,28 @@ if __name__ == '__main__':
 
     # %% Run dynamic programming to compute optimal policy
 
+    spec, horizon = get_spec(model)
+    values_s0 = None
     if args.load_checkpoint:
         V = ckpt['V']
         policy = ckpt['policy']
+        values_s0 = ckpt.get('values_s0')
         logger.info('Loaded synthesized values and policy; skipping policy synthesis.')
     else:
         logger.info('\n=== IMDP policy synthesis (solver=%s) ===', args.solver)
-        if args.solver == 'jax':
+        if horizon is not None:
+            # Backward induction (Storm is rejected for a finite horizon by check_solver_support)
+            t = time.time()
+            with jax.default_device(args.rvi_device):
+                V, policy, values_s0 = RVI_JAX_finite(
+                    args=args,
+                    imdp=imdp,
+                    s0=partition.x2state(model.x0)[0],
+                    horizon=horizon,
+                    spec=spec,
+                )
+            logger.info('Finite-horizon robust DP with JAX took %.3f sec.', (time.time() - t))
+        elif args.solver == 'jax':
             t = time.time()
             with jax.default_device(args.rvi_device):
                 V, policy = RVI_JAX(
@@ -203,20 +221,13 @@ if __name__ == '__main__':
             )
             logger.info('RVI with Storm took %.3f sec.', (time.time() - t))
 
-    # Extract policy
+    # Extract policy inputs (excluding the final IMDP state, which is absorbing and has no actions; one row
+    # per time step for a finite horizon)
     if not args.load_checkpoint:
-        float_dtype = getattr(args, "floatprecision", np.float32)
-        # Define concrete policy (but exclude final IMDP state, which is absorbing and has no actions)
-        actions_np = np.array(partition.regions['actions'])
-        # DensePartition stores (1, num_actions, action_dim); SparsePartition stores (num_states, ...).
-        if actions_np.shape[0] == 1:
-            actions_np = np.broadcast_to(actions_np, (imdp.nr_states - 1, *actions_np.shape[1:]))
-        policy_inputs = np.full((imdp.nr_states - 1, actions_np.shape[2]), fill_value=float('nan'), dtype=float_dtype)
-        mask = policy[:-1] >= 0
-        policy_inputs[mask] = actions_np[mask, policy[:-1][mask]]
+        policy_inputs = policy_to_inputs(partition, policy, getattr(args, "floatprecision", np.float32))
 
     s0 = partition.x2state(model.x0)[0]
-    logger.info('=== IMDP value in initial state s0=%s: %s ===', s0, V[s0])    
+    logger.info('=== IMDP value in initial state s0=%s: %s ===', s0, V[s0])
 
     # %% Simulations and plot
 
@@ -229,11 +240,14 @@ if __name__ == '__main__':
         sim_results = ckpt['sim_results']
         logger.info('Loaded simulation traces; skipping Monte Carlo simulations.')
     else:
-        sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=1000)
+        sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=1000,
+                            sim_horizon=1000 if horizon is None else horizon, spec=spec)
         sim_results = sim.results
         del sim
 
     logger.info('Empirical satisfaction probability: %s', sim_results['satprob'])
+    if values_s0 is not None:
+        save_values_per_step(args.output_dir, values_s0)
 
     # Save completed synthesis and validation before plotting, so plots can be regenerated
     # directly (and a plotting failure does not lose the expensive computation).
@@ -247,7 +261,7 @@ if __name__ == '__main__':
             pickle.dump({
                 'model': model, 'partition': partition, 'imdp': imdp,
                 'args': args_to_save, 'V': np.asarray(V), 'policy': np.asarray(policy),
-                'sim_results': sim_results,
+                'values_s0': values_s0, 'sim_results': sim_results,
             }, f, protocol=pickle.HIGHEST_PROTOCOL)
         logger.info('Checkpoint saved.\n')
 

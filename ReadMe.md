@@ -1,6 +1,6 @@
 # IMDP Synthesis
 
-This repository implements abstraction-based methods for robust policy synthesis in discrete-time stochastic dynamical systems. The goal is to compute a policy that maximizes the probability of reaching a goal set while avoiding unsafe (critical) regions, with a formal lower bound on that probability.
+This repository implements abstraction-based methods for robust policy synthesis in discrete-time stochastic dynamical systems. The goal is to compute a policy that maximizes the probability of satisfying a specification, with a formal lower bound on that probability. The default specification is reach-avoid: reach a goal set while avoiding unsafe (critical) regions. Finite-horizon reach-avoid and finite-horizon safety are also supported (see [Specifications](#specifications)).
 
 The continuous system is abstracted into a finite model, on which robust dynamic programming computes a policy and a lower bound on the satisfaction probability. Two abstractions are implemented, each with its own entrypoint:
 
@@ -72,7 +72,7 @@ Both entrypoints share the same pipeline and command-line options (see `core/opt
    - *`--dense`:* partition the full state space into a grid with every discrete action enabled (`DensePartition`). RL is skipped.
 3. **Forward reachability.** For every cell and action, compute the forward reachable set under each cell of the noise partition.
 4. **Abstraction.** Build the IMDP or the SVMDP (see below).
-5. **Synthesis.** Run robust value iteration or robust policy iteration (the default). With `--satprob p < 1`, synthesis stops as soon as the value in the initial state reaches `p`.
+5. **Synthesis.** Run robust value iteration or robust policy iteration (the default). With `--satprob p < 1`, synthesis stops as soon as the value in the initial state reaches `p`. For a finite horizon, run backward induction instead (see [Specifications](#specifications)).
 6. **Validation.** Simulate 1000 closed-loop Monte Carlo traces of the continuous system and report the empirical satisfaction probability.
 7. **Output.** Save logs and plots, plus a checkpoint if `--save_checkpoint` is set.
 
@@ -111,6 +111,39 @@ python Main_SVMDP.py --model Drone4D --algo ppo --satprob 0.99
 python Main_SVMDP.py --model MountainCar --dense
 ```
 
+# Specifications
+
+A benchmark sets its specification through two optional attributes (see `core/specification.py`):
+
+- `spec`: `'reach_avoid'` (the default) or `'safety'`.
+- `horizon`: the number of steps `N`, or `None` (the default) for an unbounded horizon. `--horizon N` overrides it.
+
+`N` counts transitions, so the states `x_0, ..., x_N` are all checked. Leaving the state space, and noise beyond the truncated noise support, always count as a failure.
+
+| `spec` | `horizon` | Satisfied if |
+| --- | --- | --- |
+| `reach_avoid` | `None` | the goal is reached at some time, without a critical state before. |
+| `reach_avoid` | `N` | the goal is reached within `N` steps, without a critical state before. |
+| `safety` | `N` | no critical state is visited at times `0, ..., N`. The state-space boundary acts as the safe set. |
+
+How a finite horizon is solved:
+
+- **Backward induction.** Every step reads only the values of the previous step, so after `k` steps the value is exactly the `k`-step value. Both paths have their own solver for this: `SVMDP_DP_finite` in `core/abstraction/svmdp/dynprog.py` and `RVI_JAX_finite` in `core/abstraction/imdp/rvi_jax.py`. The unbounded-horizon solvers update the values in place, which carries value over several steps within one sweep, so they cannot simply be stopped after `N` sweeps.
+- **Time-dependent policy.** The policy has one row per time step, of shape `[N, num_states]`. The Monte Carlo validation simulates exactly `N` steps.
+- **Options that do not apply.** `--policy_iteration`, `--sweep_order`, and `--satprob` are ignored.
+
+Restrictions:
+
+- **Safety needs a finite horizon.** With unbounded noise, the truncated noise tail counts as a failure at every step, so the bound tends to zero. Moreover, value iteration for safety converges from above, so its iterates are not lower bounds.
+- **Safety needs `--dense`.** The RL front-end only supports reach-avoid rewards, and a safety benchmark has no goal set.
+- **Storm.** The Storm backend (`--solver storm`) only supports unbounded reach-avoid, since a finite horizon needs a policy per time step. Other specifications fail before the abstraction is built.
+- **IMDP action pruning.** The IMDP path normally drops state-action pairs whose worst-case one-step failure probability exceeds 10%. Under a safety specification with a narrow safe set, this can remove every action, so pruning is disabled for safety.
+
+```bash
+python Main_SVMDP.py --model DoubleIntegrator --dense --horizon 10        # finite horizon on any reach-avoid benchmark
+python Main_IMDP.py --model DoubleIntegrator --dense --horizon 10         # the same on the IMDP path
+```
+
 # Available benchmarks
 
 | Name | State dim | Input dim | Description |
@@ -130,7 +163,7 @@ python Main_SVMDP.py --model MountainCar --dense
 | `Drone6D_battery` | 7 | 3 | Drone6D with a battery state. |
 | `Drone4D_2agent` | 8 | 4 | Two independent Drone4D agents. |
 
-Each benchmark defines its default partition, action grid, noise model, and RL settings (`rl_config`, an instance of `core.rl.config.RLConfig`). The RL options on the command line override the benchmark's `rl_config`.
+Each benchmark defines its default partition, action grid, noise model, specification, and RL settings (`rl_config`, an instance of `core.rl.config.RLConfig`). The RL options on the command line override the benchmark's `rl_config`.
 
 # Command-line options
 
@@ -148,6 +181,7 @@ Unless marked otherwise, options apply to both entrypoints. Run `python Main_SVM
 
 ## Synthesis
 
+- `--horizon N`: finite horizon of the specification; overrides the benchmark's `horizon` (see [Specifications](#specifications)).
 - `--policy_iteration` / `--no-policy_iteration`: robust policy iteration (default) or robust value iteration.
 - `--satprob`: stop synthesis once the value in the initial state reaches this bound (default `1`, i.e. run to convergence).
 - `--solver {jax,storm}`: *IMDP only.*
@@ -165,6 +199,7 @@ Unless marked otherwise, options apply to both entrypoints. Run `python Main_SVM
 ## Performance and memory tuning
 
 - `--frs_batch_size`: number of regions processed per batch when computing forward reachable sets.
+- `--dp_batch_size`: *SVMDP only.* Number of states per batch in the dynamic program (default `1000`). Per batch, it reads the values of every cell in each state-action pair's successor intervals, which is large for noisy benchmarks. Reduce it if the dynamic program runs out of memory, as `AutonomousVehicle3D` requires.
 - `--batch_size`: *IMDP only.* Number of states processed together when computing transition probability intervals. If you run into memory limits on the IMDP path, reduce this first. On larger benchmarks, values such as `1000`, `100`, or even smaller may be necessary.
 - `--gpu` / `--no-gpu`: select the main JAX platform.
 - `--gpu_rvi` / `--no-gpu_rvi`: select the device used for robust dynamic programming.
@@ -206,7 +241,8 @@ Depending on the entrypoint, benchmark, and options, that directory may contain:
 - `run_<timestamp>.log`: full log output.
 - `rl_policy.pkl`: the trained RL policy (sparse runs).
 - `rl_trajectories.{png,pdf}`: RL evaluation rollouts. With `--plot_SA_tube`, also `rl_trajectories_active_states.{png,pdf}`.
-- `summary.csv` (SVMDP only): RL, abstraction, and synthesis times; number of states, actions, and state-action pairs; optimal value in the initial state; empirical satisfaction probability.
+- `summary.csv` (SVMDP only): RL, abstraction, and synthesis times; number of states, actions, and state-action pairs; optimal value in the initial state; empirical satisfaction probability. The specification and horizon are in the log (`- Specification: ...`).
+- `values_per_step.csv` (finite horizon only): the value in the initial state with `k` steps remaining, for `k = 0, ..., N`.
 - `checkpoint.pkl` (with `--save_checkpoint`).
 - Heatmaps of the synthesized values, and trajectory plots of the Monte Carlo traces.
 - Benchmark-specific animations: GIFs for Pendulum, MountainCar, and CartPole. With SVMDP, also a trace plot and GIF for Drone4D_2agent.
@@ -233,6 +269,7 @@ The `ICLR_*.py` launchers run batches of `Main_SVMDP.py` with fixed arguments:
 - `Main_IMDP.py`, `Main_SVMDP.py`: entrypoints for the two abstraction paths.
 - `benchmarks/`: benchmark definitions (`models.py` holds the dynamics; `dynamics/` holds the noise distributions and interval arithmetic).
 - `core/options.py`: command-line options shared by both entrypoints.
+- `core/specification.py`: specification types and horizon, their validation, and the initial values of the finite-horizon dynamic programs.
 - `core/rl/`: RL front-end (PPO, SAC, environment wrapper, tube construction).
 - `core/abstraction/`: model parsing, partitions (`partition.py`), and the two abstractions:
   - `imdp/`: forward reachability, probability intervals, and the JAX and Storm solvers.
@@ -240,3 +277,13 @@ The `ICLR_*.py` launchers run batches of `Main_SVMDP.py` with fixed arguments:
 - `core/validate/`: Monte Carlo simulation.
 - `core/plotting/`: heatmaps, trajectory plots, and the PyVista Drone6D renderer.
 - `experiment_logs/`: stored experiment results.
+- `tests/`: tests of the finite-horizon solvers and the specification handling.
+
+# Tests
+
+`tests/test_specifications.py` compares both finite-horizon solvers against plain reference implementations of one Bellman step, on a small 2D model. The SVMDP reference enumerates every successor box and cell; the IMDP reference solves a linear program per state-action pair. The tests also check monotonicity in the horizon, convergence to the unbounded-horizon solvers, the Monte Carlo rates against the bounds, and the specification checks. They need `pytest`:
+
+```bash
+pip install pytest
+python -m pytest tests
+```

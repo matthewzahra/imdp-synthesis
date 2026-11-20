@@ -2,6 +2,7 @@ from functools import partial, reduce
 import logging
 
 from core.utils import create_batches
+from core.specification import get_spec, SAFETY
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -178,6 +179,14 @@ def compute_probability_intervals(args, model, partition, actions, vectorized=Tr
     '''
 
     logger.info('Compute probability intervals for all state-action pairs...')
+
+    # Pruning drops the state-action pairs whose worst-case probability of failing within one step exceeds the
+    # threshold in interval_distribution (sound: removing actions can only lower the bound). It reduces the size
+    # for reach-avoid, but under a safety specification with a narrow safe set it can remove every action, so it
+    # is disabled there.
+    prune_actions = get_spec(model)[0] != SAFETY
+    if not prune_actions:
+        logger.info('- Action pruning disabled (safety specification)')
     logger.info('- Size of the successor state slice to consider per dimension: %s', actions.max_slice)
 
     frs_lb = actions.frs_lb
@@ -236,6 +245,8 @@ def compute_probability_intervals(args, model, partition, actions, vectorized=Tr
             # Transfer outputs from device in one call to reduce synchronization overhead.
             # jax.device_get already returns numpy arrays, so np.asarray is not needed.
             p, s_id, p_abs, keep_actions, number_nonzero, missing_absorbing = jax.device_get((p, s_id, p_abs, keep_actions, number_nonzero, missing_absorbing))
+            if not prune_actions:
+                keep_actions = np.ones_like(keep_actions)
 
             if partition.rectangular:
                 assert np.all(missing_absorbing == 0), (
@@ -292,6 +303,8 @@ def compute_probability_intervals(args, model, partition, actions, vectorized=Tr
                                                                                 frs_ub[s].reshape(-1, model.n))
 
             p, s_id, p_abs, keep_actions, number_nonzero, missing_absorbing = jax.device_get((p, s_id, p_abs, keep_actions, number_nonzero, missing_absorbing))
+            if not prune_actions:
+                keep_actions = np.ones_like(keep_actions)
 
             if partition.rectangular:
                 assert np.all(missing_absorbing == 0), (

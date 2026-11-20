@@ -10,9 +10,142 @@ from typing import Optional, Tuple
 from jaxtyping import Array, UInt8, Bool, Float32, PyTree
 
 from core.abstraction.imdp.imdp import IMDP
+from core.specification import initial_values
 from core.utils import jit_compile_count
 
 logger = logging.getLogger(__name__)
+
+
+# Bellman kernels for interval MDPs, shared by RVI_JAX and RVI_JAX_finite
+
+def compute_lower_val(
+    prob_lb: Float32[Array, "nr_successors"], 
+    prob_ub: Float32[Array, "nr_successors"], 
+    successor_values: Float32[Array, "nr_successors"],
+    sort: UInt8[Array, "nr_successors"]
+) -> Float32:
+
+    """
+    Compute the robust value for a given action based on the probability intervals and successor values.
+
+    :param prob_lb: Lower bounds of transition probabilities for the successor states
+    :param prob_ub: Upper bounds of transition probabilities for the successor states
+    :param successor_values: Values of the successor states
+    :param sort: Precomputed argsort indices for successor values
+    :return: The robust value for the action
+    """
+    
+    # Budget is the total probability mass we can assign to the successors
+    budget = 1.0 - jnp.sum(prob_lb)
+    sorted_lb = prob_lb[sort]
+    sorted_ub = prob_ub[sort]
+    
+    # Vectorized computation of extra probabilities
+    extra_probs = jnp.minimum(sorted_ub - sorted_lb, budget)
+    cumsum = jnp.cumsum(extra_probs)
+    extra_probs = jnp.minimum(extra_probs, jnp.maximum(0.0, budget - cumsum + extra_probs))
+    
+    probs = sorted_lb + extra_probs
+    lower_val = probs @ successor_values[sort]
+    
+    # Clip the values to be within [0, 1], since they are probabilities
+    return jnp.clip(lower_val, 0.0, 1.0)
+
+vmap_compute_lower_val = jax.jit(jax.vmap(compute_lower_val, in_axes=(0, 0, 0, 0), out_axes=0))
+
+def state_policy_improvement(
+    successors_slice: UInt8[Array, "nr_actions nr_successors"],
+    prob_lb_slice: Float32[Array, "nr_actions nr_successors"],
+    prob_ub_slice: Float32[Array, "nr_actions nr_successors"],
+    V: Float32[Array, "nr_states"],
+    sort_indices: UInt8[Array, "nr_actions nr_successors"]
+) -> Tuple[Float32, UInt8]:
+
+    """
+    Perform policy improvement for a given state by computing the robust values for all actions.
+
+    :param successors_slice: Slice of successor states for all actions
+    :param prob_lb_slice: Slice of lower bounds of transition probabilities for all actions
+    :param prob_ub_slice: Slice of upper bounds of transition probabilities for all actions
+    :param V: Current value function
+    :param sort_indices: Precomputed argsort indices for successor values
+    :return: Tuple of (maximum robust value, index of the action with maximum robust value)
+    """
+
+    # Retrieve the values for the successor states, including absorbing state
+    successor_values = V[successors_slice]
+
+    # Compute lower value for all actions in parallel using JAX vectorization
+    lower_vals = vmap_compute_lower_val(prob_lb_slice, prob_ub_slice, successor_values, sort_indices)
+
+    return jnp.max(lower_vals), jnp.argmax(lower_vals)
+
+vmap_state_policy_improvement = jax.jit(jax.vmap(state_policy_improvement, in_axes=(0, 0, 0, None, 0), out_axes=(0, 0)))
+
+def state_policy_evaluation(
+    successors_slice: UInt8[Array, "nr_actions nr_successors"],
+    prob_lb_slice: Float32[Array, "nr_actions nr_successors"],
+    prob_ub_slice: Float32[Array, "nr_actions nr_successors"],
+    V: Float32[Array, "nr_states"],
+    sort_indices: UInt8[Array, "nr_successors"]
+) -> Float32:
+
+    """
+    Perform policy evaluation for a given state by computing the robust value for the action specified by the current policy.
+
+    :param successors_slice: Slice of successor states for the action specified by the current policy
+    :param prob_lb_slice: Slice of lower bounds of transition probabilities for the action specified by the current policy
+    :param prob_ub_slice: Slice of upper bounds of transition probabilities for the action specified by the current policy
+    :param V: Current value function
+    :param sort_indices: Precomputed argsort indices for successor values
+    :return: The robust value for the action specified by the current policy
+    """
+
+    # Retrieve the values for the successor states, including absorbing state
+    successor_values = V[successors_slice]
+
+    # Compute lower value for the action specified by the current policy
+    lower_val = compute_lower_val(prob_lb_slice, prob_ub_slice, successor_values, sort_indices)
+
+    return lower_val
+
+vmap_state_policy_evaluation = jax.jit(jax.vmap(state_policy_evaluation, in_axes=(0, 0, 0, None, 0), out_axes=(0)))
+
+
+def _padded_arrays(args: argparse.Namespace, imdp: IMDP):
+    """
+    Pad the successors and probability intervals of all state-action pairs into dense arrays.
+
+    The absorbing state is added as the last successor of every action. Padded entries have successor -1
+    (the absorbing state, last in V) and probability interval [0, 0].
+
+    :return: Tuple (successors, prob_lb, prob_ub, total_actions, max_actions, max_successors), where the
+        arrays have shape [nr_states - 1, max_actions, max_successors]
+    """
+    total_actions = np.array([len(imdp.A_id[s]) for s in imdp.states if s in imdp.A_id])
+    max_actions = np.max(total_actions) if len(total_actions) > 0 else 0
+    max_successors = max([imdp.S_id[s].shape[1] + 1 for s in imdp.states if s in imdp.S_id]) # +1 for absorbing state
+
+    # Filling the following arrays is faster with NumPy
+    full_successors_array = np.full((len(imdp.states), max_actions, max_successors), -1, dtype=np.int32)
+    full_prob_lb_array = np.zeros((len(imdp.states), max_actions, max_successors), dtype=args.floatprecision)
+    full_prob_ub_array = np.zeros((len(imdp.states), max_actions, max_successors), dtype=args.floatprecision)
+
+    for s in imdp.states:
+        if s not in imdp.A_id:
+            continue
+        # Fill in the dense array
+        successors = imdp.S_id[s]
+        num_actions, num_successors = successors.shape
+        full_successors_array[s, :num_actions, :num_successors] = successors
+        full_prob_lb_array[s, :num_actions, :num_successors] = imdp.P_full[s][:, :, 0]
+        full_prob_ub_array[s, :num_actions, :num_successors] = imdp.P_full[s][:, :, 1]
+        # Add the absorbing state as a successor in the final column (max_successors-1) for all actions
+        full_successors_array[s, :num_actions, max_successors-1] = imdp.absorbing_state
+        full_prob_lb_array[s, :num_actions, max_successors-1] = imdp.P_absorbing[s][:, 0]
+        full_prob_ub_array[s, :num_actions, max_successors-1] = imdp.P_absorbing[s][:, 1]
+
+    return full_successors_array, full_prob_lb_array, full_prob_ub_array, total_actions, max_actions, max_successors
 
 
 def RVI_JAX(
@@ -52,105 +185,9 @@ def RVI_JAX(
     satprob = args.satprob
 
     #####
-
-    def compute_lower_val(
-        prob_lb: Float32[Array, "nr_successors"], 
-        prob_ub: Float32[Array, "nr_successors"], 
-        successor_values: Float32[Array, "nr_successors"],
-        sort: UInt8[Array, "nr_successors"]
-    ) -> Float32:
-
-        """
-        Compute the robust value for a given action based on the probability intervals and successor values.
-
-        :param prob_lb: Lower bounds of transition probabilities for the successor states
-        :param prob_ub: Upper bounds of transition probabilities for the successor states
-        :param successor_values: Values of the successor states
-        :param sort: Precomputed argsort indices for successor values
-        :return: The robust value for the action
-        """
-        
-        # Budget is the total probability mass we can assign to the successors
-        budget = 1.0 - jnp.sum(prob_lb)
-        sorted_lb = prob_lb[sort]
-        sorted_ub = prob_ub[sort]
-        
-        # Vectorized computation of extra probabilities
-        extra_probs = jnp.minimum(sorted_ub - sorted_lb, budget)
-        cumsum = jnp.cumsum(extra_probs)
-        extra_probs = jnp.minimum(extra_probs, jnp.maximum(0.0, budget - cumsum + extra_probs))
-        
-        probs = sorted_lb + extra_probs
-        lower_val = probs @ successor_values[sort]
-        
-        # Clip the values to be within [0, 1], since they are probabilities
-        return jnp.clip(lower_val, 0.0, 1.0)
-
-    vmap_compute_lower_val = jax.jit(jax.vmap(compute_lower_val, in_axes=(0, 0, 0, 0), out_axes=0))
-
-    def state_policy_improvement(
-        successors_slice: UInt8[Array, "nr_actions nr_successors"],
-        prob_lb_slice: Float32[Array, "nr_actions nr_successors"],
-        prob_ub_slice: Float32[Array, "nr_actions nr_successors"],
-        V: Float32[Array, "nr_states"],
-        sort_indices: UInt8[Array, "nr_actions nr_successors"]
-    ) -> Tuple[Float32, UInt8]:
-
-        """
-        Perform policy improvement for a given state by computing the robust values for all actions.
-
-        :param successors_slice: Slice of successor states for all actions
-        :param prob_lb_slice: Slice of lower bounds of transition probabilities for all actions
-        :param prob_ub_slice: Slice of upper bounds of transition probabilities for all actions
-        :param V: Current value function
-        :param sort_indices: Precomputed argsort indices for successor values
-        :return: Tuple of (maximum robust value, index of the action with maximum robust value)
-        """
-
-        # Retrieve the values for the successor states, including absorbing state
-        successor_values = V[successors_slice]
-
-        # Compute lower value for all actions in parallel using JAX vectorization
-        lower_vals = vmap_compute_lower_val(prob_lb_slice, prob_ub_slice, successor_values, sort_indices)
-
-        return jnp.max(lower_vals), jnp.argmax(lower_vals)
-
-    vmap_state_policy_improvement = jax.jit(jax.vmap(state_policy_improvement, in_axes=(0, 0, 0, None, 0), out_axes=(0, 0)))
-
-    def state_policy_evaluation(
-        successors_slice: UInt8[Array, "nr_actions nr_successors"],
-        prob_lb_slice: Float32[Array, "nr_actions nr_successors"],
-        prob_ub_slice: Float32[Array, "nr_actions nr_successors"],
-        V: Float32[Array, "nr_states"],
-        sort_indices: UInt8[Array, "nr_successors"]
-    ) -> Float32:
-
-        """
-        Perform policy evaluation for a given state by computing the robust value for the action specified by the current policy.
-
-        :param successors_slice: Slice of successor states for the action specified by the current policy
-        :param prob_lb_slice: Slice of lower bounds of transition probabilities for the action specified by the current policy
-        :param prob_ub_slice: Slice of upper bounds of transition probabilities for the action specified by the current policy
-        :param V: Current value function
-        :param sort_indices: Precomputed argsort indices for successor values
-        :return: The robust value for the action specified by the current policy
-        """
-
-        # Retrieve the values for the successor states, including absorbing state
-        successor_values = V[successors_slice]
-
-        # Compute lower value for the action specified by the current policy
-        lower_val = compute_lower_val(prob_lb_slice, prob_ub_slice, successor_values, sort_indices)
-
-        return lower_val
-
-    vmap_state_policy_evaluation = jax.jit(jax.vmap(state_policy_evaluation, in_axes=(0, 0, 0, None, 0), out_axes=(0)))
-
-    #####
     # Padding the probability intervals and successor values for JAX vectorization
-    total_actions = np.array([len(imdp.A_id[s]) for s in imdp.states if s in imdp.A_id])
-    max_actions = np.max(total_actions) if len(total_actions) > 0 else 0
-    max_successors = max([imdp.S_id[s].shape[1] + 1 for s in imdp.states if s in imdp.S_id]) # +1 for absorbing state
+    full_successors_array, full_prob_lb_array, full_prob_ub_array, total_actions, max_actions, max_successors = \
+        _padded_arrays(args, imdp)
 
     if policy_iteration:
         logger.info('=== Run robust policy iteration ===')
@@ -161,25 +198,6 @@ def RVI_JAX(
     logger.info('- Total number of choices: %d (total number of state-action pairs)', np.sum(total_actions))
     logger.info('- Max number of actions per state: %d', max_actions)
     logger.info('- Max number of successor states per action: %d', max_successors)
-
-    # Filling the following arrays is faster with NumPy
-    full_successors_array = np.full((len(imdp.states), max_actions, max_successors), -1, dtype=np.int32)
-    full_prob_lb_array = np.zeros((len(imdp.states), max_actions, max_successors), dtype=args.floatprecision)
-    full_prob_ub_array = np.zeros((len(imdp.states), max_actions, max_successors), dtype=args.floatprecision)
-
-    for s in imdp.states:
-        if s not in imdp.A_id:
-            continue
-        # Fill in the dense array
-        successors = imdp.S_id[s]
-        num_actions, num_successors = successors.shape
-        full_successors_array[s, :num_actions, :num_successors] = successors
-        full_prob_lb_array[s, :num_actions, :num_successors] = imdp.P_full[s][:, :, 0]
-        full_prob_ub_array[s, :num_actions, :num_successors] = imdp.P_full[s][:, :, 1]
-        # Add the absorbing state as a successor in the final column (max_successors-1) for all actions
-        full_successors_array[s, :num_actions, max_successors-1] = imdp.absorbing_state
-        full_prob_lb_array[s, :num_actions, max_successors-1] = imdp.P_absorbing[s][:, 0]
-        full_prob_ub_array[s, :num_actions, max_successors-1] = imdp.P_absorbing[s][:, 1]
 
     logger.info('- Padding and array construction done')
 
@@ -353,3 +371,97 @@ def RVI_JAX(
         policy_labels[s] = imdp.A_id[s][int(policy[s])] if policy[s] != -1 and s in imdp.A_id else -1
 
     return V, policy_labels
+
+
+def RVI_JAX_finite(
+    args: argparse.Namespace,
+    imdp: IMDP,
+    s0: int,
+    horizon: int,
+    spec: str,
+    BATCH_SIZE: int = 10000,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Robust dynamic programming over a finite horizon (backward induction) for interval MDPs.
+
+    Step k computes the values with k steps remaining, V_k, from V_{k-1}. Every step reads V_{k-1} only, so
+    V_k is exactly the k-step value; the in-place sweeps of RVI_JAX would instead carry value over several
+    steps within one sweep. Goal states (reach-avoid) keep value 1, critical states and the absorbing state
+    value 0; V_0 is given by core.specification.initial_values. States without enabled actions cannot
+    continue, so they are worth 0 as soon as a step remains.
+
+    :param args: Argument namespace
+    :param imdp: Instance of IMDP class
+    :param s0: Initial state, whose value is tracked over the steps
+    :param horizon: Number of steps N
+    :param spec: 'reach_avoid' or 'safety'
+    :param BATCH_SIZE: Batch size for state updates
+    :return: Tuple (values, policy_labels, values_s0):
+        - values: V_N for every state (the absorbing state, last, is 0), shape [nr_states]
+        - policy_labels: policy_labels[t, s] is the action ID chosen at time t = 0, ..., N-1 in state s, or
+          -1 for states that are not updated, shape [N, nr_states]
+        - values_s0: V_k(s0) for k = 0, ..., N, shape [N + 1]
+    """
+
+    start_time = time.time()
+
+    successors, prob_lb, prob_ub, total_actions, max_actions, max_successors = _padded_arrays(args, imdp)
+
+    logger.info('=== Run finite-horizon robust dynamic programming (spec=%s, horizon=%d) ===', spec, horizon)
+    logger.info('- Number of states: %d', len(imdp.states))
+    logger.info('- Total number of choices: %d (total number of state-action pairs)', np.sum(total_actions))
+    logger.info('- Max number of actions per state: %d', max_actions)
+    logger.info('- Max number of successor states per action: %d', max_successors)
+
+    has_actions = np.array([s in imdp.A_id and len(imdp.A_id[s]) > 0 for s in imdp.states], dtype=bool)
+    V0_states, fixed = initial_values(imdp.goal_regions, imdp.critical_regions, spec)
+    states_to_update = imdp.states[~fixed & has_actions]
+    states_without_actions = imdp.states[~fixed & ~has_actions]
+    logger.info('- States to update per step: %d (fixed: %d; without enabled actions: %d)',
+                len(states_to_update), int(np.sum(fixed)), len(states_without_actions))
+
+    # Values with zero steps remaining; the absorbing state (last) is 0
+    V_prev = np.zeros(imdp.nr_states, dtype=args.floatprecision)
+    V_prev[:-1] = V0_states
+
+    policy = np.full((horizon, imdp.nr_states), -1, dtype=np.int32)
+    state_batches = [states_to_update[i:i + BATCH_SIZE] for i in range(0, len(states_to_update), BATCH_SIZE)]
+
+    logger.info(f'- IMDP defined (took {time.time() - start_time:.3f}s); start robust dynamic programming...')
+
+    values_s0 = [float(V_prev[s0])]
+    for k in tqdm(range(1, horizon + 1), desc='Step', unit='step', dynamic_ncols=True, leave=True):
+        V_next = V_prev.copy()
+        V_next[states_without_actions] = 0.0
+
+        for state_batch in state_batches:
+            batch_successors = successors[state_batch]
+            sort_indices = np.argsort(V_prev[batch_successors], axis=-1)
+            V_batch, policy_batch = vmap_state_policy_improvement(
+                                        jax.device_put(batch_successors, args.rvi_device),
+                                        jax.device_put(prob_lb[state_batch], args.rvi_device),
+                                        jax.device_put(prob_ub[state_batch], args.rvi_device),
+                                        V_prev,
+                                        sort_indices)
+            V_batch, policy_batch = jax.device_get((V_batch, policy_batch))
+            V_next[state_batch] = np.asarray(V_batch, dtype=args.floatprecision)
+            # The actions maximizing V_k are taken at time t = N - k
+            policy[horizon - k, state_batch] = np.asarray(policy_batch, dtype=np.int32)
+
+        V_prev = V_next
+        values_s0.append(float(V_prev[s0]))
+        logger.debug('- Step %d/%d: V_%d(s0) = %.6f', k, horizon, k, values_s0[-1])
+
+    # Map the action indices (per state) to the global action IDs
+    action_ids = np.full((len(imdp.states), max(int(max_actions), 1)), -1, dtype=np.int64)
+    for s in imdp.states:
+        if s in imdp.A_id:
+            action_ids[s, :len(imdp.A_id[s])] = imdp.A_id[s]
+    policy_labels = np.full_like(policy, fill_value=-1)
+    t_idx, s_idx = np.nonzero(policy >= 0)
+    policy_labels[t_idx, s_idx] = action_ids[s_idx, policy[t_idx, s_idx]]
+
+    logger.info('- V_k(s0) for k = 0..%d: %s', horizon, np.array2string(np.array(values_s0), precision=4))
+    logger.info(f'- Policy synthesis finished (took {time.time() - start_time:.3f}s)\n')
+
+    return V_prev, policy_labels, np.array(values_s0)

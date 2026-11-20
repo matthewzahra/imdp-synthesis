@@ -38,6 +38,7 @@ def _fit_grid_budget(default_counts, budget):
 
 def create_model(args):
 	from core.abstraction.model import parse_linear_model, parse_nonlinear_model
+	from core.specification import resolve_specification
 
 	model_map = {
 		'Dubins3D': Dubins3D,
@@ -82,6 +83,8 @@ def create_model(args):
 		base_model.partition['number_per_dim'] = np.array(
 			_fit_grid_budget(state_counts, states_budget), dtype=int
 		)
+
+	resolve_specification(base_model, args)
 
 	if base_model.linear:
 		return parse_linear_model(base_model)

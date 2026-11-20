@@ -14,11 +14,12 @@ import benchmarks
 from core.abstraction.svmdp.forward_reachability import RectangularForward
 from core.abstraction.svmdp.successor_ids import TiledGrid
 from core.abstraction.svmdp.svmdp import SVMDP
-from core.abstraction.svmdp.dynprog import SVMDP_DP
+from core.abstraction.svmdp.dynprog import SVMDP_DP, SVMDP_DP_finite
 from core.options import parse_arguments
 from core.abstraction.partition import DensePartition, SparsePartition
 from core.jax_config import configure_jax
-from core.utils import configure_logging, add_file_handler
+from core.specification import get_spec
+from core.utils import configure_logging, add_file_handler, policy_to_inputs, save_values_per_step
 from core.rl import find_active
 
 if __name__ == '__main__':
@@ -139,46 +140,53 @@ if __name__ == '__main__':
         out_dict['abstraction_actions'] = len(svmdp.A_id)
         out_dict['abstraction_state-actions'] = len(svmdp.states) * len(svmdp.A_id)
 
-    # %% Run value iteration on the SVMDP
+    # %% Run dynamic programming on the SVMDP
 
+    spec, horizon = get_spec(model)
     if args.load_checkpoint:
         V = ckpt['V']
         policy = ckpt['policy']
+        values_s0 = ckpt.get('values_s0')
         logger.info('Loaded synthesized values and policy; skipping policy synthesis.')
     else:
         logger.info('=== SVMDP policy synthesis ===')
         t = time.time()
         with jax.default_device(args.rvi_device):
-            V, policy = SVMDP_DP(
-                args=args,
-                svmdp=svmdp,
-                s0=partition.x2state(model.x0)[0],
-                max_iterations=10000,
-                epsilon=1e-6,
-                sweep_priority=sweep_priority,
-                policy_iteration=args.policy_iteration,
-            )
+            if horizon is None:
+                V, policy = SVMDP_DP(
+                    args=args,
+                    svmdp=svmdp,
+                    s0=partition.x2state(model.x0)[0],
+                    max_iterations=10000,
+                    epsilon=1e-6,
+                    sweep_priority=sweep_priority,
+                    BATCH_SIZE=args.dp_batch_size,
+                    policy_iteration=args.policy_iteration,
+                )
+                values_s0 = None
+            else:
+                # Backward induction; policy iteration, the sweep order and --satprob do not apply
+                V, policy, values_s0 = SVMDP_DP_finite(
+                    args=args,
+                    svmdp=svmdp,
+                    s0=partition.x2state(model.x0)[0],
+                    horizon=horizon,
+                    spec=spec,
+                    BATCH_SIZE=args.dp_batch_size,
+                )
 
         out_dict['time_synthesis'] = time.time() - t
         logger.info('<<< SVMDP policy synthesis done (took %.3f sec.) >>>\n', out_dict['time_synthesis'])
 
     s0 = partition.x2state(model.x0)[0]
     out_dict['optimal_value'] = float(V[s0])
+    # The format of this line is parsed by the table scripts in experiment_logs*/
     logger.info('Value in initial state s0=%d: %.6f\n', s0, V[s0])
 
-    # %% Extract policy inputs
+    # %% Extract policy inputs (one row per time step for a finite horizon)
 
     if not args.load_checkpoint:
-        float_dtype = getattr(args, 'floatprecision', np.float32)
-        actions_np = np.array(partition.regions['actions'])
-        # DensePartition stores (1, num_actions, action_dim); broadcast to all states.
-        if actions_np.shape[0] == 1:
-            actions_np = np.broadcast_to(actions_np, (svmdp.nr_states - 1, *actions_np.shape[1:]))
-        policy_inputs = np.full(
-            (svmdp.nr_states - 1, actions_np.shape[2]), fill_value=float('nan'), dtype=float_dtype
-        )
-        mask = policy[:-1] >= 0
-        policy_inputs[mask] = actions_np[mask, policy[:-1][mask]]
+        policy_inputs = policy_to_inputs(partition, policy, getattr(args, 'floatprecision', np.float32))
 
     # %% Simulations and plots
 
@@ -194,7 +202,8 @@ if __name__ == '__main__':
         sim_results = {'satprob': None, 'traces': {}}
         logger.info('Skipping Monte Carlo simulations (--no-mc_simulations).')
     else:
-        sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=1000)
+        sim = MonteCarloSim(model, partition, policy, policy_inputs, model.x0, verbose=False, iterations=1000,
+                            sim_horizon=1000 if horizon is None else horizon, spec=spec)
         sim_results = sim.results
         del sim
 
@@ -214,7 +223,7 @@ if __name__ == '__main__':
             pickle.dump({
                 'model': model, 'partition': partition, 'svmdp': svmdp,
                 'args': args_to_save, 'V': np.asarray(V), 'policy': np.asarray(policy),
-                'sim_results': sim_results, 'out_dict': out_dict,
+                'values_s0': values_s0, 'sim_results': sim_results, 'out_dict': out_dict,
             }, f, protocol=pickle.HIGHEST_PROTOCOL)
         logger.info('Checkpoint saved.\n')
 
@@ -225,6 +234,8 @@ if __name__ == '__main__':
         writer.writerow(['metric', 'value'])
         writer.writerows(out_dict.items())
     logger.info('Run summary saved to %s', csv_path)
+    if values_s0 is not None:
+        save_values_per_step(args.output_dir, values_s0)
 
     heatmap(
         args, stamp, idx_show=model.plot_dimensions,

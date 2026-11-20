@@ -42,6 +42,10 @@ def parse_arguments(argv=None):
                         help="Minimum probability for absorbing states")
     parser.add_argument('--satprob', type=float, default=1,
                         help="Lower bound on the satisfaction probability to synthesize a policy for (if <1, then the policy synthesis is terminated once the bound is met).")
+    parser.add_argument('--horizon', type=_positive_int, default=None,
+                        help="Finite horizon (number of steps) of the specification. Overrides the benchmark's "
+                             "`horizon`; if neither is set, the horizon is unbounded. Safety specifications "
+                             "require a finite horizon.")
 
     parser.add_argument('--dense', action=argparse.BooleanOptionalAction, default=False,
                         help="If True, use dense partitioning without the need of RL exploration.")
@@ -77,6 +81,10 @@ def parse_arguments(argv=None):
                         help="Should be one of 'fori_loop', 'vmap', 'python'")
     parser.add_argument('--batch_size', type=_positive_int, default=100,
                         help="For computing the transition probability intervals, the number of states to process in a vectorized fashion (Warning: increasing this too much drastically increases memory usage for JIT compilation by JAX!)")
+    parser.add_argument('--dp_batch_size', type=_positive_int, default=1000,
+                        help="SVMDP only: number of states per batch in the dynamic program. Lower it if the dynamic "
+                             "program runs out of memory: per batch, it reads the values of every cell in the union of "
+                             "each state-action pair's successor intervals.")
     parser.add_argument('--frs_batch_size', type=_positive_int, default=1000,
                         help="Number of state regions to process per batch when computing forward reachable sets. Larger values reduce Python-JAX round trips but increase peak memory usage.")
     parser.add_argument('--shrink_frs', type=float, default=0.0001,

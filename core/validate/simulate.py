@@ -8,9 +8,14 @@ logger = logging.getLogger(__name__)
 class MonteCarloSim():
     '''
     Class to run Monte Carlo simulations on the discrete-time stochastic system closed under a fixed Markov policy.
+
+    A run of a reach-avoid specification succeeds if it reaches the goal within sim_horizon steps, without a
+    critical or absorbing state before. A run of a safety specification succeeds if it completes sim_horizon
+    steps without a critical or absorbing state. A policy of shape [N, nr_states] is time-dependent (finite
+    horizon); one of shape [nr_states] is stationary.
     '''
 
-    def __init__(self, model, partition, policy, policy_inputs, x0, iterations=1000, sim_horizon=1000, random_initial_state=False, verbose=True, **kwargs):
+    def __init__(self, model, partition, policy, policy_inputs, x0, iterations=1000, sim_horizon=1000, random_initial_state=False, verbose=True, spec='reach_avoid', **kwargs):
 
         logger.info('=== Start Monte Carlo simulations ===')
 
@@ -22,11 +27,17 @@ class MonteCarloSim():
         self.policy = policy
         self.policy_inputs = policy_inputs
         self.horizon = sim_horizon
+        self.spec = spec
         self.iterations = iterations
         self.random_initial_state = random_initial_state
 
         # Predefine noise to speed up computations
         self.define_noise_values()
+
+        # Goal and critical membership per state ID, as NumPy masks for O(1) lookups at every step.
+        # (goal['idxs'] and critical['idxs'] are Python lists; `s in list` scans the whole list each step.)
+        self.is_goal = np.asarray(partition.goal['bools'], dtype=bool)
+        self.is_critical = np.asarray(partition.critical['bools'], dtype=bool)
 
         self.results = {
             'satprob': -1,
@@ -62,7 +73,7 @@ class MonteCarloSim():
         :param m: Simulation number.
         :return:
             - trace: Dictionary containing the state and input at each time step.
-            - success: Boolean indicating whether goal was reached.
+            - success: Boolean indicating whether the specification was satisfied.
         '''
 
         # Initialize variables at start of iteration
@@ -112,7 +123,7 @@ class MonteCarloSim():
                 return trace, success
 
             # If current region is the goal state ...
-            if s[k] in self.partition.goal['idxs']:
+            if self.is_goal[s[k]]:
                 # Then abort the current iteration, as we have achieved the goal
                 success = True
                 if self.verbose:
@@ -120,14 +131,16 @@ class MonteCarloSim():
                 return trace, success
 
             # If current region is in critical states...
-            elif s[k] in self.partition.critical['idxs']:
+            elif self.is_critical[s[k]]:
                 # Then abort current iteration
                 if self.verbose or True:
                     logger.info('- Critical state reached, so abort')
                 return trace, success
 
-            # Check if we can still perform another action within the horizon
+            # Check if we can still perform another action within the horizon. A safety specification is
+            # satisfied once the horizon is completed without reaching a critical or absorbing state.
             elif k >= self.horizon:
+                success = self.spec == 'safety'
                 return trace, success
 
             # Retreive the action from the policy.
