@@ -53,15 +53,23 @@ def interval_distribution(i_lb, mean_lb, mean_ub, *,
     # Grid indices of those cells in each dimension.
     prob_idx = [jnp.arange(max_slice[i]) + i_lb[i] for i in range(n)]
 
-    # Spatial bounding box of the slice (first/last cell boundary per dimension).
-    slice_lb = jnp.stack([xl[0]  for xl in x_lb])
-    slice_ub = jnp.stack([xu[-1] for xu in x_ub])
+    # Spatial bounding box of the slice (first/last cell boundary per dimension). dynslice wraps around the grid,
+    # which is intended for wrapped dimensions. In the other dimensions, the cells of the slice beyond the grid are
+    # no successors (they are filtered out in step 3), and the box must not be taken from them: that inverts the
+    # box, which makes prob_in_slice 0 and the absorbing probability 1. There, the box is the slice's part within
+    # the grid; a slice entirely beyond the grid contains no successors.
+    slice_end = i_lb + jnp.asarray(max_slice) - 1
+    slice_first = jnp.clip(i_lb, 0, number_per_dim - 1)
+    slice_last = jnp.clip(slice_end, 0, number_per_dim - 1)
+    slice_lb = jnp.stack([jnp.where(wrap_array[i], x_lb[i][0], per_dim_lb[i][slice_first[i]]) for i in range(n)])
+    slice_ub = jnp.stack([jnp.where(wrap_array[i], x_ub[i][-1], per_dim_ub[i][slice_last[i]]) for i in range(n)])
+    slice_in_grid = jnp.all(wrap_array | ((i_lb <= number_per_dim - 1) & (slice_end >= 0)))
 
     # Switch explicitly on noise type to avoid silently accepting unsupported distributions.
     noise_type = noise['type']
     if noise_type in ('Gaussian', 'Triangular'):
         _, prob_low, prob_high = noise.prob_minmax_per_dim(n, wrap, x_lb, x_ub, mean_lb, mean_ub, state_space_ub - state_space_lb)
-        prob_in_slice = noise.prob_minmax(slice_lb, slice_ub, mean_lb, mean_ub, wrap_array)
+        prob_in_slice = noise.prob_minmax(slice_lb, slice_ub, mean_lb, mean_ub, wrap_array) * slice_in_grid
     else:
         raise ValueError(f'Unsupported noise type: {noise_type}. Expected Gaussian or Triangular.')
 
