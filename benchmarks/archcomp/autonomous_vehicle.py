@@ -37,16 +37,12 @@ from core.rl.config import RLConfig
 
 class _AutonomousVehicle3D:
     def __init__(self, args, number_per_dim, num_actions, noise_cells):
-        self.linear = False
-        self.independent_state_dims = None
-        self.independent_input_dims = None
         self.n, self.p = 3, 2
         self.tau = 1
         self.Ts = 0.1
         self.state_variables = ['x', 'y', 'angle']
         self.wrap = jnp.array([False, False, False])
         self.plot_dimensions = [0, 1]
-        self.lump = 1
 
         if args.noise_distr != 'gaussian':
             raise ValueError(f'{type(self).__name__} defines Gaussian noise; --noise_distr {args.noise_distr} is not supported.')

@@ -42,7 +42,6 @@ class IntegratorChain2D(AffineDynamics):
         AffineDynamics.__init__(self, args, A=A, B=B, q=[0, 0], noise_var=[0.01, 0.01], noise_cells=[31, 31],
                                 state_variables=['x1', 'x2'])
         self.plot_dimensions = [0, 1]
-        self.lump = 1
 
         self.uMin, self.uMax, self.num_actions = [-1.0], [1.0], [5]
         set_grid(self, [[-10, -10], [10, 10]], [40, 40])
@@ -71,7 +70,6 @@ class IntegratorChain3D(AffineDynamics):
         AffineDynamics.__init__(self, args, A=A, B=B, q=[0, 0, 0], noise_var=[0.01, 0.01, 0.01],
                                 noise_cells=[9, 9, 9], state_variables=['x1', 'x2', 'x3'])
         self.plot_dimensions = [0, 1]
-        self.lump = 1
 
         self.uMin, self.uMax, self.num_actions = [-1.0], [1.0], [5]
         set_grid(self, [[-10, -10, -10], [10, 10, 10]], [80, 80, 40])
@@ -100,7 +98,6 @@ class IntegratorChain3D_safety(AffineDynamics):
         AffineDynamics.__init__(self, args, A=A, B=B, q=B_u[:, 0], noise_var=[0.01, 0.01, 0.01],
                                 noise_cells=[9, 9, 9], state_variables=['x1', 'x2', 'x3'])
         self.plot_dimensions = [0, 1]
-        self.lump = 1
 
         set_grid(self, [[-10.1, -10.1, -10.1], [10.1, 10.1, 10.1]], [41, 41, 41])
         self.goal = boxes()

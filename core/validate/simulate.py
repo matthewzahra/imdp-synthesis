@@ -73,14 +73,7 @@ class MonteCarloSim():
         Predefine the noise values to speed up computations.
         '''
 
-        if hasattr(self.model.noise, 'sample'):
-            self.noise = self.model.noise.sample(size=(self.iterations, self.horizon))
-            return
-
-        # Gaussian noise mode
-        self.noise = np.random.multivariate_normal(
-            self.model.noise['mean'], self.model.noise['cov'],
-            (self.iterations, self.horizon))
+        self.noise = self.model.noise.sample(size=(self.iterations, self.horizon))
 
     def initial_states(self, x0):
         '''

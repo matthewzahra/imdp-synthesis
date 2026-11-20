@@ -1,13 +1,8 @@
-from functools import partial
 from benchmarks.models import DroneDynamics_2agent
-import jax
-import jax.numpy as jnp
 import numpy as np
-import scipy
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from matplotlib.patches import Rectangle
-from benchmarks.dynamics import setmath
 from core.plotting.utils import save_fig
 from core.rl.config import RLConfig
 
@@ -27,10 +22,6 @@ class Drone4D_2agent(DroneDynamics_2agent):
 
         self.plot_dimensions = [0, 2]
 
-        # Set value of delta (how many time steps are grouped together)
-        # Used to make the model fully actuated
-        self.lump = 1
-
         self.set_spec()
 
     def set_spec(self):
@@ -39,7 +30,6 @@ class Drone4D_2agent(DroneDynamics_2agent):
         '''
 
         self.partition = {}
-        self.targets = {}
 
         # Authority limit for the control u, both positive and negative
         self.uMin = [-1, -1, -1, -1]
@@ -51,7 +41,6 @@ class Drone4D_2agent(DroneDynamics_2agent):
 
         self.partition['boundary'] = np.array([[-2.5, v_min, -2.5, v_min, -2.5, v_min, -2.5, v_min],
                                                [2.5, v_max, 2.5, v_max, 2.5, v_max, 2.5, v_max]])
-        self.partition['boundary_jnp'] = jnp.array(self.partition['boundary'])
         self.partition['number_per_dim'] = np.array([20, 8, 20, 8, 20, 8, 20, 8])
 
         self.goal = np.array([

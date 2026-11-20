@@ -8,7 +8,6 @@ small 2D model with a goal and an obstacle. Run from the repository root with: p
 
 import itertools
 
-import jax.numpy as jnp
 import numpy as np
 import pytest
 from scipy.optimize import linprog
@@ -34,9 +33,7 @@ class SmallModel(AffineDynamics):
                                 A=[[1, 0.5], [0, 0.9]], B=[[0.125], [0.5]], q=[0, 0],
                                 noise_var=[0.05, 0.05], noise_cells=[15, 15])
         self.plot_dimensions = [0, 1]
-        self.lump = 1
         self.partition = {'boundary': np.array([[-4.0, -2.0], [4.0, 2.0]]), 'number_per_dim': np.array([8, 6])}
-        self.partition['boundary_jnp'] = jnp.array(self.partition['boundary'])
         self.uMin, self.uMax, self.num_actions = [-1.0], [1.0], [3]
         self.goal = np.array([[[2.0, -2.0], [4.0, 2.0]]]) if spec == REACH_AVOID else np.array([], dtype=float)
         self.critical = np.array([[[-1.0, -2.0], [0.0, -0.5]]])

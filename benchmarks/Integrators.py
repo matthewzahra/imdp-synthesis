@@ -1,4 +1,3 @@
-import jax.numpy as jnp
 import numpy as np
 from benchmarks.models import AffineDynamics
 from core.rl.config import RLConfig
@@ -22,10 +21,6 @@ class DoubleIntegrator(AffineDynamics):
 
         self.plot_dimensions = [0, 1]
 
-        # Set value of delta (how many time steps are grouped together)
-        # Used to make the model fully actuated
-        self.lump = 1
-
         self.set_spec()
 
     def set_spec(self):
@@ -34,7 +29,6 @@ class DoubleIntegrator(AffineDynamics):
         '''
         
         self.partition = {}
-        self.targets = {}
 
         # Authority limit for the control u, both positive and negative
         self.uMin = [-5]
@@ -42,7 +36,6 @@ class DoubleIntegrator(AffineDynamics):
         self.num_actions = [21]
 
         self.partition['boundary'] = np.array([[-21, -10.5], [21, 10.5]])
-        self.partition['boundary_jnp'] = jnp.array(self.partition['boundary'])
         self.partition['number_per_dim'] = np.array([21, 21])
 
         self.goal = np.array([

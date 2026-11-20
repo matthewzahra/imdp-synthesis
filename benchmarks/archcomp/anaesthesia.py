@@ -46,7 +46,6 @@ class Anaesthesia_safety(AffineDynamics):
         AffineDynamics.__init__(self, args, A=AS_A, B=AS_B, q=[0, 0, 0], noise_var=AS_NOISE_VAR,
                                 noise_cells=[5, 5, 5], state_variables=AS_STATE_VARIABLES)
         self.plot_dimensions = [1, 2]
-        self.lump = 1
 
         self.uMin, self.uMax, self.num_actions = [0.0], [7.0], [3]
         set_grid(self, AS_SAFE_SET, [12, 100, 100])
@@ -71,7 +70,6 @@ class Anaesthesia_reach(AffineDynamics):
         AffineDynamics.__init__(self, args, A=AS_A, B=B, q=[0, 0, 0], noise_var=AS_NOISE_VAR,
                                 noise_cells=[5, 5, 5], state_variables=AS_STATE_VARIABLES)
         self.plot_dimensions = [0, 1]
-        self.lump = 1
 
         self.uMin, self.uMax, self.num_actions = [0.0, 0.0], [7.0, 30.0], [8, 2]
         set_grid(self, AS_SAFE_SET, [20, 100, 100])
@@ -96,7 +94,6 @@ class Anaesthesia_verification(AffineDynamics):
         AffineDynamics.__init__(self, args, A=AS_A, B=B, q=[0, 0, 0], noise_var=AS_NOISE_VAR,
                                 noise_cells=[5, 5, 5], state_variables=AS_STATE_VARIABLES)
         self.plot_dimensions = [1, 2]
-        self.lump = 1
 
         set_grid(self, AS_SAFE_SET, [20, 100, 100])
         self.goal = boxes()

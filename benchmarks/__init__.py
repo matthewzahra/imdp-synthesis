@@ -38,7 +38,7 @@ def _fit_grid_budget(default_counts, budget):
 
 
 def create_model(args):
-	from core.abstraction.model import parse_linear_model, parse_nonlinear_model
+	from core.abstraction.model import parse_nonlinear_model
 	from core.specification import resolve_specification
 
 	model_map = {
@@ -88,6 +88,4 @@ def create_model(args):
 
 	resolve_specification(base_model, args)
 
-	if base_model.linear:
-		return parse_linear_model(base_model)
 	return parse_nonlinear_model(base_model)

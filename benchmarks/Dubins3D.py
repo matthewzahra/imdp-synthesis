@@ -1,16 +1,8 @@
-from functools import partial
 
 from benchmarks.models import DubinsDynamics3D
-import jax
-import jax.numpy as jnp
 import numpy as np
 
-from benchmarks.dynamics import setmath
 from core.rl.config import RLConfig
-
-
-def wrap_theta(theta):
-    return (theta + np.pi) % (2 * np.pi) - np.pi
 
 
 class Dubins3D(DubinsDynamics3D):
@@ -23,10 +15,6 @@ class Dubins3D(DubinsDynamics3D):
         
         self.plot_dimensions = [0, 1]
 
-        # Set value of delta (how many time steps are grouped together)
-        # Used to make the model fully actuated
-        self.lump = 1
-
         self.set_spec()
 
     def set_spec(self):
@@ -35,7 +23,6 @@ class Dubins3D(DubinsDynamics3D):
         '''
 
         self.partition = {}
-        self.targets = {}
 
         # Authority limit for the control u, both positive and negative
         self.uMin = [-0.5, -0.5]
@@ -43,7 +30,6 @@ class Dubins3D(DubinsDynamics3D):
         self.num_actions = [5, 5]
 
         self.partition['boundary'] = np.array([[-10, -10, -np.pi], [10, 10, np.pi]])
-        self.partition['boundary_jnp'] = jnp.array(self.partition['boundary'])
         self.partition['number_per_dim'] = np.array([100, 100, 100])
 
         self.goal = np.array([

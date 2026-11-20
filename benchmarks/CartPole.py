@@ -1,9 +1,5 @@
-from functools import partial
 from benchmarks.models import CartPoleDynamics
-import jax
-import jax.numpy as jnp
 import numpy as np
-from benchmarks.dynamics import setmath
 from matplotlib import animation
 from core.rl.config import RLConfig
 
@@ -19,10 +15,6 @@ class CartPole(CartPoleDynamics):
         # Plot the cart position against the pole angle
         self.plot_dimensions = [0, 2]
 
-        # Set value of delta (how many time steps are grouped together)
-        # Used to make the model fully actuated
-        self.lump = 1
-
         self.set_spec()
 
     def set_spec(self):
@@ -31,7 +23,6 @@ class CartPole(CartPoleDynamics):
         '''
 
         self.partition = {}
-        self.targets = {}
 
         # Authority limit for the control u (force on the cart), both positive and negative
         self.uMin = [-10]
@@ -40,7 +31,6 @@ class CartPole(CartPoleDynamics):
 
         self.partition['boundary'] = np.array([[-2.4, -3.0, -0.25, -3.0],
                                                [2.4, 3.0, 0.25, 3.0]])
-        self.partition['boundary_jnp'] = jnp.array(self.partition['boundary'])
         self.partition['number_per_dim'] = np.array([200, 200, 200, 200])
 
         # Goal: balance the pole upright, close to the center of the track

@@ -1,4 +1,3 @@
-import jax.numpy as jnp
 import numpy as np
 from benchmarks.CartPole import CartPole
 from core.rl.config import RLConfig
@@ -16,7 +15,6 @@ class CartPole_hard(CartPole):
         '''
 
         self.partition = {}
-        self.targets = {}
 
         # Authority limit for the control u (force on the cart), both positive and negative
         self.uMin = [-10]
@@ -27,7 +25,6 @@ class CartPole_hard(CartPole):
         # is wider than for CartPole.
         self.partition['boundary'] = np.array([[-2.4, -3.0, -0.5, -3.0],
                                                [2.4, 3.0, 0.5, 3.0]])
-        self.partition['boundary_jnp'] = jnp.array(self.partition['boundary'])
         self.partition['number_per_dim'] = np.array([200, 200, 400, 200])
 
         # Obstacles hanging from the ceiling, as (x_min, x_max, bottom), where [x_min, x_max] is the

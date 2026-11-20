@@ -27,15 +27,11 @@ from core.rl.config import RLConfig
 
 class _PatrolRobot:
     def __init__(self, args, number_per_dim, num_actions, noise_cells):
-        self.linear = False
-        self.independent_state_dims = None
-        self.independent_input_dims = None
         self.n, self.p = 2, 2
         self.tau = 1
         self.state_variables = ['x', 'y']
         self.wrap = jnp.array([False, False])
         self.plot_dimensions = [0, 1]
-        self.lump = 1
         self.step_size = 10.0
 
         if args.noise_distr != 'gaussian':

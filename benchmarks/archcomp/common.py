@@ -12,8 +12,6 @@ def set_grid(model, boundary, number_per_dim):
         'boundary': np.array(boundary, dtype=float),
         'number_per_dim': np.array(number_per_dim, dtype=int),
     }
-    model.partition['boundary_jnp'] = jnp.array(model.partition['boundary'])
-    model.targets = {}
 
 
 def stack(*values):

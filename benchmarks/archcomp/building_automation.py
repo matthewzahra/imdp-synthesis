@@ -37,7 +37,6 @@ class _BuildingAutomation4D(AffineDynamics):
         AffineDynamics.__init__(self, args, A=CS1_A, B=CS1_B, q=CS1_Q, noise_var=CS1_NOISE_VAR,
                                 noise_cells=noise_cells, state_variables=['T_zone1', 'T_zone2', 'T_rad1', 'T_rad2'])
         self.plot_dimensions = [0, 1]
-        self.lump = 1
 
         self.uMin, self.uMax, self.num_actions = [u_bounds[0]], [u_bounds[1]], [num_actions]
         set_grid(self, boundary, number_per_dim)

@@ -1,9 +1,5 @@
-from functools import partial
 from benchmarks.models import PendulumDynamics
-import jax
-import jax.numpy as jnp
 import numpy as np
-from benchmarks.dynamics import setmath
 from matplotlib import animation
 from core.rl.config import RLConfig
 
@@ -18,10 +14,6 @@ class Pendulum(PendulumDynamics):
 
         self.plot_dimensions = [0, 1]
 
-        # Set value of delta (how many time steps are grouped together)
-        # Used to make the model fully actuated
-        self.lump = 1
-
         self.set_spec()
 
     def set_spec(self):
@@ -30,7 +22,6 @@ class Pendulum(PendulumDynamics):
         '''
 
         self.partition = {}
-        self.targets = {}
 
         # Authority limit for the control u, both positive and negative
         self.uMin = [-2]
@@ -38,7 +29,6 @@ class Pendulum(PendulumDynamics):
         self.num_actions = [11]
 
         self.partition['boundary'] = np.array([[-np.pi, -8], [np.pi, 8]])
-        self.partition['boundary_jnp'] = jnp.array(self.partition['boundary'])
         self.partition['number_per_dim'] = np.array([300, 300])
 
         self.goal = np.array([

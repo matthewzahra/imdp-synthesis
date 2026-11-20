@@ -22,9 +22,6 @@ def wrap_theta(theta):
 
 class DubinsDynamics3D:
     def __init__(self, args):
-        self.linear = False
-        self.independent_state_dims = None
-        self.independent_input_dims = None
 
         # Discretization step size
         self.tau = 1
@@ -74,8 +71,8 @@ class DubinsDynamics3D:
         y_next = jnp.array([y_min, y_max]) + self.tau * jnp.concat(setmath.mult([u2_min, u2_max], setmath.sin(theta_min, theta_max)))
         theta_next = jnp.array([theta_min, theta_max]) + self.tau * jnp.concat(setmath.mult([self.alpha_min, self.alpha_max], [u1_min, u1_max]))
 
-        state_next = jnp.vstack((x_next,  # jnp.clip(x_next, self.partition['boundary_jnp'][0][0] + 1e-3, self.partition['boundary_jnp'][1][0] - 1e-3),
-                                 y_next,  # jnp.clip(y_next, self.partition['boundary_jnp'][0][1] + 1e-3, self.partition['boundary_jnp'][1][1] - 1e-3),
+        state_next = jnp.vstack((x_next,
+                                 y_next,
                                  theta_next))
 
         state_next_min = jnp.min(state_next, axis=1)
@@ -85,9 +82,6 @@ class DubinsDynamics3D:
 
 class DubinsDynamics4D:
     def __init__(self, args):
-        self.linear = False
-        self.independent_state_dims = None
-        self.independent_input_dims = None
 
         # Discretization step size
         self.tau = 1
@@ -187,10 +181,6 @@ class DroneDynamics:
         if dim not in [2,3]:
             raise ValueError(f"DroneDynamics only supports dim in [2, 3], got {dim}")
 
-        self.linear = False
-        self.independent_state_dims = [[0,1],[2,3]] if dim == 2 else [[0,1],[2,3],[4,5]]
-        self.independent_input_dims = [[0],[1]] if dim == 2 else [[0],[1],[2]]
-
         if dim == 2:
             self.n = 4
             self.p = 2
@@ -222,8 +212,6 @@ class DroneDynamics:
             self.A  = scipy.linalg.block_diag(Ablock, Ablock)
             self.B  = scipy.linalg.block_diag(Bblock, Bblock)
 
-            # Disturbance matrix
-            self.Q  = np.array([[0],[0],[0],[0]])
 
             # Covariance of the process noise
             if args.noise_distr == 'gaussian':
@@ -243,8 +231,6 @@ class DroneDynamics:
             self.A  = scipy.linalg.block_diag(Ablock, Ablock, Ablock)
             self.B  = scipy.linalg.block_diag(Bblock, Bblock, Bblock)
 
-            # Disturbance matrix
-            self.Q  = np.array([[0],[0],[0],[0], [0], [0]])
 
             # Covariance of the process noise
             if args.noise_distr == 'gaussian':
@@ -298,8 +284,6 @@ class DroneDynamics_2agent(DroneDynamics):
         single_agent_p = self.p
         single_agent_state_variables = self.state_variables
         single_agent_wrap = self.wrap
-        single_agent_state_dims = self.independent_state_dims
-        single_agent_input_dims = self.independent_input_dims
         single_agent_A = self.A
         single_agent_B = self.B
 
@@ -312,28 +296,14 @@ class DroneDynamics_2agent(DroneDynamics):
         ]
         self.wrap = jnp.tile(single_agent_wrap, 2)
 
-        self.independent_state_dims = [
-            [index + agent * single_agent_n for index in dimensions]
-            for agent in range(2)
-            for dimensions in single_agent_state_dims
-        ]
-        self.independent_input_dims = [
-            [index + agent * single_agent_p for index in dimensions]
-            for agent in range(2)
-            for dimensions in single_agent_input_dims
-        ]
 
         self.A = scipy.linalg.block_diag(single_agent_A, single_agent_A)
         self.B = scipy.linalg.block_diag(single_agent_B, single_agent_B)
-        self.Q = np.zeros((self.n, 1))
 
         # The two agents are also subject to independent, identically distributed
         # process noise.  Repeating the per-agent parameters creates a diagonal
         # joint distribution without introducing cross-agent correlations.
         if args.noise_distr == 'gaussian':
-            cov = np.tile(np.asarray(self.noise['cov_diag']), 2)
-            num_cells = ([1, 1, 1, 1] if dim == 2 else [5, 1, 5, 1, 5, 1]) * 2
-            
             cov = np.array([0.05, 0, 0, 0,
                             0, 0, 0.05, 0])**2
             num_cells = ([5, 1, 1, 1,
@@ -351,9 +321,6 @@ class DroneDynamics_battery:
         if dim not in [2,3]:
             raise ValueError(f"DroneDynamics only supports dim in [2, 3], got {dim}")
 
-        self.linear = False
-        self.independent_state_dims = None # No independent dimensions due to battery dynamics
-        self.independent_input_dims = None
 
         if dim == 2:
             self.n = 5
@@ -389,8 +356,6 @@ class DroneDynamics_battery:
             self.B  = np.zeros((5, 2))
             self.B[:4, :2] = scipy.linalg.block_diag(Bblock, Bblock)
 
-            # Disturbance matrix
-            self.Q  = np.array([[0],[0],[0],[0],[0]])
 
             # Covariance of the process noise
             if args.noise_distr == 'gaussian':
@@ -411,8 +376,6 @@ class DroneDynamics_battery:
             self.B  = np.zeros((7, 3))
             self.B[:6, :3] = scipy.linalg.block_diag(Bblock, Bblock, Bblock)
 
-            # Disturbance matrix
-            self.Q  = np.array([[0],[0],[0],[0],[0],[0],[0]])
 
             # Covariance of the process noise
             if args.noise_distr == 'gaussian':
@@ -491,9 +454,6 @@ class DroneDynamics_battery:
 
 class PendulumDynamics:
     def __init__(self, args):
-        self.linear = False
-        self.independent_state_dims = None
-        self.independent_input_dims = None
 
         self.n = 2
         self.p = 1
@@ -555,9 +515,6 @@ class PendulumDynamics:
     
 class MountainCarDynamics:
     def __init__(self, args):
-        self.linear = False
-        self.independent_state_dims = None
-        self.independent_input_dims = None
 
         self.n = 2
         self.p = 1
@@ -636,9 +593,6 @@ class CartPoleDynamics:
         - Original environment has a discrete action space (left/right), while this model uses a continuous action space (force).
         '''
         
-        self.linear = False
-        self.independent_state_dims = None
-        self.independent_input_dims = None
 
         self.n = 4
         self.p = 1
@@ -770,9 +724,6 @@ class AffineDynamics:
             no wrapping
         '''
         # Parsed as a nonlinear model: step_set bounds the image of a box directly
-        self.linear = False
-        self.independent_state_dims = None
-        self.independent_input_dims = None
 
         self.A = np.asarray(A, dtype=float)
         self.B = np.asarray(B, dtype=float)

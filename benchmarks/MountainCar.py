@@ -1,9 +1,5 @@
-from functools import partial
 from benchmarks.models import MountainCarDynamics
-import jax
-import jax.numpy as jnp
 import numpy as np
-from benchmarks.dynamics import setmath
 from matplotlib import animation
 import numpy as onp
 from matplotlib.patches import Polygon, Circle
@@ -22,10 +18,6 @@ class MountainCar(MountainCarDynamics):
 
         self.plot_dimensions = [0, 1]
 
-        # Set value of delta (how many time steps are grouped together)
-        # Used to make the model fully actuated
-        self.lump = 1
-
         self.set_spec()
 
     def set_spec(self):
@@ -34,7 +26,6 @@ class MountainCar(MountainCarDynamics):
         '''
 
         self.partition = {}
-        self.targets = {}
         
         # Authority limit for the control u, both positive and negative
         self.uMin = [-1]
@@ -42,7 +33,6 @@ class MountainCar(MountainCarDynamics):
         self.num_actions = [3]
 
         self.partition['boundary'] = np.array([[-1.2, -0.07], [0.6, 0.07]])
-        self.partition['boundary_jnp'] = jnp.array(self.partition['boundary'])
         self.partition['number_per_dim'] = np.array([180, 280])
 
         self.goal = np.array([

@@ -1,10 +1,5 @@
-from functools import partial
 from benchmarks.models import DroneDynamics, DroneDynamics_battery
-import jax
-import jax.numpy as jnp
 import numpy as np
-import scipy 
-from benchmarks.dynamics import setmath
 from core.rl.config import RLConfig
 
 
@@ -18,10 +13,6 @@ class Drone6D(DroneDynamics):
 
         self.plot_dimensions = [0, 2]
 
-        # Set value of delta (how many time steps are grouped together)
-        # Used to make the model fully actuated
-        self.lump = 1
-
         self.set_spec()
 
     def set_spec(self):
@@ -30,7 +21,6 @@ class Drone6D(DroneDynamics):
         '''
 
         self.partition = {}
-        self.targets = {}
 
         # Authority limit for the control u, both positive and negative
         self.uMin = [-1, -1, -1]
@@ -42,7 +32,6 @@ class Drone6D(DroneDynamics):
 
         self.partition['boundary'] = np.array([[-17, v_min, -9, v_min, -7, v_min], 
                                                [17, v_max, 9, v_max, 7, v_max]])
-        self.partition['boundary_jnp'] = jnp.array(self.partition['boundary'])
         self.partition['number_per_dim'] = np.array([68, 8, 36, 8, 28, 8])
 
         self.goal = np.array([
@@ -106,10 +95,6 @@ class Drone6D_small(DroneDynamics):
 
         self.plot_dimensions = [0, 2]
 
-        # Set value of delta (how many time steps are grouped together)
-        # Used to make the model fully actuated
-        self.lump = 1
-
         self.set_spec()
 
     def set_spec(self):
@@ -118,7 +103,6 @@ class Drone6D_small(DroneDynamics):
         '''
 
         self.partition = {}
-        self.targets = {}
 
         # Authority limit for the control u, both positive and negative
         self.uMin = [-1, -1, -1]
@@ -129,7 +113,6 @@ class Drone6D_small(DroneDynamics):
         v_max = self.v_max
 
         self.partition['boundary'] = np.array([[-7, v_min, -7, v_min, -7, v_min], [7, v_max, 7, v_max, 7, v_max]])
-        self.partition['boundary_jnp'] = jnp.array(self.partition['boundary'])
         self.partition['number_per_dim'] = np.array([28, 10, 28, 10, 28, 10])
 
         self.goal = np.array([
@@ -172,10 +155,6 @@ class Drone6D_battery(DroneDynamics_battery):
 
         self.plot_dimensions = [0, 2]
 
-        # Set value of delta (how many time steps are grouped together)
-        # Used to make the model fully actuated
-        self.lump = 1
-
         self.set_spec()
 
     def set_spec(self):
@@ -184,7 +163,6 @@ class Drone6D_battery(DroneDynamics_battery):
         '''
 
         self.partition = {}
-        self.targets = {}
 
         # Authority limit for the control u, both positive and negative
         self.uMin = [-1, -1, -1]
@@ -199,7 +177,6 @@ class Drone6D_battery(DroneDynamics_battery):
         # Same layout as Drone6D (bounds, obstacles, goal, and initial state), plus the battery dimension
         self.partition['boundary'] = np.array([[-17, v_min, -9, v_min, -7, v_min, 0],
                                                [17, v_max, 9, v_max, 7, v_max, self.max_charge]])
-        self.partition['boundary_jnp'] = jnp.array(self.partition['boundary'])
         self.partition['number_per_dim'] = np.array([68, 8, 36, 8, 28, 8, 20])
 
         self.goal = np.array([
