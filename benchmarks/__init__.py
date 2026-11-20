@@ -13,6 +13,7 @@ from .MountainCar import MountainCar
 from .CartPole import CartPole
 from .CartPole_hard import CartPole_hard
 from .Integrators import DoubleIntegrator
+from .archcomp import ARCHCOMP_BENCHMARKS
 from .Test1D import Test1D
 
 
@@ -55,6 +56,7 @@ def create_model(args):
 		'CartPole_hard': CartPole_hard,
 		'DoubleIntegrator': DoubleIntegrator,
 		'Test1D': Test1D,
+		**ARCHCOMP_BENCHMARKS,
 	}
 
 	model_cls = model_map.get(args.model)
