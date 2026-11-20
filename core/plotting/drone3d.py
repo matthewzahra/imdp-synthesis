@@ -165,8 +165,9 @@ def _scene(partition, model, idx_show, traces, num_traces):
     high = np.asarray(partition.boundary_ub, dtype=float)[dims]
     boxes = []
     for name, color, opacity in REGION_STYLES:
+        # The worker receives the regions as [lower, upper] arrays (see plot_drone_3d_pyvista)
         for box in getattr(model, name, []):
-            boxes.append((np.array([box.lower, box.upper])[:, dims], color, opacity))
+            boxes.append((np.asarray(box, dtype=float)[:, dims], color, opacity))
     paths = []
     for i, trace in enumerate(islice(traces.values(), max(0, num_traces))):
         states = np.asarray(trace['x'], dtype=float)
