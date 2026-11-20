@@ -107,7 +107,7 @@ Differences from the IMDP path:
 - It writes a `summary.csv` with timings, abstraction size, the optimal value, and the empirical satisfaction probability.
 
 ```bash
-python Main_SVMDP.py --model Drone4D --algo ppo --satprob 0.99
+python Main_SVMDP.py --model Quadcopter2D --algo ppo --satprob 0.99
 python Main_SVMDP.py --model MountainCar --dense
 ```
 
@@ -156,21 +156,21 @@ python Main_IMDP.py --model DoubleIntegrator --dense --horizon 10         # the 
 | `Dubins4D` | 4 | 2 | Dubins vehicle with velocity state. |
 | `CartPole` | 4 | 1 | Cart-pole balancing. |
 | `CartPole_hard` | 4 | 1 | CartPole with an obstacle hanging above the middle of the track, so the pole must tilt to pass underneath. |
-| `Drone4D` | 4 | 2 | Drone with 2D position and velocity. |
-| `Drone4D_battery` | 5 | 2 | Drone4D with a battery state. |
-| `Drone6D` | 6 | 3 | Drone with 3D position and velocity. |
-| `Drone6D_small` | 6 | 3 | Reduced Drone6D configuration for faster debugging. |
-| `Drone6D_battery` | 7 | 3 | Drone6D with a battery state. |
-| `Drone4D_2agent` | 8 | 4 | Two independent Drone4D agents. |
+| `Quadcopter2D` | 4 | 2 | Quadcopter with 2D position and velocity. |
+| `Quadcopter2D_battery` | 5 | 2 | Quadcopter2D with a battery state. |
+| `Quadcopter3D` | 6 | 3 | Quadcopter with 3D position and velocity. |
+| `Quadcopter3D_small` | 6 | 3 | Reduced Quadcopter3D configuration for faster debugging. |
+| `Quadcopter3D_battery` | 7 | 3 | Quadcopter3D with a battery state. |
+| `Quadcopter2D_2agent` | 8 | 4 | Two independent Quadcopter2D agents. |
 
 ## Defining a benchmark
 
-A benchmark class combines dynamics and a specification. The dynamics classes in `benchmarks/models.py` subclass `Benchmark` (`benchmarks/base.py`) and define the state variables, the noise (with `set_noise`), `step(x, u, w)`, and `step_set(x_min, x_max, u_min, u_max)`, which bounds the noise-free successors of a box of states and inputs. The benchmark then specifies its sets as boxes (`core.box.Box`), for example:
+Each system has one module in `benchmarks/` (for example `quadcopter.py`) with its dynamics and its benchmarks. The dynamics class subclasses `Benchmark` (`benchmarks/base.py`) and defines the state variables, the noise (with `set_noise`), `step(x, u, w)`, and `successor_bounds(x_min, x_max, u_min, u_max)`, which bounds the noise-free successors of a box of states and inputs (the base class clips the inputs to the input space and compiles it with JAX). States that saturate at a bound of the state space use `saturate`, which keeps them strictly inside the grid. Each benchmark then specifies its sets as boxes (`core.box.Box`), for example:
 
 ```python
-class Drone4D(DroneDynamics):
+class Quadcopter2D(QuadcopterDynamics):
     def __init__(self, args):
-        DroneDynamics.__init__(self, args, dim=2)
+        QuadcopterDynamics.__init__(self, args, dim=2)
         self.plot_dimensions = [0, 2]
 
         self.state_space = Box([-20, -2, -20, -2], [20, 2, 20, 2], names=self.state_variables)
@@ -187,7 +187,7 @@ class Drone4D(DroneDynamics):
 - **State space.** Leaving it counts as a failure; under a safety specification, it is the safe set.
 - **Goal and critical sets.** The partition takes as goal the cells fully contained in a goal box, and as critical the cells that overlap a critical box.
 - **Optional attributes.** `spec` and `horizon` (see [Specifications](#specifications)), `wrapped` (the names of state dimensions that wrap around, such as angles), and `rl_config` (an instance of `core.rl.config.RLConfig`; the RL options on the command line override it). A benchmark can also override `plot_simulation` to add plots of the simulated traces, such as an animation.
-- **Registration and checks.** Add the class to `create_model` in `benchmarks/__init__.py`. `create_model` checks the finished benchmark: the dimensions of its boxes and grids, and that `x0` lies in the state space.
+- **Registration and checks.** Add the class to `BENCHMARKS` in `benchmarks/__init__.py`. `create_model` checks the finished benchmark: the dimensions of its boxes and grids, and that `x0` lies in the state space.
 
 # Command-line options
 
@@ -197,7 +197,7 @@ Unless marked otherwise, options apply to both entrypoints. Run `python Main_SVM
 
 - `--model`: benchmark name (see above).
 - `--noise_distr {gaussian,normal,triangular}`: noise model. `normal` is an alias of `gaussian`.
-- `--damping`: velocity damping for the drone benchmarks.
+- `--damping`: velocity damping for the quadcopter benchmarks.
 - `--model_version`: model variant (only used by some benchmarks).
 - `--dense`: use a dense partition and skip RL.
 - `--fix_num_states`, `--fix_num_actions`, `--fix_num_choices`: rescale the benchmark's state or action grid to approximately fit a budget. These require `--dense`.
@@ -269,11 +269,11 @@ Depending on the entrypoint, benchmark, and options, that directory may contain:
 - `values_per_step.csv` (finite horizon only): the value in the initial state with `k` steps remaining, for `k = 0, ..., N`.
 - `checkpoint.pkl` (with `--save_checkpoint`).
 - Heatmaps of the synthesized values, and trajectory plots of the Monte Carlo traces.
-- Benchmark-specific animations: GIFs for Pendulum, MountainCar, and CartPole. With SVMDP, also a trace plot and GIF for Drone4D_2agent.
+- Benchmark-specific animations: GIFs for Pendulum, MountainCar, and CartPole. With SVMDP, also a trace plot and GIF for Quadcopter2D_2agent.
 
-## Drone6D 3D rendering
+## Quadcopter3D 3D rendering
 
-Drone6D runs (including its variants) also export `traces_3d_pyvista_<timestamp>.png`, alongside a Matplotlib 3D plot (PNG/PDF) as a backup. The PyVista renderer lives in `core/plotting/drone3d.py`. It uses a view at 60° elevation and 25° azimuth, with orthographic framing fitted to the domain. The surface tiles are decorative, with a spacing of up to two world units, and do not represent abstraction cells. Paths use a shape-preserving cubic spline through the simulation samples.
+Quadcopter3D runs (including its variants) also export `traces_3D_pyvista_<timestamp>.png`, alongside a Matplotlib 3D plot (PNG/PDF) as a backup. The PyVista renderer lives in `core/plotting/quadcopter3D.py`. It uses a view at 60° elevation and 25° azimuth, with orthographic framing fitted to the domain. The surface tiles are decorative, with a spacing of up to two world units, and do not represent abstraction cells. Paths use a shape-preserving cubic spline through the simulation samples.
 
 Rendering runs in a separate process, so a native OpenGL crash does not interrupt the benchmark. Failures are logged, and the Matplotlib backup remains available.
 
@@ -283,7 +283,7 @@ The `ICLR_*.py` launchers run batches of `Main_SVMDP.py` with fixed arguments:
 
 - `ICLR_Q1.py`: main benchmark runs. Edit `RUN_BENCHMARKS`, `ALGOS`, `SEEDS`, and `RUN_DENSE` at the top of the file to choose what to run.
 - `ICLR_Q1-fixed-buget.py`: dense baselines under fixed choice budgets (`--dense --fix_num_choices ...`).
-- `ICLR_Q2_a.py`, `ICLR_Q2_b.py`: sweeps over `--inflation_rate` and `--RL_actions_per_state` for Dubins3D and Drone4D.
+- `ICLR_Q2_a.py`, `ICLR_Q2_b.py`: sweeps over `--inflation_rate` and `--RL_actions_per_state` for Dubins3D and Quadcopter2D.
 - `ICLR_figures.py`: runs that produce the paper figures.
 
 `experiment_logs/experiment_fixed_budget/` contains the summaries from the fixed-budget experiment and `create_table.py`, which turns them into a LaTeX table.
@@ -291,7 +291,7 @@ The `ICLR_*.py` launchers run batches of `Main_SVMDP.py` with fixed arguments:
 # Repository structure
 
 - `Main_IMDP.py`, `Main_SVMDP.py`: entrypoints for the two abstraction paths.
-- `benchmarks/`: benchmark definitions (`base.py` holds the `Benchmark` base class, `models.py` the dynamics, and `dynamics/` the noise distributions and interval arithmetic).
+- `benchmarks/`: one module per system with its dynamics and benchmarks (`affine.py`, `cartpole.py`, `dubins.py`, `mountain_car.py`, `pendulum.py`, `quadcopter.py`, and the ARCH-COMP benchmarks in `archcomp/`); `base.py` holds the `Benchmark` base class, and `dynamics/` the noise distributions and interval arithmetic.
 - `core/box.py`: the `Box` class for state spaces, input spaces, and regions.
 - `core/options.py`: command-line options shared by both entrypoints.
 - `core/specification.py`: specification types and horizon, their validation, and the initial values of the finite-horizon dynamic programs.
@@ -300,7 +300,7 @@ The `ICLR_*.py` launchers run batches of `Main_SVMDP.py` with fixed arguments:
   - `imdp/`: forward reachability, probability intervals, and the JAX and Storm solvers.
   - `svmdp/`: forward reachability, the tiled value grid, and the dynamic programming solver.
 - `core/validate/`: Monte Carlo simulation.
-- `core/plotting/`: heatmaps, trajectory plots, and the PyVista Drone6D renderer.
+- `core/plotting/`: heatmaps, trajectory plots, and the PyVista Quadcopter3D renderer.
 - `experiment_logs/`: stored experiment results.
 - `tests/`: tests of the finite-horizon solvers and the specification handling.
 

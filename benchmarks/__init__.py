@@ -1,20 +1,22 @@
-# Load the benchmarks from the subfiles
+# One module per system, holding its dynamics and its benchmarks
 from math import prod
 
 import numpy as np
 
-from .Dubins3D import Dubins3D
-from .Dubins4D import Dubins4D
-from .Drone4D import Drone4D, Drone4D_battery
-from .Drone4D_2agent import Drone4D_2agent
-from .Drone6D import Drone6D, Drone6D_small, Drone6D_battery
-from .Pendulum import Pendulum
-from .MountainCar import MountainCar
-from .CartPole import CartPole
-from .CartPole_hard import CartPole_hard
-from .Integrators import DoubleIntegrator
+from .affine import DoubleIntegrator, Test1D
 from .archcomp import ARCHCOMP_BENCHMARKS
-from .Test1D import Test1D
+from .cartpole import CartPole, CartPole_hard
+from .quadcopter import Quadcopter2D, Quadcopter2D_2agent, Quadcopter2D_battery, Quadcopter3D, Quadcopter3D_battery, Quadcopter3D_small
+from .dubins import Dubins3D, Dubins4D
+from .mountain_car import MountainCar
+from .pendulum import Pendulum
+
+# The benchmarks by name (the --model option)
+BENCHMARKS = {cls.__name__: cls for cls in (
+    Test1D, DoubleIntegrator, Pendulum, MountainCar, Dubins3D, Dubins4D, CartPole, CartPole_hard,
+    Quadcopter2D, Quadcopter2D_battery, Quadcopter2D_2agent, Quadcopter3D, Quadcopter3D_small, Quadcopter3D_battery,
+)}
+BENCHMARKS.update(ARCHCOMP_BENCHMARKS)
 
 
 def _fit_grid_budget(default_counts, budget):
@@ -40,25 +42,7 @@ def _fit_grid_budget(default_counts, budget):
 def create_model(args):
 	from core.specification import resolve_specification
 
-	model_map = {
-		'Dubins3D': Dubins3D,
-		'Dubins4D': Dubins4D,
-		'Drone4D': Drone4D,
-		'Drone4D_battery': Drone4D_battery,
-		'Drone4D_2agent': Drone4D_2agent,
-		'Drone6D': Drone6D,
-		'Drone6D_small': Drone6D_small,
-		'Drone6D_battery': Drone6D_battery,
-		'Pendulum': Pendulum,
-		'MountainCar': MountainCar,
-		'CartPole': CartPole,
-		'CartPole_hard': CartPole_hard,
-		'DoubleIntegrator': DoubleIntegrator,
-		'Test1D': Test1D,
-		**ARCHCOMP_BENCHMARKS,
-	}
-
-	model_cls = model_map.get(args.model)
+	model_cls = BENCHMARKS.get(args.model)
 	if model_cls is None:
 		raise ValueError(f"The passed model '{args.model}' could not be found")
 

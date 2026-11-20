@@ -21,6 +21,6 @@ optax==0.2.8
 # Tests (tests/).
 pytest==9.2.0
 
-# Drone6D 3D rendering.
+# Quadcopter3D 3D rendering.
 pyvista==0.46.5
 vtk==9.4.2

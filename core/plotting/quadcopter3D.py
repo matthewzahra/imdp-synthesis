@@ -1,5 +1,5 @@
 """
-Depth-tested Drone6D plots using PyVista/VTK.
+Depth-tested Quadcopter3D plots using PyVista/VTK.
 """
 
 from itertools import islice
@@ -26,7 +26,7 @@ MARKER_COLOR = (0,0,0)
 REGION_STYLES = [('critical', (0.85, 0.02, 0.02), 1.0),
                  ('goal', (0.05, 0.85, 0.02), 1.0),
                  ('charging_station', (1.0, 0.78, 0.1), 0.35)]
-DRONE_COLOR = (0.1, 0.25, 0.7)
+QUAD_COLOR = (0.1, 0.25, 0.7)
 # Battery gauge fill at 0%, 50%, and 100% charge.
 BATTERY_COLORS = [(0.85, 0.1, 0.1), (1.0, 0.6, 0.0), (0.1, 0.7, 0.1)]
 ANIMATION_FPS = 30
@@ -46,7 +46,7 @@ def _pyvista_worker(args, stamp, idx_show, partition, model, traces, num_traces,
     A failed animation is reported but keeps exit code 0: the PNG is saved.
     """
     try:
-        plot_traces_3d_pyvista(args, stamp, idx_show, partition, model, traces,
+        plot_traces_3D_pyvista(args, stamp, idx_show, partition, model, traces,
                                num_traces=num_traces)
     except BaseException:
         traceback.print_exc()
@@ -54,7 +54,7 @@ def _pyvista_worker(args, stamp, idx_show, partition, model, traces, num_traces,
         os._exit(1)
     if animate:
         try:
-            animate_trace_3d_pyvista(args, stamp, idx_show, partition, model, traces)
+            animate_trace_3D_pyvista(args, stamp, idx_show, partition, model, traces)
         except Exception:
             traceback.print_exc()
     sys.stdout.flush()
@@ -62,7 +62,7 @@ def _pyvista_worker(args, stamp, idx_show, partition, model, traces, num_traces,
     os._exit(0)
 
 
-def plot_drone_3d_pyvista(args, stamp, idx_show, partition, model, traces, num_traces=100,
+def plot_quadcopter3D_pyvista(args, stamp, idx_show, partition, model, traces, num_traces=100,
                           animate=True):
     """Run PyVista in a fresh process so native OpenGL failures are isolated.
 
@@ -86,7 +86,7 @@ def plot_drone_3d_pyvista(args, stamp, idx_show, partition, model, traces, num_t
     selected = {i: {'x': np.asarray(trace['x'])}
                 for i, trace in enumerate(islice(traces.values(), max(0, num_traces)))}
     context = multiprocessing.get_context('spawn')
-    name = 'traces_3d_pyvista'
+    name = 'traces_3D_pyvista'
     process = context.Process(target=_pyvista_worker,
                               args=(options, stamp, list(idx_show), domain, regions, selected,
                                     num_traces, animate))
@@ -95,19 +95,19 @@ def plot_drone_3d_pyvista(args, stamp, idx_show, partition, model, traces, num_t
         process.join()
         path = Path(options.output_dir) / f'{name}_{stamp}.png'
         if process.exitcode != 0 or not path.is_file():
-            logger.error('plot_traces_3d_pyvista failed (exit code %s); Matplotlib backup retained.',
+            logger.error('plot_traces_3D_pyvista failed (exit code %s); Matplotlib backup retained.',
                          process.exitcode)
             return None
         logger.info('Saved 3D plot to %s', path)
         if animate:
-            gif = Path(options.output_dir) / f'traces_3d_pyvista_anim_{stamp}.gif'
+            gif = Path(options.output_dir) / f'traces_3D_pyvista_anim_{stamp}.gif'
             if gif.is_file():
                 logger.info('Saved 3D animation to %s', gif)
             else:
-                logger.error('animate_trace_3d_pyvista failed; see the traceback above.')
+                logger.error('animate_trace_3D_pyvista failed; see the traceback above.')
         return path
     except Exception:
-        logger.exception('plot_traces_3d_pyvista could not run; Matplotlib backup retained.')
+        logger.exception('plot_traces_3D_pyvista could not run; Matplotlib backup retained.')
         return None
     finally:
         if process.is_alive():
@@ -165,7 +165,7 @@ def _scene(partition, model, idx_show, traces, num_traces):
     high = np.asarray(partition.boundary_ub, dtype=float)[dims]
     boxes = []
     for name, color, opacity in REGION_STYLES:
-        # The worker receives the regions as [lower, upper] arrays (see plot_drone_3d_pyvista)
+        # The worker receives the regions as [lower, upper] arrays (see plot_quadcopter3D_pyvista)
         for box in getattr(model, name, []):
             boxes.append((np.asarray(box, dtype=float)[:, dims], color, opacity))
     paths = []
@@ -274,8 +274,8 @@ def _markers(pv, points):
     )
 
 
-def plot_traces_3d_pyvista(args, stamp, idx_show, partition, model, traces,
-                           num_traces=100, filename='traces_3d_pyvista'):
+def plot_traces_3D_pyvista(args, stamp, idx_show, partition, model, traces,
+                           num_traces=100, filename='traces_3D_pyvista'):
     """Save an off-screen PyVista PNG rendering; return its path."""
     import pyvista as pv
 
@@ -298,7 +298,7 @@ def plot_traces_3d_pyvista(args, stamp, idx_show, partition, model, traces,
     return output
 
 
-def _drone_mesh(pv, size):
+def _quadcopter_mesh(pv, size):
     """Level quadrotor centred at the origin, about 2.3 * size across."""
     arm = 0.75 * size
     parts = [pv.Box(bounds=0.25 * size * np.array([-1, 1, -1, 1, -0.5, 0.5]))]
@@ -351,7 +351,7 @@ def _gif_palette(frame):
     """
     from PIL import Image
     ramps = [np.outer(np.linspace(0, 1, 64), TRACE_COLOR) / max(TRACE_COLOR),
-             np.outer(np.linspace(0, 1, 64), DRONE_COLOR) / max(DRONE_COLOR),
+             np.outer(np.linspace(0, 1, 64), QUAD_COLOR) / max(QUAD_COLOR),
              np.array([_battery_color(c) for c in np.linspace(0, 1, 64)])]
     swatch = np.repeat(np.concatenate(ramps)[None], frame.height // 10, axis=0)
     swatch = Image.fromarray(np.round(swatch * 255).astype(np.uint8)).resize(
@@ -370,10 +370,10 @@ def _gif_palette(frame):
     return palette
 
 
-def animate_trace_3d_pyvista(args, stamp, idx_show, partition, model, traces, trace_index=0,
-                             filename='traces_3d_pyvista_anim', fps=ANIMATION_FPS,
+def animate_trace_3D_pyvista(args, stamp, idx_show, partition, model, traces, trace_index=0,
+                             filename='traces_3D_pyvista_anim', fps=ANIMATION_FPS,
                              frames_per_step=FRAMES_PER_STEP, hold_seconds=1.5):
-    """Save a GIF of one drone flying its trace, with its battery charge alongside; return its path.
+    """Save a GIF of one quadcopter flying its trace, with its battery charge alongside; return its path.
 
     The charge gauge is shown when ``model.battery_idx`` is set; ``model.max_charge``
     maps it to percent.
@@ -404,7 +404,7 @@ def animate_trace_3d_pyvista(args, stamp, idx_show, partition, model, traces, tr
     frames, palette = [], None
     try:
         _draw_scene(plotter, pv, args, low, high, boxes)
-        drone = plotter.add_mesh(_drone_mesh(pv, size), color=DRONE_COLOR, smooth_shading=False,
+        quadcopter = plotter.add_mesh(_quadcopter_mesh(pv, size), color=QUAD_COLOR, smooth_shading=False,
                                  ambient=0.3, diffuse=0.7, specular=0.0)
         for k, position in enumerate(positions):
             trail = positions[:k + 1]
@@ -415,7 +415,7 @@ def animate_trace_3d_pyvista(args, stamp, idx_show, partition, model, traces, tr
                                  color=TRACE_COLOR, smooth_shading=True, name='trail')
             plotter.add_mesh(_markers(pv, states[:k // frames_per_step + 1, dims]),
                              color=MARKER_COLOR, smooth_shading=True, name='markers')
-            drone.position = position
+            quadcopter.position = position
             if charge is not None:
                 _battery_gauge(plotter, pv, position + gauge_offset, basis, size, charge[k])
             plotter.reset_camera_clipping_range()

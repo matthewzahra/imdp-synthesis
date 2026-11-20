@@ -1,9 +1,64 @@
-import numpy as np
-from matplotlib import animation
+'''
+Inverted pendulum benchmark (as in Gymnasium): swing up the pendulum and balance it upright.
+'''
 
-from benchmarks.models import PendulumDynamics
+import jax.numpy as jnp
+from matplotlib import animation
+import numpy as np
+
+from benchmarks.base import Benchmark, wrap_theta
+from benchmarks.dynamics import setmath
 from core.box import Box
 from core.rl.config import RLConfig
+
+
+class PendulumDynamics(Benchmark):
+    '''Inverted pendulum (as in Gymnasium) with state (angle, angular velocity) and a torque input.'''
+
+    wrapped = ('angle',)
+
+    def __init__(self, args):
+        self.tau = 0.05
+        self.state_variables = ['angle', 'velocity']
+
+        # Pendulum parameters
+        self.G = 10
+        self.m = 1.0
+        self.l = 1.0
+        self.b = 0.0 # Gymnasium pendulum does not have damping
+
+        self.set_noise(args,
+                       gaussian=dict(variance=np.array([0.03, 0.1])**2, cells=[25, 25]),
+                       triangular=dict(halfwidth=[0.03, 0.1], cells=[10, 10]))
+
+    def step(self, state, action, noise):
+
+        new_velo = (1 - self.b) * state[1] + \
+                   (3 * self.G / (2 * self.l) * jnp.sin(state[0])) * self.tau + \
+                   (3.0 / (self.m * self.l**2) * action[0]) * self.tau
+        new_angle = wrap_theta(state[0] + self.tau * new_velo + noise[0])
+        new_velo = new_velo + noise[1]
+
+        return jnp.array([new_angle, new_velo])
+
+    def successor_bounds(self, state_min, state_max, action_min, action_max):
+        state_min, state_max = setmath.box(jnp.array(state_min), jnp.array(state_max))
+        [angle_min, velo_min] = state_min
+        [angle_max, velo_max] = state_max
+
+        action_min, action_max = setmath.box(jnp.array(action_min), jnp.array(action_max))
+        u_min = action_min[0]
+        u_max = action_max[0]
+
+        velo_next = setmath.tuple2box((1 - self.b) * jnp.array([velo_min, velo_max])) + \
+                    setmath.tuple2box(self.tau * 3 * self.G / (2 * self.l) * setmath.tuple2box(setmath.sin(angle_min, angle_max))) + \
+                    setmath.tuple2box(self.tau * 3.0 / (self.m * self.l ** 2) * jnp.array([u_min, u_max]))
+
+        angle_next = jnp.array([angle_min, angle_max]) + self.tau * velo_next
+
+        state_next = jnp.vstack((angle_next, velo_next))
+
+        return jnp.min(state_next, axis=1), jnp.max(state_next, axis=1)
 
 
 class Pendulum(PendulumDynamics):

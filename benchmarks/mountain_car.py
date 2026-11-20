@@ -1,14 +1,73 @@
+'''
+Mountain car benchmark (as in Gymnasium, with a continuous force): drive an underpowered car up the right hill.
+'''
+
 import math
 
+import jax.numpy as jnp
 from matplotlib import animation
 from matplotlib import pyplot as plt
 from matplotlib.patches import Polygon, Circle
 import numpy as np
 import numpy as onp
 
-from benchmarks.models import MountainCarDynamics
+from benchmarks.base import Benchmark
+from benchmarks.dynamics import setmath
 from core.box import Box
 from core.rl.config import RLConfig
+
+
+class MountainCarDynamics(Benchmark):
+    '''Mountain car (as in Gymnasium, with a continuous force input) with state (position, velocity).'''
+
+    def __init__(self, args):
+        self.tau = 1
+        self.state_variables = ['position', 'velocity']
+
+        # Parameters
+        self.max_speed = 0.07
+        self.gravity = 0.0025
+        self.power = 0.0015
+
+        self.set_noise(args,
+                       gaussian=dict(variance=np.array([0.005, 0.0005])**2, cells=[10, 10]),
+                       triangular=dict(halfwidth=[0.005, 0.0005], cells=[10, 10]))
+
+    def step(self, state, action, noise):
+
+        position, velocity = state[0], state[1]
+
+        velocity = velocity + self.tau * (action[0] * self.power - self.gravity * jnp.cos(3 * position))
+        velocity = self.saturate(velocity, -self.max_speed, self.max_speed)
+        position = position + self.tau * velocity + noise[0]
+        velocity = velocity + noise[1]
+
+        return jnp.array([position, velocity])
+
+    def successor_bounds(self, state_min, state_max, action_min, action_max):
+        state_min, state_max = setmath.box(jnp.array(state_min), jnp.array(state_max))
+        [pos_min, velo_min] = state_min
+        [pos_max, velo_max] = state_max
+
+        action_min, action_max = setmath.box(jnp.array(action_min), jnp.array(action_max))
+        u_min = action_min[0]
+        u_max = action_max[0]
+
+        velo_next = jnp.array([velo_min, velo_max]) + \
+                    setmath.tuple2box(self.tau * -self.gravity * setmath.tuple2box(setmath.cos(3 * pos_min, 3 * pos_max)) ) + \
+                    setmath.tuple2box(self.tau * self.power * jnp.array([u_min, u_max]))
+
+        # Match the real dynamics (see step): velocity saturates at the speed limit before it
+        # drives the position update. The clip is monotone, so applying it to the [lb, ub]
+        # interval is exact. Without it, high-velocity cells (the goal-approach corridor) overshoot
+        # the velocity grid boundary (±max_speed) and get mapped to the absorbing/failure state.
+        velo_next = self.saturate(velo_next, -self.max_speed, self.max_speed)
+
+        pos_next = jnp.array([pos_min, pos_max]) + self.tau * velo_next
+
+        state_next = jnp.vstack((pos_next, velo_next))
+
+        return jnp.min(state_next, axis=1), jnp.max(state_next, axis=1)
 
 
 class MountainCar(MountainCarDynamics):

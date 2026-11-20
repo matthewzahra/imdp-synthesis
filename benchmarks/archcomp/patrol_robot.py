@@ -13,9 +13,7 @@ covered in the bounds and sampled in the simulator). IMPaCT's ARCH-COMP25 code (
 report: step 2 u1 instead of 10 u1, target [5, 8]^2, and avoid set [-1.5, 1.5]^2. These benchmarks follow the report.
 '''
 
-from functools import partial
 
-import jax
 import jax.numpy as jnp
 import numpy as np
 
@@ -44,10 +42,7 @@ class _PatrolRobot(Benchmark):
         move = self.step_size * action[0] * jnp.array([jnp.cos(action[1]), jnp.sin(action[1])])
         return state + move + noise
 
-    @partial(jax.jit, static_argnums=(0))
-    def step_set(self, state_min, state_max, action_min, action_max):
-        action_min = jnp.maximum(action_min, self.input_space.lower)
-        action_max = jnp.minimum(action_max, self.input_space.upper)
+    def successor_bounds(self, state_min, state_max, action_min, action_max):
         speed = (self.step_size * action_min[0], self.step_size * action_max[0])
         dx_min, dx_max = setmath.mult(speed, setmath.cos(action_min[1], action_max[1]))
         dy_min, dy_max = setmath.mult(speed, setmath.sin(action_min[1], action_max[1]))

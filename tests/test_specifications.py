@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 from scipy.optimize import linprog
 
-from benchmarks.models import AffineDynamics
+from benchmarks.affine import AffineDynamics
 from core.abstraction.partition import DensePartition
 from core.box import Box
 from core.jax_config import configure_jax

@@ -23,9 +23,7 @@ default batch size it exceeds 6 GB. The IMDP path needs about 4.3 GB for the coa
 report and IMPaCT's code (AV_minimal.cpp).
 '''
 
-from functools import partial
 
-import jax
 import jax.numpy as jnp
 import numpy as np
 
@@ -63,10 +61,7 @@ class _AutonomousVehicle3D(Benchmark):
                                             speed * jnp.sin(alpha + state[2]),
                                             u1 * jnp.tan(u2)]) + noise
 
-    @partial(jax.jit, static_argnums=(0))
-    def step_set(self, state_min, state_max, action_min, action_max):
-        action_min = jnp.maximum(action_min, self.input_space.lower)
-        action_max = jnp.minimum(action_max, self.input_space.upper)
+    def successor_bounds(self, state_min, state_max, action_min, action_max):
         u1 = (action_min[0], action_max[0])
 
         # |u2| <= 0.4 < pi/2, so tan(u2) and alpha increase with u2, and cos(alpha) > 0

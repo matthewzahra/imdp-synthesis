@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
@@ -10,6 +11,8 @@ from core.plotting.utils import (
     col, style_axes, save_fig, set_plot_ticks, set_plot_lims, plot_boxes, plot_grid, plot_missing_cells,
     GOAL_COLOR, CRITICAL_COLOR, CRITICAL_HATCH, UNACTIVE_COLOR, START_COLOR, END_COLOR
 )
+
+logger = logging.getLogger(__name__)
 
 def _format_state_label_math(var_name):
     # LaTeX format state name
@@ -24,7 +27,7 @@ def _format_state_label_math(var_name):
     return f'${var_name}$' if len(var_name) <= 2 else var_name.capitalize()
 
 
-def _smooth_trace_2d(points, samples_per_segment=8):
+def _smooth_trace_2D(points, samples_per_segment=8):
     """Sample a natural cubic spline while retaining every input point."""
     points = np.asarray(points, dtype=float)
     if len(points) < 2:
@@ -61,7 +64,7 @@ def _plot_cuboid(ax, low, high, facecolor, alpha=0.4):
     # 3D cuboid patch
     ax.add_collection3d(Poly3DCollection(_cuboid_faces(low, high), facecolors=col(facecolor), edgecolors='none', lw=0, alpha=alpha))
 
-def plot_traces_3d(args, stamp, idx_show, partition, model, traces, num_traces=100, filename="traces_3d", show_ticks=None, camera_angles=None):
+def plot_traces_3D(args, stamp, idx_show, partition, model, traces, num_traces=100, filename="traces_3D", show_ticks=None, camera_angles=None):
     # 3D state trajectories
     fig = plt.figure(figsize=(10, 10), dpi=300)
     ax = fig.add_subplot(111, projection='3d')
@@ -122,6 +125,11 @@ def plot_traces_3d(args, stamp, idx_show, partition, model, traces, num_traces=1
         save_fig(fig, output_dir / f'{filename}_{stamp}_view{vi}_{stamp}')
 
 def plot_traces(args, stamp, idx_show, partition, model, traces, line=True, num_traces=100, add_unsafe_box=True, filename="traces", show_ticks=None):
+    if len(idx_show) != 2:
+        logger.warning('The trace plot requires 2 dimensions to plot, got plot dimensions %s; skipping it.',
+                       list(idx_show))
+        return
+
     # 2D state trajectories
     fig, ax = plt.subplots(figsize=(10, 10), dpi=300)
     i1, i2 = np.array(idx_show, dtype=int)
@@ -196,7 +204,7 @@ def plot_traces(args, stamp, idx_show, partition, model, traces, line=True, num_
         print(f'- Trace {i}, number of steps: {len(t)}, start: {t[0]}, end: {t[-1]}', flush=True)
 
         if line:
-            pts = _smooth_trace_2d(t)
+            pts = _smooth_trace_2D(t)
             ax.plot(*pts.T, '-', color=col('black'), lw=lw, alpha=alpha, zorder=4)
             ax.plot(t[:, 0], t[:, 1], 'o', color=col('black'), markersize=ms, alpha=alpha, markeredgewidth=0, zorder=5)
         else:

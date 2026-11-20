@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,7 +8,14 @@ from matplotlib.ticker import MaxNLocator
 from core.plotting.traces import _format_state_label_math
 from core.plotting.utils import col, save_fig, plot_missing_cells
 
+logger = logging.getLogger(__name__)
+
 def heatmap(args, stamp, idx_show, slice_values=None, partition=None, results=None, filename="heatmap", **kwargs):
+    if len(idx_show) != 2:
+        logger.warning('The heatmap plot requires 2 dimensions to plot, got plot dimensions %s; skipping it.',
+                       list(idx_show))
+        return
+
     # Compute 2D satisfaction probabilities
     i1, i2 = np.array(idx_show, dtype=int)
     nx, ny = partition.number_per_dim[i1], partition.number_per_dim[i2]

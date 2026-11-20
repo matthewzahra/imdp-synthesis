@@ -17,9 +17,7 @@ The other ARCH-COMP variants are not included: the Büchi specification G(a) & G
 PRoTECT's verification variant, whose noise is uniform (not supported).
 '''
 
-from functools import partial
 
-import jax
 import jax.numpy as jnp
 import numpy as np
 
@@ -53,10 +51,7 @@ class _VanDerPol(Benchmark):
         return jnp.array([x1 + self.tau * x2,
                           x2 + self.tau * ((1 - x1 ** 2) * x2 - x1) + action[0]]) + noise
 
-    @partial(jax.jit, static_argnums=(0))
-    def step_set(self, state_min, state_max, action_min, action_max):
-        action_min = jnp.maximum(action_min, self.input_space.lower)
-        action_max = jnp.minimum(action_max, self.input_space.upper)
+    def successor_bounds(self, state_min, state_max, action_min, action_max):
         x1_min, x2_min = state_min[0], state_min[1]
         x1_max, x2_max = state_max[0], state_max[1]
 

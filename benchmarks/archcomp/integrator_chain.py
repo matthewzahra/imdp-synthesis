@@ -14,7 +14,7 @@ from math import factorial
 import numpy as np
 
 from benchmarks.archcomp.common import no_control
-from benchmarks.models import AffineDynamics
+from benchmarks.affine import AffineDynamics
 from core.box import Box
 from core.rl.config import RLConfig
 

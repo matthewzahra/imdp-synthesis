@@ -1,3 +1,6 @@
+from functools import partial
+
+import jax
 import jax.numpy as jnp
 import numpy as np
 
@@ -5,15 +8,24 @@ from benchmarks.dynamics.distributions import GaussianDistr, TriangularDistr
 from core.box import Box
 from core.specification import REACH_AVOID
 
+# Distance from the bounds at which saturate() keeps a state, see Benchmark.saturate
+SATURATION_MARGIN = 1e-4
+
+
+def wrap_theta(theta):
+    '''Wrap an angle to [-pi, pi).'''
+    return (theta + jnp.pi) % (2 * jnp.pi) - jnp.pi
+
 
 class Benchmark:
     '''
     Base class of the benchmarks: a discrete-time system x' = f(x, u) + w with additive noise w, and a specification.
 
-    The dynamics (benchmarks/models.py) define:
+    The dynamics of a system (in the module of the system, e.g., benchmarks/quadcopter.py) define:
         state_variables: name per state dimension
         step(x, u, w): the successor state
-        step_set(x_min, x_max, u_min, u_max): bounds on the noise-free successors of a box of states and inputs
+        successor_bounds(x_min, x_max, u_min, u_max): bounds on the noise-free successors of a box of states and
+            inputs, used by step_set()
         noise: the distribution of w, set with set_noise()
         wrapped: names of the state dimensions that wrap around (angles), if any
 
@@ -50,6 +62,38 @@ class Benchmark:
     def wrap(self):
         '''Per state dimension, whether it wraps around (bool array of shape [n]).'''
         return jnp.array([variable in self.wrapped for variable in self.state_variables], dtype=bool)
+
+    @partial(jax.jit, static_argnums=(0))
+    def step_set(self, state_min, state_max, action_min, action_max):
+        '''
+        Bounds on the noise-free successors of the box of states [state_min, state_max] under the inputs in
+        [action_min, action_max], which are first clipped to the input space.
+
+        :return: Tuple (successor_min, successor_max)
+        '''
+        action_min = jnp.maximum(action_min, self.input_space.lower)
+        action_max = jnp.minimum(action_max, self.input_space.upper)
+        return self.successor_bounds(state_min, state_max, action_min, action_max)
+
+    def successor_bounds(self, state_min, state_max, action_min, action_max):
+        '''Bounds on the noise-free successors of a box of states and inputs (within the input space), see step_set.'''
+        raise NotImplementedError
+
+    @staticmethod
+    def saturate(x, low=None, high=None):
+        '''
+        Saturate x at the bounds low and high (each optional), keeping it SATURATION_MARGIN inside them.
+
+        Dynamics that saturate a state at a bound of the state space use this to keep the state strictly inside: a
+        point on the upper bound lies outside the partition grid, so it would count as leaving the state space.
+        '''
+        if low is not None and high is not None:
+            return jnp.clip(x, low + SATURATION_MARGIN, high - SATURATION_MARGIN)
+        if high is not None:
+            return jnp.minimum(x, high - SATURATION_MARGIN)
+        if low is not None:
+            return jnp.maximum(x, low + SATURATION_MARGIN)
+        return x
 
     def set_noise(self, args, gaussian=None, triangular=None):
         '''

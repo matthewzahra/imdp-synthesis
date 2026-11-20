@@ -26,20 +26,20 @@ BENCHMARKS = {
     # 'CartPole_hard':    {'args': ["--model", "CartPole_hard"], 'dense': False},
     'Dubins3D':         {'args': ["--model", "Dubins3D"], 'dense': True},
     'Dubins4D':         {'args': ["--model", "Dubins4D"], 'dense': False},
-    'Drone4D':          {'args': ["--model", "Drone4D"], 'dense': True},
-    'Drone4D_damping':  {'args': ["--model", "Drone4D", "--damping", 0.1], 'dense': True},
-    # 'Drone4D_2agent':   {'args': ["--model", "Drone4D_2agent"], 'dense': False},
-    'Drone6D':          {'args': ["--model", "Drone6D"], 'dense': False},
-    # 'Drone6D_small':    {'args': ["--model", "Drone6D_small"], 'dense': False},
-    'Drone4D_battery':  {'args': ["--model", "Drone4D_battery", "--damping", 0.1], 'dense': True},
-    # 'Drone6D_battery':  {'args': ["--model", "Drone6D_battery", "--damping", 0], 'dense': False},
+    'Quadcopter2D':          {'args': ["--model", "Quadcopter2D"], 'dense': True},
+    'Quadcopter2D_damping':  {'args': ["--model", "Quadcopter2D", "--damping", 0.1], 'dense': True},
+    # 'Quadcopter2D_2agent':   {'args': ["--model", "Quadcopter2D_2agent"], 'dense': False},
+    'Quadcopter3D':          {'args': ["--model", "Quadcopter3D"], 'dense': False},
+    # 'Quadcopter3D_small':    {'args': ["--model", "Quadcopter3D_small"], 'dense': False},
+    'Quadcopter2D_battery':  {'args': ["--model", "Quadcopter2D_battery", "--damping", 0.1], 'dense': True},
+    # 'Quadcopter3D_battery':  {'args': ["--model", "Quadcopter3D_battery", "--damping", 0], 'dense': False},
 }
 
 # Arguments shared by all runs
 COMMON_ARGS = ["--solver", "jax", "--satprob", 0.99]
 
 # To run particular benchmarks, simply change the selection below
-# RUN_BENCHMARKS = ['Drone4D_2agent']
+# RUN_BENCHMARKS = ['Quadcopter2D_2agent']
 RUN_BENCHMARKS = list(BENCHMARKS)
 
 RUN_DENSE = True           # Also run the dense baseline (once, seed 0) for benchmarks that have one

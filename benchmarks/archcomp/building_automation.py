@@ -18,7 +18,7 @@ report and in PRoTECT's code.
 
 import numpy as np
 
-from benchmarks.models import AffineDynamics
+from benchmarks.affine import AffineDynamics
 from core.box import Box
 
 CS1_A = [[0.6682, 0.0,    0.02632,   0.0],

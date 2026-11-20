@@ -42,18 +42,18 @@ if __name__ == "__main__":
     run_fixed_SVMDP(args = ["--model", "Dubins4D", "--solver", "jax", "--satprob", "0.99", "--seed", "0", "--dense", "--fix_num_choices", 19_000_000])
     run_fixed_SVMDP(args = ["--model", "Dubins4D", "--solver", "jax", "--satprob", "0.99", "--seed", "0", "--dense", "--fix_num_choices", 19_000_000, "--fix_num_actions", 9])
 
-    # Drone4D
-    run_fixed_SVMDP(args = ["--model", "Drone4D", "--solver", "jax", "--satprob", "0.99", "--seed", "0", "--dense", "--fix_num_choices", 790_000])
-    run_fixed_SVMDP(args = ["--model", "Drone4D", "--solver", "jax", "--satprob", "0.99", "--seed", "0", "--dense", "--fix_num_choices", 790_000, "--fix_num_actions", 9])
+    # Quadcopter2D
+    run_fixed_SVMDP(args = ["--model", "Quadcopter2D", "--solver", "jax", "--satprob", "0.99", "--seed", "0", "--dense", "--fix_num_choices", 790_000])
+    run_fixed_SVMDP(args = ["--model", "Quadcopter2D", "--solver", "jax", "--satprob", "0.99", "--seed", "0", "--dense", "--fix_num_choices", 790_000, "--fix_num_actions", 9])
 
-    # Drone4D (+damping)
-    run_fixed_SVMDP(args = ["--model", "Drone4D", "--solver", "jax", "--satprob", "0.99", "--damping", "0.1", "--seed", "0", "--dense", "--fix_num_choices", 850_000])
-    run_fixed_SVMDP(args = ["--model", "Drone4D", "--solver", "jax", "--satprob", "0.99", "--damping", "0.1", "--seed", "0", "--dense", "--fix_num_choices", 850_000, "--fix_num_actions", 9])
+    # Quadcopter2D (+damping)
+    run_fixed_SVMDP(args = ["--model", "Quadcopter2D", "--solver", "jax", "--satprob", "0.99", "--damping", "0.1", "--seed", "0", "--dense", "--fix_num_choices", 850_000])
+    run_fixed_SVMDP(args = ["--model", "Quadcopter2D", "--solver", "jax", "--satprob", "0.99", "--damping", "0.1", "--seed", "0", "--dense", "--fix_num_choices", 850_000, "--fix_num_actions", 9])
 
-    # Drone4D (+battery and damping)
-    run_fixed_SVMDP(args = ["--model", "Drone4D_battery", "--solver", "jax", "--satprob", "0.99", "--damping", "0.1", "--seed", "0", "--dense", "--fix_num_choices", 16_000_000])
-    run_fixed_SVMDP(args = ["--model", "Drone4D_battery", "--solver", "jax", "--satprob", "0.99", "--damping", "0.1", "--seed", "0", "--dense", "--fix_num_choices", 16_000_000, "--fix_num_actions", 25])
+    # Quadcopter2D (+battery and damping)
+    run_fixed_SVMDP(args = ["--model", "Quadcopter2D_battery", "--solver", "jax", "--satprob", "0.99", "--damping", "0.1", "--seed", "0", "--dense", "--fix_num_choices", 16_000_000])
+    run_fixed_SVMDP(args = ["--model", "Quadcopter2D_battery", "--solver", "jax", "--satprob", "0.99", "--damping", "0.1", "--seed", "0", "--dense", "--fix_num_choices", 16_000_000, "--fix_num_actions", 25])
 
-    # Drone6D
-    run_fixed_SVMDP(args = ["--model", "Drone6D", "--solver", "jax", "--satprob", "0.99", "--seed", "0", "--dense", "--fix_num_choices", 89_000_000])
-    run_fixed_SVMDP(args = ["--model", "Drone6D", "--solver", "jax", "--satprob", "0.99", "--seed", "0", "--dense", "--fix_num_choices", 89_000_000, "--fix_num_actions", 27])
+    # Quadcopter3D
+    run_fixed_SVMDP(args = ["--model", "Quadcopter3D", "--solver", "jax", "--satprob", "0.99", "--seed", "0", "--dense", "--fix_num_choices", 89_000_000])
+    run_fixed_SVMDP(args = ["--model", "Quadcopter3D", "--solver", "jax", "--satprob", "0.99", "--seed", "0", "--dense", "--fix_num_choices", 89_000_000, "--fix_num_actions", 27])

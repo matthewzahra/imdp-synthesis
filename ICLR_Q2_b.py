@@ -23,7 +23,7 @@ if __name__ == "__main__":
     for inf in inflation_rates:
         for act in active_actions:
             run_fixed_SVMDP(args=[
-                "--model", "Drone4D",
+                "--model", "Quadcopter2D",
                 "--solver", "jax",
                 "--seed", "0",
                 "--algo", "ppo",
