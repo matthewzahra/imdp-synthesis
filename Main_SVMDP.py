@@ -21,6 +21,8 @@ from core.jax_config import configure_jax
 from core.specification import get_spec
 from core.utils import configure_logging, add_file_handler, policy_to_inputs, save_values_per_step
 from core.rl import find_active
+from core.rl_policy_refinement.generate_action_sets import Spheres
+from core.rl_policy_refinement.build_action_sphere import generate_vals_to_clip
 
 if __name__ == '__main__':
     args = parse_arguments()
@@ -103,9 +105,23 @@ if __name__ == '__main__':
         if not s_init_exists:
             raise ValueError(f"Initial state x0={model.x0} is not in the partition.")
 
+        if args.rl_refinement:
+            action_sphere = Spheres(
+                thresholds=,
+                radii_options=,
+                vals_to_clip=generate_vals_to_clip(model),
+                vals_to_wrap=,
+                critical_regions=,
+                model=model,
+                radii_funcs=,
+                continuous=args.continuous
+            )
+        else:
+            action_sphere = None 
+
         # Compute forward reachable sets: the merged successor intervals per dimension and the
         # probabilities of the successor boxes they compose.
-        actions = RectangularForward(args=args, partition=partition, model=model)
+        actions = RectangularForward(args=args, partition=partition, model=model, action_sphere=action_sphere)
 
         # All partition states have all actions enabled (rectangular partition),
         # so a single shared list of action ids describes every state.
