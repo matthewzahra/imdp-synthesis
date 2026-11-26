@@ -28,7 +28,7 @@ class ActionSphere:
 
 		return: lower bounds, upper bounds
 		'''
-		assert centre.size == radii.size # TODO - make jnp?
+		assert centre.size == radii.size
 		lb, ub = centre-radii, centre+radii
 
 		return jnp.maximum(lb,self.clip_lower), jnp.minimum(ub,self.clip_upper)
