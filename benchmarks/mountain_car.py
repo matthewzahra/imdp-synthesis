@@ -213,3 +213,6 @@ class MountainCar(MountainCarDynamics):
         writer = animation.PillowWriter(fps=fps)
         anim.save(filename, writer=writer)
         plt.close(fig)
+
+    def __str__(self):
+        return "MountainCar"

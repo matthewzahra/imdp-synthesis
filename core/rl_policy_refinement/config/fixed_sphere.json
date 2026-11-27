@@ -1,0 +1,12 @@
+{
+	"MountainCar": {
+		"DISCRETE": {
+			"FIXED": [0.2],
+			"DYNAMIC": []
+		},
+		"CONTINUOUS": {
+			"FIXED": [],
+			"DYNAMIC": []
+		}
+	}
+}

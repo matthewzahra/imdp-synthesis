@@ -18,7 +18,7 @@ INT8_MAX = int(np.iinfo(np.int8).max)
 
 
 def _successor_index_bounds(state_min, state_max, input, step_set, cell_width, boundary_lb, shrink_frs,
-                            noise_lb, noise_ub):
+                            noise_lb, noise_ub, action_sphere=None):
     """
     Grid-index interval of the successors in every dimension, for each noise interval of that dimension.
 
@@ -33,7 +33,13 @@ def _successor_index_bounds(state_min, state_max, input, step_set, cell_width, b
     # Continuous bounds of the (noise-free) forward reachable set, shrunk slightly for numerical
     # stability (avoids issues when the FRS lands exactly on a cell boundary). epsilon is currently 0.
     epsilon = 0.0
-    frs_min, frs_max = step_set(state_min, state_max, input - epsilon, input + epsilon)
+
+    if action_sphere is not None:
+        action_lb,action_ub = action_sphere.get_action_sphere(action_centre=input,state_min=state_min,state_max=state_max)
+    else:
+        action_lb,action_ub = input-epsilon, input+epsilon
+
+    frs_min, frs_max = step_set(state_min, state_max, action_lb, action_ub)
     frs_min = frs_min + shrink_frs
     frs_max = frs_max - shrink_frs
 
@@ -43,7 +49,7 @@ def _successor_index_bounds(state_min, state_max, input, step_set, cell_width, b
 
 
 def count_successor_intervals(state_min, state_max, input, step_set, cell_width, boundary_lb, shrink_frs,
-                              noise_lb, noise_ub):
+                              noise_lb, noise_ub, action_sphere):
     """
     Number of merged successor intervals, their largest span, and the span of their union, per dimension
     (as successor_intervals computes them, but without merging). Used as a cheap first pass to size the
@@ -56,7 +62,7 @@ def count_successor_intervals(state_min, state_max, input, step_set, cell_width,
     """
     num, span, union, low, high = [], [], [], [], []
     for lb, ub in _successor_index_bounds(state_min, state_max, input, step_set, cell_width, boundary_lb,
-                                          shrink_frs, noise_lb, noise_ub):
+                                          shrink_frs, noise_lb, noise_ub, action_sphere):
         # The merged intervals are the runs of equal (lb, ub) pairs, so they have the same spans; lb and ub
         # are non-decreasing, so the union runs from the first lb to the last ub.
         num.append(1 + jnp.sum((lb[1:] != lb[:-1]) | (ub[1:] != ub[:-1]))) # Number of different (lb, ub) pairs after merging
@@ -68,7 +74,7 @@ def count_successor_intervals(state_min, state_max, input, step_set, cell_width,
 
 
 def successor_intervals(state_min, state_max, input, step_set, cell_width, boundary_lb, shrink_frs,
-                        noise_lb, noise_ub, noise_probs, slots):
+                        noise_lb, noise_ub, noise_probs, slots, action_sphere=None):
     """
     Successor intervals of a state box under a control input, merged per dimension, and the probability of
     every successor box they compose.
@@ -106,7 +112,7 @@ def successor_intervals(state_min, state_max, input, step_set, cell_width, bound
     """
     lbs, ubs, merged_probs = [], [], []
     for d, (lb, ub) in enumerate(_successor_index_bounds(state_min, state_max, input, step_set, cell_width,
-                                                         boundary_lb, shrink_frs, noise_lb, noise_ub)):
+                                                         boundary_lb, shrink_frs, noise_lb, noise_ub, action_sphere)):
         if lb.shape[0] == 1:
             # A single noise interval (e.g. a dimension without noise) is always one merged interval.
             lbs.append(lb)
@@ -157,7 +163,7 @@ class RectangularForward(object):
         id (np.ndarray): Indices of all actions, shape [num_actions]
     """
 
-    def __init__(self, args, partition, model):
+    def __init__(self, args, partition, model, action_sphere=None):
         """
         Initialize and compute forward reachable sets for all regions and actions.
 
@@ -180,7 +186,7 @@ class RectangularForward(object):
         # Constant arguments, bound once; only (state_min, state_max, input) vary in the loop.
         bound = dict(step_set=model.step_set, cell_width=jax.device_put(partition.cell_width),
                      boundary_lb=jax.device_put(partition.boundary_lb), shrink_frs=args.shrink_frs,
-                     noise_lb=noise_lb_dev, noise_ub=noise_ub_dev)
+                     noise_lb=noise_lb_dev, noise_ub=noise_ub_dev, action_sphere=action_sphere)
 
         # Inner vmap over control actions, outer vmap over a batch of state regions; only the three
         # varying arguments are mapped. This reduces Python–JAX round trips from num_regions to

@@ -113,6 +113,16 @@ def parse_arguments(argv=None):
     parser.add_argument('--paper_figures', action=argparse.BooleanOptionalAction, default=False,
                             help="If True, create figures as used in the paper")
 
+    # arguments for policy refinement via RL
+    parser.add_argument('--rl_refinement', action='store_true', default=False,
+                        help='Use RL to refine the permissive policy.')
+
+    parser.add_argument('--continuous', action='store_true', default=False,
+                            help='Constraint action space of RL agent with a continuous sphere (not a discrete one).')
+
+    parser.add_argument('--dynamic', action='store_true', default=False,
+                            help='If True, use dynamic sized spheres, else use a fixed size one everywhere.')
+
     # Reinforcement learning options.
     # Every option here defaults to None, meaning "not given". The actual defaults live in
     # `core.rl.config.RLConfig`, each benchmark overrides the ones it cares about through its
